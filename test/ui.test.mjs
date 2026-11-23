@@ -192,7 +192,7 @@ test('modo claro e escuro: sem erros e etiquetas legíveis em desktop e mobile',
 const showAll = page => page.eval(`document.getElementById('past').getAttribute('aria-pressed') === 'true' || document.getElementById('past').click()`);
 
 test('8. cartões por dia: número grande, cabeçalho no cartão, separadores discretos e sem sombras', { skip }, async () => {
-  for (const [w, theme, minNum] of [[1280, 'light', 48], [1280, 'dark', 48], [390, 'light', 36], [320, 'dark', 32]]) {
+  for (const [w, theme, minNum] of [[1280, 'light', 32], [1280, 'dark', 32], [390, 'light', 26], [320, 'dark', 26]]) {
     const page = await open({ width: w, theme });
     const r = await page.eval(`(() => {
       const cards = [...document.querySelectorAll('.day-card')];
@@ -276,16 +276,17 @@ test('10. eventos de vários dias: intervalo no primeiro dia e «A decorrer · D
   }
 });
 
-test('11. desktop: colunas alinhadas e o tipo junto ao nome do evento', { skip }, async () => {
+test('11. desktop: colunas alinhadas, tipo encostado à esquerda', { skip }, async () => {
   for (const w of [1280, 1100, 900]) {
     const page = await open({ width: w });
     await showAll(page);
     const r = await page.eval(`[...document.querySelectorAll('.event-row')].map(row => {
       const R = s => row.querySelector(s).getBoundingClientRect();
       const pill = R('.type-pill'), name = R('.store'), fmt = R('.format-col'), price = R('.price-col');
-      return { gap: name.left - pill.right, nameLeft: Math.round(name.left), fmtLeft: Math.round(fmt.left), priceRight: Math.round(price.right), rowRight: Math.round(row.getBoundingClientRect().right), name: row.querySelector('.store').textContent };
+      return { gap: name.left - pill.right, pillLeft: Math.round(pill.left), nameLeft: Math.round(name.left), fmtLeft: Math.round(fmt.left), priceRight: Math.round(price.right), rowRight: Math.round(row.getBoundingClientRect().right), name: row.querySelector('.store').textContent };
     })`);
-    for (const x of r) assert.ok(x.gap >= 10 && x.gap <= 20, `${w}px «${x.name}»: ${x.gap.toFixed(1)}px entre o tipo e o nome`);
+    for (const x of r) assert.ok(x.gap >= 10, `${w}px «${x.name}»: ${x.gap.toFixed(1)}px entre o tipo e o nome`);
+    assert.equal(new Set(r.map(x => x.pillLeft)).size, 1, `${w}px: etiquetas de tipo desalinhadas à esquerda`);
     assert.equal(new Set(r.map(x => x.nameLeft)).size, 1, `${w}px: coluna do evento desalinhada`);
     assert.equal(new Set(r.map(x => x.fmtLeft)).size, 1, `${w}px: coluna do formato desalinhada`);
     assert.equal(new Set(r.map(x => x.priceRight)).size, 1, `${w}px: coluna da inscrição desalinhada`);

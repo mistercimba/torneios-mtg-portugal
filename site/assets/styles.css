@@ -72,14 +72,14 @@ html[data-theme="dark"]{--card:#151a24;--type-on:#11151e;--day-head:#1a2030}
 .month-title h3{margin:0;font-size:46px;font-weight:800;letter-spacing:-.04em;line-height:1}
 .month-title .year{font-size:18px;font-weight:500;color:var(--muted)}
 .month-title .total{margin-left:auto;font-size:13px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
-.col-head,.event-row{display:grid;grid-template-columns:196px minmax(0,1fr) 150px 160px 112px;column-gap:16px}
+.col-head,.event-row{display:grid;grid-template-columns:210px minmax(0,1fr) 150px 160px 112px;column-gap:20px}
 .col-head{padding:18px 23px 0;font-size:11px;font-weight:700;letter-spacing:.075em;text-transform:uppercase;color:var(--muted)}
-.col-head .r{text-align:right}
+.col-head .r{text-align:right}.col-head .l{text-align:left}
 .day-card{margin-top:14px;border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}
 .day-head{display:flex;align-items:center;gap:16px;padding:14px 22px 12px;background:var(--day-head)}
 /* Barra cinzenta do dia: o cinzento secundário escurece um pouco para manter 4,5:1 sobre ela. */
 html:not([data-theme="dark"]) .day-head{--muted:#5f6d79}
-.day-num{font-size:52px;font-weight:800;letter-spacing:-.055em;line-height:.9;min-width:62px;font-variant-numeric:tabular-nums;color:var(--text)}
+.day-num{font-size:34px;font-weight:800;letter-spacing:-.05em;line-height:1;min-width:46px;font-variant-numeric:tabular-nums;color:var(--text)}
 .day-names{display:flex;flex-direction:column;min-width:0}
 .day-wd{font-size:15px;font-weight:750;line-height:1.3}
 .day-mon{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.3}
@@ -88,8 +88,8 @@ html:not([data-theme="dark"]) .day-head{--muted:#5f6d79}
 .event-row:hover,.info-row:hover,.cont-row:hover{background:var(--hover)}
 .event-row:focus-visible,.info-row:focus-visible,.cont-row:focus-visible{outline-offset:-3px}
 .event-row{align-items:center;padding:15px 22px}
-.event-type{display:flex;flex-direction:column;align-items:flex-end;gap:6px;min-width:0}
-.type-pill{display:inline-flex;align-items:center;max-width:100%;min-height:24px;padding:3px 9px;border-radius:6px;background:var(--t-fg);color:var(--type-on);font-size:11px;font-weight:800;line-height:1.3;letter-spacing:.04em;text-transform:uppercase;text-align:right;overflow-wrap:anywhere}
+.event-type{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
+.type-pill{display:inline-flex;align-items:center;max-width:100%;min-height:24px;padding:3px 9px;border-radius:6px;background:var(--t-fg);color:var(--type-on);font-size:11px;font-weight:800;line-height:1.3;letter-spacing:.04em;text-transform:uppercase;text-align:left;overflow-wrap:anywhere}
 .range-pill{display:inline-block;max-width:100%;padding:2px 9px;border-radius:999px;background:var(--t-tint);color:var(--t-fg);font-size:12px;font-weight:700;line-height:1.45;white-space:nowrap}
 .event-main{min-width:0;display:block}
 .store{display:block;font-size:20px;line-height:1.2;letter-spacing:-.03em;font-weight:780;color:var(--text);overflow-wrap:anywhere}
@@ -218,11 +218,10 @@ html:not([data-theme=dark]) .dialog-actions a.primary{color:white}
  .col-head{display:none}
  .day-card{margin-top:12px}
  .day-head{gap:12px;padding:12px 16px 10px}
- .day-num{font-size:40px;min-width:48px}
+ .day-num{font-size:28px;min-width:36px}
  .day-wd{font-size:14px}
  .event-row{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"type price" "main main";column-gap:10px;row-gap:8px;padding:14px 16px;align-items:center}
  .event-type{grid-area:type;flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px 8px}
- .type-pill{text-align:left}
  .range-pill{white-space:normal}
  .price-col{grid-area:price;font-size:16px;align-self:start;padding-top:2px}.price-col.unknown{font-size:14px}
  .price-col small{display:none}
@@ -260,6 +259,6 @@ html:not([data-theme=dark]) .dialog-actions a.primary{color:white}
  .site-header .wrapper{column-gap:8px}
  .nav{gap:6px}.nav button.theme-toggle{height:30px;width:30px}
  .brand{font-size:clamp(10px,calc((100cqw - 160px) / 13),17px);gap:.25em}
- .day-num{font-size:36px;min-width:42px}
+ .day-num{font-size:28px;min-width:34px}
  .price-col{font-size:15px}
 }

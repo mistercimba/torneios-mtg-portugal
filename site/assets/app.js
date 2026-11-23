@@ -208,7 +208,7 @@ function milestoneVisible(m) {
 }
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-const COL_HEAD = '<div class="col-head" aria-hidden="true"><span class="r">Tipo</span><span>Evento</span><span>Formato</span><span>Horário</span><span class="r">Inscrição</span></div>';
+const COL_HEAD = '<div class="col-head" aria-hidden="true"><span>Tipo</span><span>Evento</span><span>Formato</span><span>Horário</span><span class="r">Inscrição</span></div>';
 
 function renderLegend(list) {
   const seen = new Map();
