@@ -401,7 +401,9 @@ test('15. filtros: Distrito só com Portugal, Round só com RCQ, formatos por or
     // Formatos por ordem lógica (construído → Commander → limitado → combinações).
     const formats = await page.eval(`[...document.getElementById('format').options].slice(1).map(o => o.value)`);
     const idx = f => formats.indexOf(f);
-    for (const [a, b] of [['Standard', 'Modern'], ['Modern', 'Legacy'], ['Legacy', 'Pauper'], ['Pauper', 'cEDH']]) if (idx(a) >= 0 && idx(b) >= 0) assert.ok(idx(a) < idx(b), `${a} antes de ${b}: ${formats}`);
+    assert.ok(!formats.includes('cEDH'), `cEDH junta-se a Commander: ${formats}`);
+    if (await page.eval(`[...document.querySelectorAll('.format-col')].some(f => /cedh/i.test(f.textContent))`)) assert.ok(formats.includes('Commander'), `torneios cEDH aparecem em Commander: ${formats}`);
+    for (const [a, b] of [['Standard', 'Modern'], ['Modern', 'Legacy'], ['Legacy', 'Pauper'], ['Pauper', 'Commander']]) if (idx(a) >= 0 && idx(b) >= 0) assert.ok(idx(a) < idx(b), `${a} antes de ${b}: ${formats}`);
     assert.equal(formats.at(-1), 'Limited', `Limited no fim: ${formats}`);
     assert.ok(!formats.some(f => /sealed|draft|\+/i.test(f)), `limitados agrupados e sem combinações: ${formats}`);
     // Limited junta Sealed, Draft, etc.

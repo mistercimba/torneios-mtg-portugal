@@ -116,18 +116,21 @@ const byCount = (list, key) => {
   return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt')).map(([k]) => k);
 };
 // Filtro de formato: um só valor por torneio, por ordem lógica (construídos do mais recente ao mais antigo,
-// Commander, e por fim «Limited», que junta Draft, Sealed, Team Sealed, etc.).
+// Commander (inclui cEDH), e por fim «Limited», que junta Draft, Sealed, Team Sealed, etc.).
 // Torneios com dois formatos («Draft + Standard») ficam no formato que não é limitado (Standard).
 // Na agenda e no modal o formato continua a aparecer tal como está escrito no calendário.
-const FORMAT_ORDER = ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'premodern', 'commander', 'cedh'];
-const FORMAT_NAME = { standard: 'Standard', pioneer: 'Pioneer', modern: 'Modern', legacy: 'Legacy', vintage: 'Vintage', pauper: 'Pauper', premodern: 'Premodern', commander: 'Commander', cedh: 'cEDH' };
+const FORMAT_ORDER = ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'premodern', 'commander'];
+// cEDH, EDH e Duel Commander entram todos em «Commander».
+const FORMAT_NAME = { standard: 'Standard', pioneer: 'Pioneer', modern: 'Modern', legacy: 'Legacy', vintage: 'Vintage', pauper: 'Pauper', premodern: 'Premodern', commander: 'Commander', cedh: 'Commander', edh: 'Commander', 'duel commander': 'Commander' };
 const isLimitedFormat = k => /sealed|draft|limited|cube|jumpstart|booster/.test(k);
 function filterFormat(e) {
   if (!e.formato) return null;
   const parts = String(e.formato).split(/\s*(?:\+|\/|,|&|\be\b|\band\b)\s*/i).map(p => p.trim()).filter(Boolean);
   const main = parts.find(p => !isLimitedFormat(normalize(p)));
   if (!main) return 'Limited';
-  return FORMAT_NAME[normalize(main)] || main;
+  const k = normalize(main);
+  if (/commander|\bc?edh\b/.test(k)) return 'Commander';
+  return FORMAT_NAME[k] || main;
 }
 function formatRank(f) {
   if (f === 'Limited') return 2000;
