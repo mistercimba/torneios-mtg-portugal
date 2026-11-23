@@ -2,7 +2,7 @@ name: Sincronizar calendário e publicar
 
 on:
   schedule:
-    - cron: '13,43 * * * *'   # a cada 30 minutos
+    - cron: '17,47 * * * *'   # a cada 30 minutos
   workflow_dispatch:
     inputs:
       force:
