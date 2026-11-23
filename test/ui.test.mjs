@@ -39,7 +39,8 @@ test('1. cabeçalho: logótipo nunca se sobrepõe à navegação (320–430 px e
       const label = `${w}px (${theme}${font ? ', ' + font : ''})`;
       assert.ok(m.gap >= 8, `${label}: espaço entre logótipo e navegação = ${m.gap.toFixed(1)} px`);
       assert.ok(m.font >= (w < 360 ? 9 : 10), `${label}: logótipo demasiado pequeno (${m.font}px)`);
-      if (w >= 430 && !font) assert.ok(m.font >= 16.5, `${label}: logótipo devia estar perto do tamanho normal (${m.font}px)`);
+      // A partir de 430 px o logótipo fica perto dos 17px, ou encolhe só o necessário para caber (fontes largas).
+      if (w >= 430) assert.ok(m.font >= 16.5 || m.gap <= 24, `${label}: logótipo encolheu mais do que o necessário (${m.font}px, folga ${m.gap.toFixed(1)}px)`);
       if (w > 760) assert.equal(m.font, 17, `${label}: no computador o logótipo mantém 17px`);
       assert.ok(m.right <= m.vw, `${w}px: botão de tema sai do ecrã`);
       assert.ok(m.overflow <= 0, `${w}px: scroll horizontal de ${m.overflow}px`);
