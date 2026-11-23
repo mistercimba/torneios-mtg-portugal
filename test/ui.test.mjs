@@ -410,12 +410,21 @@ test('15. filtros: Distrito só com Portugal, Round só com RCQ, formatos por or
     await set('format', 'Limited');
     assert.ok(await page.eval(`[...document.querySelectorAll('.event-row')].length > 0 && [...document.querySelectorAll('.event-row .format-col')].every(f => /sealed|draft|limited/i.test(f.textContent))`), 'Limited mostra só torneios limitados');
     await set('format', '');
-    // Distrito fica por baixo de «Onde» (mesma coluna), Round por baixo de «Circuito».
+    // Distrito aparece logo a seguir a «Onde» e Round logo a seguir a «Circuito», na mesma fila (ordem de leitura),
+    // empurrando as listas seguintes; sem espaços vazios à esquerda.
     await set('scope', 'portugal'); await set('circuit', 'type:RCQ');
-    const pos = await page.eval(`(() => { const b = id => { const r = document.getElementById(id).getBoundingClientRect(); return { left: r.left, top: r.top, bottom: r.bottom }; }; return { format: b('format'), scope: b('scope'), district: b('district'), circuit: b('circuit'), round: b('round') }; })()`);
-    assert.ok(Math.abs(pos.district.left - pos.scope.left) < 1 && pos.district.top > pos.scope.bottom, `${w}px: Distrito por baixo de Onde ${JSON.stringify(pos)}`);
-    assert.ok(Math.abs(pos.scope.top - pos.format.top) < 1 && Math.abs(pos.circuit.top - pos.format.top) < 1, `${w}px: Formato, Onde e Circuito na mesma linha ${JSON.stringify(pos)}`);
-    assert.ok(Math.abs(pos.round.left - pos.circuit.left) < 1 && pos.round.top > pos.circuit.bottom, `${w}px: Round por baixo de Circuito`);
+    const order = await page.eval(`(() => {
+      const ids = ['format', 'scope', 'district', 'circuit', 'round'];
+      const r = ids.map(id => { const b = document.getElementById(id).getBoundingClientRect(); return { id, top: Math.round(b.top), left: Math.round(b.left), right: Math.round(b.right) }; });
+      const rows = [...new Set(r.map(x => x.top))].sort((a, b) => a - b);
+      const reading = [...r].sort((a, b) => a.top - b.top || a.left - b.left).map(x => x.id);
+      const firstLeft = Math.min(...r.map(x => x.left));
+      const rowStarts = rows.map(t => Math.min(...r.filter(x => x.top === t).map(x => x.left)));
+      return { reading, rowStarts, firstLeft, r };
+    })()`);
+    assert.deepEqual(order.reading, ['format', 'scope', 'district', 'circuit', 'round'], `${w}px: ordem de leitura ${JSON.stringify(order.r)}`);
+    for (const left of order.rowStarts) assert.equal(left, order.firstLeft, `${w}px: cada fila começa à esquerda, sem espaços vazios ${JSON.stringify(order.r)}`);
+    if (w > 760) assert.equal(new Set(order.r.map(x => x.top)).size, 1, `${w}px: no computador ficam todas na mesma fila`);
     await page.eval(`document.getElementById('reset').click()`);
     // Portugal → Distrito aparece e filtra; Internacional → Distrito desaparece e limpa.
     await set('scope', 'portugal');

@@ -43,15 +43,10 @@ body[data-view="winners"] .main-search{visibility:hidden}
 .controls{display:flex;align-items:end;gap:14px;flex-wrap:wrap}
 .filter{display:flex;flex-direction:column;gap:5px}
 .filter[hidden]{display:none}
-/* Distrito aparece por baixo de «Onde» e Round por baixo de «Circuito», na mesma coluna. */
-.filter-stack{display:flex;flex-direction:column;gap:10px;min-width:0}
-@media(min-width:761px){
- .controls{align-items:flex-start}
- .controls .clear{margin-top:22px}
- .controlbar{align-items:flex-start}
- .count{padding:34px 0 0}
- .filter select{width:170px}#circuit{width:204px}
-}
+/* Distrito aparece logo a seguir a «Onde» e Round logo a seguir a «Circuito», na mesma fila:
+   as listas seguintes são empurradas para a direita (e, no telemóvel, para a linha seguinte). */
+.filter-stack{display:contents}
+@media(min-width:761px){.filter select{width:170px}#circuit{width:204px}.filter-sub select{width:150px}}
 .filter label{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.055em;text-transform:uppercase}
 .filter select{min-width:170px;height:44px;appearance:none;padding:0 36px 0 13px;border:1px solid var(--border-input);border-radius:8px;background-color:var(--surface);color:var(--text);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2393a0ad' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-position:right 12px center;background-repeat:no-repeat;font-size:14px}
 .clear{color:var(--accent);border:0;background:none;font-size:14px;font-weight:700;height:44px;padding:0 8px;white-space:nowrap}.clear:hover{text-decoration:underline;text-underline-offset:3px}
