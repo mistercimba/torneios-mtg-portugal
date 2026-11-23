@@ -115,15 +115,24 @@ const byCount = (list, key) => {
   for (const e of list) { const k = key(e); if (k) counts.set(k, (counts.get(k) || 0) + 1); }
   return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt')).map(([k]) => k);
 };
-// Formatos por ordem lógica: construídos do mais recente ao mais antigo, depois Commander, depois limitados.
-// Formatos que não estão na lista ficam a seguir, por ordem alfabética; combinações («Draft + Standard») no fim.
-const FORMAT_ORDER = ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'premodern', 'commander', 'cedh',
-  'draft', 'sealed', 'limited', 'team draft', 'team sealed', 'team limited'];
+// Filtro de formato: um só valor por torneio, por ordem lógica (construídos do mais recente ao mais antigo,
+// Commander, e por fim «Limited», que junta Draft, Sealed, Team Sealed, etc.).
+// Torneios com dois formatos («Draft + Standard») ficam no formato que não é limitado (Standard).
+// Na agenda e no modal o formato continua a aparecer tal como está escrito no calendário.
+const FORMAT_ORDER = ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'premodern', 'commander', 'cedh'];
+const FORMAT_NAME = { standard: 'Standard', pioneer: 'Pioneer', modern: 'Modern', legacy: 'Legacy', vintage: 'Vintage', pauper: 'Pauper', premodern: 'Premodern', commander: 'Commander', cedh: 'cEDH' };
+const isLimitedFormat = k => /sealed|draft|limited|cube|jumpstart|booster/.test(k);
+function filterFormat(e) {
+  if (!e.formato) return null;
+  const parts = String(e.formato).split(/\s*(?:\+|\/|,|&|\be\b|\band\b)\s*/i).map(p => p.trim()).filter(Boolean);
+  const main = parts.find(p => !isLimitedFormat(normalize(p)));
+  if (!main) return 'Limited';
+  return FORMAT_NAME[normalize(main)] || main;
+}
 function formatRank(f) {
-  const k = normalize(f).trim();
-  const i = FORMAT_ORDER.indexOf(k);
-  if (i >= 0) return i;
-  return /\+|\//.test(k) ? 2000 : 1000;
+  if (f === 'Limited') return 2000;
+  const i = FORMAT_ORDER.indexOf(normalize(f));
+  return i >= 0 ? i : 1000;
 }
 const byFormatOrder = (a, b) => formatRank(a) - formatRank(b) || a.localeCompare(b, 'pt');
 
@@ -139,7 +148,7 @@ function setDependentVisibility() {
 
 function buildFilters() {
   const pool = events.filter(e => !isInfo(e) && (showPast || !isPastEvent(e)));
-  const formats = [...new Set(pool.map(e => e.formato).filter(Boolean))].sort(byFormatOrder);
+  const formats = [...new Set(pool.map(filterFormat).filter(Boolean))].sort(byFormatOrder);
   fillSelect($('#format'), [{ options: formats.map(f => ({ value: f, text: f })) }]);
   const districts = [...new Set(pool.filter(e => e.scope === 'portugal').map(e => e.distrito).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt'));
   fillSelect($('#district'), [{ options: districts.map(d => ({ value: d, text: d })) }]);
@@ -160,7 +169,7 @@ function matches(e, q) {
   if (c && e.tipo !== c.slice(5)) return false;
   if (r && e.ronda !== r) return false;
   if (isInfo(e)) return !f && !sc; // datas informativas só aparecem sem filtros de formato/local
-  if (f && e.formato !== f) return false;
+  if (f && filterFormat(e) !== f) return false;
   if (sc && e.scope !== sc) return false;
   if (d && e.distrito !== d) return false;
   return true;

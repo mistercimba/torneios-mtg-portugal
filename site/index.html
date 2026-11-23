@@ -31,10 +31,14 @@
 <section class="view active" id="agenda" aria-label="Agenda">
 <div class="controlbar"><div class="controls">
 <div class="filter"><label for="format">Formato</label><select id="format"><option value="">Todos</option></select></div>
+<div class="filter-stack">
 <div class="filter"><label for="scope">Onde</label><select id="scope"><option value="">Todos</option><option value="portugal">Portugal</option><option value="internacional">Internacional</option></select></div>
 <div class="filter filter-sub" id="district-filter" hidden><label for="district">Distrito</label><select id="district"><option value="">Todos</option></select></div>
+</div>
+<div class="filter-stack">
 <div class="filter"><label for="circuit">Circuito</label><select id="circuit"><option value="">Todos</option></select></div>
 <div class="filter filter-sub" id="round-filter" hidden><label for="round">Round</label><select id="round"><option value="">Todas</option></select></div>
+</div>
 <button class="clear" id="reset" type="button">Limpar filtros</button>
 </div><div class="count" id="count" aria-live="polite"></div></div>
 <div class="section-top"><h2>Agenda</h2><button class="clear past-toggle" id="past" type="button" aria-pressed="false">Ver eventos passados</button></div>

@@ -401,7 +401,20 @@ test('15. filtros: Distrito só com Portugal, Round só com RCQ, formatos por or
     // Formatos por ordem lógica (construído → Commander → limitado → combinações).
     const formats = await page.eval(`[...document.getElementById('format').options].slice(1).map(o => o.value)`);
     const idx = f => formats.indexOf(f);
-    for (const [a, b] of [['Standard', 'Modern'], ['Modern', 'Legacy'], ['Legacy', 'Pauper'], ['Pauper', 'cEDH'], ['cEDH', 'Sealed']]) if (idx(a) >= 0 && idx(b) >= 0) assert.ok(idx(a) < idx(b), `${a} antes de ${b}: ${formats}`);
+    for (const [a, b] of [['Standard', 'Modern'], ['Modern', 'Legacy'], ['Legacy', 'Pauper'], ['Pauper', 'cEDH']]) if (idx(a) >= 0 && idx(b) >= 0) assert.ok(idx(a) < idx(b), `${a} antes de ${b}: ${formats}`);
+    assert.equal(formats.at(-1), 'Limited', `Limited no fim: ${formats}`);
+    assert.ok(!formats.some(f => /sealed|draft|\+/i.test(f)), `limitados agrupados e sem combinações: ${formats}`);
+    // Limited junta Sealed, Draft, etc.
+    await set('format', 'Limited');
+    assert.ok(await page.eval(`[...document.querySelectorAll('.event-row')].length > 0 && [...document.querySelectorAll('.event-row .format-col')].every(f => /sealed|draft|limited/i.test(f.textContent))`), 'Limited mostra só torneios limitados');
+    await set('format', '');
+    // Distrito fica por baixo de «Onde» (mesma coluna), Round por baixo de «Circuito».
+    await set('scope', 'portugal'); await set('circuit', 'type:RCQ');
+    const pos = await page.eval(`(() => { const b = id => { const r = document.getElementById(id).getBoundingClientRect(); return { left: r.left, top: r.top, bottom: r.bottom }; }; return { format: b('format'), scope: b('scope'), district: b('district'), circuit: b('circuit'), round: b('round') }; })()`);
+    assert.ok(Math.abs(pos.district.left - pos.scope.left) < 1 && pos.district.top > pos.scope.bottom, `${w}px: Distrito por baixo de Onde ${JSON.stringify(pos)}`);
+    assert.ok(Math.abs(pos.scope.top - pos.format.top) < 1 && Math.abs(pos.circuit.top - pos.format.top) < 1, `${w}px: Formato, Onde e Circuito na mesma linha ${JSON.stringify(pos)}`);
+    assert.ok(Math.abs(pos.round.left - pos.circuit.left) < 1 && pos.round.top > pos.circuit.bottom, `${w}px: Round por baixo de Circuito`);
+    await page.eval(`document.getElementById('reset').click()`);
     // Portugal → Distrito aparece e filtra; Internacional → Distrito desaparece e limpa.
     await set('scope', 'portugal');
     s = await st(); assert.ok(s.district, `${w}px: Distrito deve aparecer com Portugal`);
