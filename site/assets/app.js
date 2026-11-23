@@ -21,6 +21,29 @@
   });
 })();
 
+/* ---------- Logótipo: cabe sempre ao lado da navegação ---------- */
+// O CSS dá um tamanho aproximado; aqui reduz-se só se, com a fonte do aparelho, o logótipo não couber.
+(function () {
+  const identity = document.querySelector('.identity');
+  const brand = document.querySelector('.brand');
+  const MIN = 10;
+  const overflows = () => identity.scrollWidth > identity.clientWidth + 0.5;
+  function shrink() {
+    let size = parseFloat(getComputedStyle(brand).fontSize);
+    while (overflows() && size > MIN) { size = Math.max(MIN, size - 0.25); brand.style.fontSize = size + 'px'; }
+  }
+  function fit() {
+    brand.classList.remove('brand-wrap');
+    brand.style.fontSize = '';
+    shrink();
+    // Último recurso (ecrãs muito estreitos com fontes largas): logótipo em duas linhas.
+    if (overflows()) { brand.classList.add('brand-wrap'); brand.style.fontSize = '13px'; shrink(); }
+  }
+  fit();
+  if (window.ResizeObserver) new ResizeObserver(fit).observe(document.querySelector('.site-header .wrapper'));
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+})();
+
 /* ---------- Utilitários ---------- */
 const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const weekdays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];

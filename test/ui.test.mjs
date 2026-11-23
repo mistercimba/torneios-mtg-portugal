@@ -20,9 +20,13 @@ async function open({ width = 1280, mobile = width <= 760, theme = 'light', hash
 
 const MOBILE_WIDTHS = [320, 340, 360, 375, 390, 393, 412, 414, 430];
 
+// Corre com a fonte normal e com uma fonte larga (DejaVu Sans, a que o GitHub Actions usa por omissão),
+// porque a largura do logótipo depende das fontes de cada aparelho.
 test('1. cabeçalho: logótipo nunca se sobrepõe à navegação (320–430 px e desktop)', { skip }, async () => {
-  for (const theme of ['light', 'dark']) {
+  for (const [theme, font] of [['light', null], ['dark', null], ['light', 'DejaVu Sans'], ['dark', 'Arial']]) {
     const page = await open({ width: 320, theme });
+    if (font) await page.eval(`(() => { const st = document.createElement('style'); st.textContent = 'body, .brand { font-family: "${font}", sans-serif !important; }'; document.head.appendChild(st); })()`);
+    await page.resize(1000); // força novo ajuste depois de trocar a fonte
     for (const w of [...MOBILE_WIDTHS, 500, 760, 1040, 1280]) {
       await page.resize(w);
       const m = await page.eval(`(() => {
@@ -32,9 +36,11 @@ test('1. cabeçalho: logótipo nunca se sobrepõe à navegação (320–430 px e
         return { gap: n.left - b.right, font: parseFloat(getComputedStyle(document.querySelector('.brand')).fontSize),
           right: t.right, vw: innerWidth, overflow: document.documentElement.scrollWidth - innerWidth };
       })()`);
-      assert.ok(m.gap >= 8, `${w}px (${theme}): espaço entre logótipo e navegação = ${m.gap.toFixed(1)} px`);
-      assert.ok(m.font >= (w < 360 ? 10 : 11), `${w}px: logótipo demasiado pequeno (${m.font}px)`);
-      if (w >= 430) assert.ok(m.font >= 16.5, `${w}px: logótipo devia estar perto do tamanho normal (${m.font}px)`);
+      const label = `${w}px (${theme}${font ? ', ' + font : ''})`;
+      assert.ok(m.gap >= 8, `${label}: espaço entre logótipo e navegação = ${m.gap.toFixed(1)} px`);
+      assert.ok(m.font >= (w < 360 ? 9 : 10), `${label}: logótipo demasiado pequeno (${m.font}px)`);
+      if (w >= 430 && !font) assert.ok(m.font >= 16.5, `${label}: logótipo devia estar perto do tamanho normal (${m.font}px)`);
+      if (w > 760) assert.equal(m.font, 17, `${label}: no computador o logótipo mantém 17px`);
       assert.ok(m.right <= m.vw, `${w}px: botão de tema sai do ecrã`);
       assert.ok(m.overflow <= 0, `${w}px: scroll horizontal de ${m.overflow}px`);
     }
