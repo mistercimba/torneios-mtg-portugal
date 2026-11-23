@@ -45,12 +45,12 @@
 })();
 
 /* ---------- Utilitários ---------- */
-const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const months_ = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const weekdays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 const shortWeek = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
 const asDate = s => new Date(s + 'T12:00:00');
-const mon3 = d => months[d.getMonth()].slice(0, 3);
-const formatDate = s => { const d = asDate(s); return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} · ${weekdays[d.getDay()]}`; };
+const mon3 = d => months_[d.getMonth()].slice(0, 3);
+const formatDate = s => { const d = asDate(s); return `${d.getDate()} ${months_[d.getMonth()]} ${d.getFullYear()} · ${weekdays[d.getDay()]}`; };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const normalize = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const euro = n => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }).format(n);
@@ -61,17 +61,23 @@ const safeUrl = u => (/^https?:\/\//i.test(u || '') ? u : null);
 /** "24–26 Outubro" ou "31 Outubro – 2 Novembro" (com ano se mudar). */
 function rangeLabel(e, short) {
   const a = asDate(e.dateStart), b = asDate(e.dateEnd);
-  const m = d => (short ? mon3(d) : months[d.getMonth()]);
+  const m = d => (short ? mon3(d) : months_[d.getMonth()]);
   if (e.dateStart === e.dateEnd) return `${a.getDate()} ${m(a)}`;
   if (a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()) return `${a.getDate()}–${b.getDate()} ${m(a)}`;
   return `${a.getDate()} ${m(a)} – ${b.getDate()} ${m(b)}${a.getFullYear() !== b.getFullYear() ? ' ' + b.getFullYear() : ''}`;
 }
 
-/* ---------- Cores das etiquetas ---------- */
-const FORMAT_COLOR = { standard: 'c-blue', limited: 'c-amber', modern: 'c-green', pioneer: 'c-indigo', pauper: 'c-teal', legacy: 'c-red', vintage: 'c-brown', premodern: 'c-brown', cedh: 'c-pink', commander: 'c-pink' };
-const TYPE_COLOR = { rcq: 'c-purple', lpp: 'c-teal', lll: 'c-red', cedh: 'c-pink', premier: 'c-indigo', prerelease: 'c-amber', qualificador: 'c-green' };
-const ROUND_COLOR = ['', 'c-green', 'c-blue', 'c-amber', 'c-teal', 'c-pink'];
-const roundClass = r => ROUND_COLOR[Number(String(r).replace(/\D/g, '')) % ROUND_COLOR.length] || '';
+/* ---------- Cor por tipo de evento ---------- */
+// Cada tipo tem a sua cor (definida em styles.css como .t-<chave>); tipos novos usam o estilo genérico .t-outro.
+const TYPE_CLASS = {
+  rcq: 'rcq', lpp: 'lpp', lll: 'lll', cedh: 'cedh', prerelease: 'prerelease', qualificador: 'qualificador',
+  spotlight: 'spotlight', 'regional championship': 'rc', 'pro tour': 'pt', 'world championship': 'worlds',
+  'campeonato / evento especial': 'especial', paupergeddon: 'paupergeddon', anuncio: 'anuncio',
+};
+const typeClass = e => 't-' + (TYPE_CLASS[e.typeKey] || 'outro');
+const TYPE_LABEL = { 'campeonato / evento especial': 'Evento especial' };
+const typeLabel = e => TYPE_LABEL[e.typeKey] || e.tipo || 'Outro';
+const longWeek = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
 
 /* ---------- Estado ---------- */
 let events = [];
@@ -91,7 +97,7 @@ const placeLine = e => {
 };
 const timeLine = e => {
   if (e.checkin) return `Check-in ${e.checkin}`;
-  if (e.dateStart !== e.dateEnd) return rangeLabel(e);
+  if (e.dateStart !== e.dateEnd) return rangeLabel(e, true);
   if (!e.allDay && e.timeStart) return `Início ${e.timeStart}`;
   return '';
 };
@@ -141,43 +147,57 @@ function matches(e, q) {
   return true;
 }
 
-/* ---------- Agenda ---------- */
-function chipsHtml(e) {
-  const format = e.formato
-    ? `<span class="event-format ${FORMAT_COLOR[e.formatFamily] || ''}">${esc(e.formato)}${e.set ? ' · ' + esc(e.set) : ''}</span>`
-    : `<span class="event-format pending">Formato a confirmar</span>`;
-  const type = `<span class="event-series ${TYPE_COLOR[e.typeFamily] || ''}">${esc(e.typeShort)}${e.fase ? ' · ' + esc(e.fase) : ''}</span>`;
-  const round = e.ronda ? `<span class="event-round ${roundClass(e.ronda)}"${e.rondaDeduzida ? ' title="Round atribuída pela data (janela oficial da round)"' : ''}>${esc(e.ronda)}</span>` : '';
-  return format + type + round;
-}
+/* ---------- Agenda: cartões por dia ---------- */
+const spanDays = e => daysBetween(e.dateStart, e.dateEnd) + 1;
+const formatText = e => (e.formato ? `${e.formato}${e.set ? ' · ' + e.set : ''}` : null);
 
 function priceHtml(e) {
   if (e.scope === 'internacional') {
-    const n = daysBetween(e.dateStart, e.dateEnd) + 1;
+    const n = spanDays(e);
     return `<span class="price-col unknown">${n} ${n === 1 ? 'dia' : 'dias'}<small>Internacional</small></span>`;
   }
   if (e.preco != null) return `<span class="price-col">${esc(e.preco === 0 ? 'Grátis' : euro(e.preco))}<small>Inscrição</small></span>`;
   return `<span class="price-col unknown">${esc(e.precoTexto || 'A confirmar')}<small>Inscrição</small></span>`;
 }
 
+function typePillHtml(e) {
+  const extra = [e.ronda, e.fase].filter(Boolean).map(esc).join(' · ');
+  const title = e.ronda && e.rondaDeduzida ? ' title="Round atribuída pela data (janela oficial da round)"' : '';
+  return `<span class="type-pill"${title}>${esc(typeLabel(e))}${extra ? ' · ' + extra : ''}</span>`;
+}
+
 function rowHtml(e) {
   const place = placeLine(e);
-  const placeCol = e.scope === 'portugal'
-    ? `${esc(e.localidade || e.local || '—')}${e.distrito && normalize(e.distrito) !== normalize(e.localidade) ? '<small>' + esc(e.distrito) + '</small>' : ''}`
-    : `${esc(e.local || '—')}${e.pais ? '<small>' + esc(e.pais) + '</small>' : ''}`;
-  return `<button type="button" class="event-row" data-id="${esc(e.id)}" aria-label="Detalhes de ${esc(displayName(e))}, ${esc(formatDate(e.dateStart))}"><span class="event-main"><span class="eyebrow">${chipsHtml(e)}</span><span class="store">${esc(displayName(e))}</span>${place ? `<span class="subline">${esc(place)}</span>` : ''}<span class="event-checkin">${esc(timeLine(e))}</span></span><span class="event-place">${placeCol}</span>${priceHtml(e)}<span class="arr" aria-hidden="true">↗</span></button>`;
+  const fmt = formatText(e);
+  const time = timeLine(e);
+  const multi = e.dateStart !== e.dateEnd;
+  const n = spanDays(e);
+  const range = multi ? `<span class="range-pill">${esc(rangeLabel(e, true))} · ${n} dias</span>` : '';
+  const meta = [`<b>${esc(fmt || 'Formato a confirmar')}</b>`, place && esc(place), !multi && time && esc(time)].filter(Boolean).join('  ·  ');
+  return `<button type="button" class="event-row ${typeClass(e)}" data-id="${esc(e.id)}" aria-label="Detalhes de ${esc(displayName(e))}, ${esc(formatDate(e.dateStart))}">`
+    + `<span class="event-type">${typePillHtml(e)}${range}</span>`
+    + `<span class="event-main"><span class="store">${esc(displayName(e))}</span>${place ? `<span class="subline">${esc(place)}</span>` : ''}<span class="meta-m">${meta}</span></span>`
+    + `<span class="format-col${fmt ? '' : ' pending'}">${esc(fmt || 'Formato a confirmar')}</span>`
+    + `<span class="event-time">${esc(time)}</span>`
+    + priceHtml(e) + `</button>`;
 }
 
 function infoHtml(e) {
-  const d = asDate(e.dateStart);
   const when = e.dateStart !== e.dateEnd ? rangeLabel(e) : (!e.allDay && e.timeStart ? `${e.timeStart} (hora de Lisboa)` : '');
-  return `<button type="button" class="round-milestone info-row" data-id="${esc(e.id)}" aria-label="${esc(e.tipo)}: ${esc(e.title)}, ${esc(formatDate(e.dateStart))}"><span class="milestone-date">${d.getDate()} ${mon3(d).toUpperCase()} ${d.getFullYear()}</span><span class="milestone-name"><span class="info-kind">${esc(e.tipo)}</span>${esc(e.title)}${when ? `<span class="info-when">${esc(when)}</span>` : ''}</span></button>`;
+  return `<button type="button" class="info-row ${typeClass(e)}" data-id="${esc(e.id)}" aria-label="${esc(e.tipo)}: ${esc(e.title)}, ${esc(formatDate(e.dateStart))}"><span class="info-kind">${esc(typeLabel(e))}</span><span class="info-name">${esc(e.title)}</span>${when ? `<span class="info-when">${esc(when)}</span>` : ''}</button>`;
+}
+
+/** Dia seguinte de um evento com vários dias: linha discreta que abre o mesmo evento (não é outro torneio). */
+function contHtml(e, date) {
+  const label = `Dia ${daysBetween(e.dateStart, date) + 1} de ${spanDays(e)}`;
+  const name = displayName(e);
+  return `<button type="button" class="cont-row ${typeClass(e)}" data-id="${esc(e.id)}" aria-label="A decorrer: ${esc(name)}, ${esc(label.toLowerCase())} (${esc(rangeLabel(e))})"><span class="cont-kind">A decorrer</span><span class="cont-name">${esc(name)}</span><span class="cont-when">${esc(label)}  ·  ${esc(rangeLabel(e, true))}</span></button>`;
 }
 
 function milestoneHtml(m, kind) {
-  const date = kind === 'end' ? m.end : m.start, d = asDate(date);
+  const date = kind === 'end' ? m.end : m.start;
   const label = kind === 'end' ? 'Fim' : 'Início';
-  return `<div class="round-milestone ${kind}" role="note" aria-label="${label} da ${esc(m.label)} em ${esc(formatDate(date))}"><span class="milestone-date">${d.getDate()} ${mon3(d).toUpperCase()} ${d.getFullYear()}</span><span class="milestone-name">${label} ${esc(m.circuit)} ${esc(m.label)}</span></div>`;
+  return `<div class="round-milestone ${kind}" role="note" aria-label="${label} da ${esc(m.label)} em ${esc(formatDate(date))}"><span class="milestone-name">${label} ${esc(m.circuit)} ${esc(m.label)}</span></div>`;
 }
 
 function milestoneVisible(m) {
@@ -187,55 +207,68 @@ function milestoneVisible(m) {
   return c === 'type:' + m.circuit || c === 'round:' + m.ronda;
 }
 
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+const COL_HEAD = '<div class="col-head" aria-hidden="true"><span class="r">Tipo</span><span>Evento</span><span>Formato</span><span>Horário</span><span class="r">Inscrição</span></div>';
+
+function renderLegend(list) {
+  const seen = new Map();
+  for (const e of list) { const k = typeClass(e); if (!seen.has(k)) seen.set(k, typeLabel(e)); }
+  $('#type-legend').innerHTML = [...seen].map(([k, label]) => `<span class="legend-item ${k}" role="listitem">${esc(label)}</span>`).join('');
+}
+
 function renderEvents() {
   const q = normalize($('#search').value.trim());
   const filtered = events.filter(e => matches(e, q));
   const tournaments = filtered.filter(e => !isInfo(e)).length;
   const infoDates = filtered.length - tournaments;
   // Só torneios contam como «torneios»; se apenas houver datas informativas, diz-se isso.
-  $('#count').textContent = tournaments || !infoDates
-    ? `${tournaments} ${tournaments === 1 ? 'torneio' : 'torneios'}`
-    : `${infoDates} ${infoDates === 1 ? 'data informativa' : 'datas informativas'}`;
+  $('#count').textContent = tournaments || !infoDates ? plural(tournaments, 'torneio', 'torneios') : plural(infoDates, 'data informativa', 'datas informativas');
+  renderLegend(filtered);
   if (!filtered.length) {
     $('#month-links').innerHTML = '';
     eventsEl.innerHTML = `<div class="empty">Nenhum torneio encontrado.</div>`;
     return;
   }
-  // Agrupar por mês → sequência cronológica de dias, datas informativas e marcos de round.
-  const groups = new Map();
-  const groupFor = date => {
+  // Mês → dias (cada evento aparece uma só vez, no dia em que começa) com torneios, datas informativas e marcos.
+  const months = new Map();
+  const dayFor = date => {
     const key = date.slice(0, 7);
-    if (!groups.has(key)) groups.set(key, { date: asDate(key + '-01'), days: new Map(), items: [], total: 0 });
-    return groups.get(key);
+    if (!months.has(key)) months.set(key, { date: asDate(key + '-01'), days: new Map(), total: 0 });
+    const m = months.get(key);
+    if (!m.days.has(date)) m.days.set(date, { events: [], info: [], before: [], after: [] });
+    return m.days.get(date);
   };
   for (const e of filtered) {
-    const g = groupFor(e.dateStart);
-    if (isInfo(e)) { g.items.push({ date: e.dateStart, order: 0, html: infoHtml(e) }); continue; }
-    if (!g.days.has(e.dateStart)) g.days.set(e.dateStart, []);
-    g.days.get(e.dateStart).push(e);
-    g.total++;
+    const day = dayFor(e.dateStart);
+    if (isInfo(e)) day.info.push(e);
+    else { day.events.push(e); months.get(e.dateStart.slice(0, 7)).total++; }
   }
   for (const m of milestones) {
     if (!milestoneVisible(m)) continue;
     for (const kind of ['start', 'end']) {
       const date = kind === 'start' ? m.start : m.end;
-      const g = groups.get(date.slice(0, 7));
-      if (!g || (!showPast && date < today)) continue;
-      g.items.push({ date, order: kind === 'start' ? -1 : 2, html: milestoneHtml(m, kind) });
+      if (!months.has(date.slice(0, 7)) || (!showPast && date < today)) continue;
+      dayFor(date)[kind === 'start' ? 'before' : 'after'].push(milestoneHtml(m, kind));
     }
   }
-  const sortedKeys = [...groups.keys()].sort();
-  $('#month-links').innerHTML = sortedKeys.map(key => { const g = groups.get(key); return `<a href="#m-${key}">${months[g.date.getMonth()]} ${g.date.getFullYear()}</a>`; }).join('');
+  const multiDay = filtered.filter(e => e.dateStart !== e.dateEnd);
+  const sortedKeys = [...months.keys()].sort();
+  $('#month-links').innerHTML = sortedKeys.map(key => { const g = months.get(key); return `<a href="#m-${key}">${months_[g.date.getMonth()]} ${g.date.getFullYear()}</a>`; }).join('');
 
   eventsEl.innerHTML = sortedKeys.map(key => {
-    const g = groups.get(key);
-    for (const [date, items] of g.days) {
-      const dt = asDate(date);
-      g.items.push({ date, order: 1, html: `<div class="day-group"><div class="day-label"><span class="number">${dt.getDate()}</span><span class="weekday">${shortWeek[dt.getDay()]}</span></div><div class="event-list">${items.map(rowHtml).join('')}</div></div>` });
-    }
-    g.items.sort((a, b) => a.date.localeCompare(b.date) || a.order - b.order);
-    const total = g.total ? `${g.total} ${g.total === 1 ? 'torneio' : 'torneios'}` : '';
-    return `<section class="month-block" id="m-${key}" aria-label="${months[g.date.getMonth()]} ${g.date.getFullYear()}"><div class="month-title"><h3>${months[g.date.getMonth()]}</h3><span class="year">${g.date.getFullYear()}</span><span class="total">${total}</span></div><div class="days">${g.items.map(i => i.html).join('')}</div></section>`;
+    const g = months.get(key);
+    const cards = [...g.days.keys()].sort().map(date => {
+      const day = g.days.get(date), dt = asDate(date);
+      const cont = multiDay.filter(e => e.dateStart < date && e.dateEnd >= date);
+      const count = day.events.length ? plural(day.events.length, 'torneio', 'torneios')
+        : day.info.length ? plural(day.info.length, 'data informativa', 'datas informativas') : '';
+      const label = `${longWeek[dt.getDay()]}, ${dt.getDate()} de ${months_[dt.getMonth()]} de ${dt.getFullYear()}`;
+      return `<article class="day-card" aria-label="${esc(label)}"><div class="day-head"><span class="day-num" aria-hidden="true">${dt.getDate()}</span><span class="day-names"><span class="day-wd">${longWeek[dt.getDay()]}</span><span class="day-mon">${months_[dt.getMonth()]} ${dt.getFullYear()}</span></span>${count ? `<span class="day-count">${count}</span>` : ''}</div>`
+        + day.before.join('') + day.events.map(rowHtml).join('') + day.info.map(infoHtml).join('')
+        + cont.map(e => contHtml(e, date)).join('') + day.after.join('') + `</article>`;
+    }).join('');
+    const total = g.total ? plural(g.total, 'torneio', 'torneios') : '';
+    return `<section class="month-block" id="m-${key}" aria-label="${months_[g.date.getMonth()]} ${g.date.getFullYear()}"><div class="month-title"><h3>${months_[g.date.getMonth()]}</h3><span class="year">${g.date.getFullYear()}</span><span class="total">${total}</span></div>${COL_HEAD}${cards}</section>`;
   }).join('');
 }
 
@@ -255,12 +288,14 @@ function openDetails(id) {
   const name = displayName(e);
   const dateMeta = e.dateStart === e.dateEnd ? formatDate(e.dateStart) : `${rangeLabel(e)} ${asDate(e.dateEnd).getFullYear()}`;
 
+  // A etiqueta do tipo usa a cor do tipo (como na agenda); as restantes mantêm o estilo da v10.3.
   const tabs = [
-    e.formato ? `${e.formato}${e.set ? ' · ' + e.set : ''}` : null,
-    e.tipo + (e.fase ? ' · ' + e.fase : ''),
-    e.ronda, e.vagas ? `${e.vagas} vagas` : null,
-    e.scope === 'internacional' ? 'Internacional' : null,
-  ].filter(Boolean);
+    `<span class="dialog-tab dialog-type ${typeClass(e)}">${esc(e.tipo + (e.fase ? ' · ' + e.fase : ''))}</span>`,
+    ...[e.formato ? `${e.formato}${e.set ? ' · ' + e.set : ''}` : null,
+      e.ronda, e.vagas ? `${e.vagas} vagas` : null,
+      e.scope === 'internacional' ? 'Internacional' : null,
+    ].filter(Boolean).map(t => `<span class="dialog-tab">${esc(t)}</span>`),
+  ];
 
   const details = [];
   const add = (label, value, muted) => details.push(`<div class="detail"><div class="detail-label">${esc(label)}</div><div class="detail-value${muted ? ' muted' : ''}">${esc(value)}</div></div>`);
@@ -282,7 +317,7 @@ function openDetails(id) {
 
   document.getElementById('dialog-body').innerHTML =
     `<div class="dialog-top"><div><div class="dialog-meta">${esc(dateMeta)}</div><h2 id="modal-title">${esc(name)}</h2>${sub.map(s => `<div class="dialog-location">${esc(s)}</div>`).join('')}</div><button type="button" class="dialog-close" id="close-dialog" aria-label="Fechar detalhes">×</button></div>`
-    + `<div class="dialog-tabs">${tabs.map(t => `<span class="dialog-tab">${esc(t)}</span>`).join('')}</div>`
+    + `<div class="dialog-tabs">${tabs.join('')}</div>`
     + (details.length ? `<div class="detail-grid">${details.join('')}</div>` : '')
     + list('Prémios', e.premios)
     + list('Notas', e.notas)

@@ -151,7 +151,7 @@ test('7. evento que acaba às 00:00 aparece num só dia; eventos de vários dias
   assert.ok(!modal.includes('Datas'), 'modal não deve mostrar intervalo de datas');
   await page.eval(`document.getElementById('detail-dialog').close()`);
   const twoDay = await page.eval(`[...document.querySelectorAll('.event-row')].find(r => r.getAttribute('aria-label').includes('19 Dezembro') && r.textContent.includes('Loja Exemplo Norte'))?.innerText`);
-  assert.ok(twoDay && twoDay.includes('19–20 Dezembro'), `evento de dois dias: ${twoDay}`);
+  assert.ok(twoDay && twoDay.includes('19–20 Dez · 2 dias'), `evento de dois dias: ${twoDay}`);
   await page.close();
 });
 
@@ -164,7 +164,7 @@ test('modo claro e escuro: sem erros e etiquetas legíveis em desktop e mobile',
       const lum = c => { const [r,g,b] = c.match(/\\d+(\\.\\d+)?/g).slice(0,3).map(Number).map(v => { v/=255; return v <= .03928 ? v/12.92 : ((v+.055)/1.055)**2.4; }); return .2126*r+.7152*g+.0722*b; };
       const bgOf = el => { while (el) { const c = getComputedStyle(el).backgroundColor; if (c && !c.endsWith(', 0)') && c !== 'transparent') return c; el = el.parentElement; } return getComputedStyle(document.body).backgroundColor; };
       const bad = [];
-      for (const el of document.querySelectorAll('.store, .win, .event-format, .event-series, .event-round, .price-col, .month-title h3, .count, .result-meta, .milestone-name, .info-kind, .event-checkin, .subline, .event-place small, .price-col small, .filter label, .dialog-meta, .dialog-location, .dialog-tab, .detail-label, .detail-value, .detail-section li, .dialog-note, .unavailable')) {
+      for (const el of document.querySelectorAll('.store, .win, .type-pill, .range-pill, .format-col, .event-time, .meta-m, .meta-m b, .price-col, .month-title h3, .month-title .year, .month-title .total, .col-head span, .day-num, .day-wd, .day-mon, .day-count, .count, .result-meta, .milestone-name, .info-kind, .info-name, .info-when, .cont-kind, .cont-name, .cont-when, .legend-item, .subline, .price-col small, .filter label, .dialog-meta, .dialog-location, .dialog-tab, .detail-label, .detail-value, .detail-section li, .dialog-note, .unavailable')) {
         if (!el.offsetParent) continue;
         const a = lum(getComputedStyle(el).color), b = lum(bgOf(el));
         const ratio = (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
@@ -172,10 +172,10 @@ test('modo claro e escuro: sem erros e etiquetas legíveis em desktop e mobile',
       }
       return bad.slice(0, 5);
     })()`);
-    // Agenda com passados visíveis (inclui etiquetas âmbar, «Formato a confirmar», marcos e datas informativas).
+    // Agenda com passados visíveis (todas as cores por tipo, «A decorrer», marcos e datas informativas).
     await page.eval(`document.getElementById('past').click()`);
     assert.deepEqual(await check(), [], `${theme} ${w}px: contraste baixo na agenda`);
-    assert.ok(await page.eval(`!!document.querySelector('.event-format.c-amber') && !!document.querySelector('.event-format.pending')`), 'a fixture deve incluir etiquetas âmbar e pendentes');
+    assert.ok(await page.eval(`!!document.querySelector('.cont-row') && !!document.querySelector('.info-row') && document.querySelectorAll('.type-pill').length > 10`), 'a fixture deve incluir linhas «A decorrer», datas informativas e etiquetas de tipo');
     // Modal de um evento em revisão (aviso, etiquetas, detalhes).
     await page.eval(`[...document.querySelectorAll('.event-row')].find(r => r.textContent.includes('Qualificador') && r.textContent.includes('Loja Exemplo Sul')).click()`);
     assert.deepEqual(await check(), [], `${theme} ${w}px: contraste baixo no modal`);
@@ -186,4 +186,201 @@ test('modo claro e escuro: sem erros e etiquetas legíveis em desktop e mobile',
     assert.deepEqual(page.errors, []);
     await page.close();
   }
+});
+
+// ---------- Agenda em cartões por dia (Proposta B, aprovada a 23/11/2026) ----------
+const showAll = page => page.eval(`document.getElementById('past').getAttribute('aria-pressed') === 'true' || document.getElementById('past').click()`);
+
+test('8. cartões por dia: número grande, cabeçalho no cartão, separadores discretos e sem sombras', { skip }, async () => {
+  for (const [w, theme, minNum] of [[1280, 'light', 48], [1280, 'dark', 48], [390, 'light', 36], [320, 'dark', 32]]) {
+    const page = await open({ width: w, theme });
+    const r = await page.eval(`(() => {
+      const cards = [...document.querySelectorAll('.day-card')];
+      return cards.map(c => {
+        const cs = getComputedStyle(c), num = c.querySelector('.day-head .day-num');
+        const rows = [...c.querySelectorAll('.event-row, .info-row, .cont-row')];
+        return { shadow: cs.boxShadow, border: cs.borderTopWidth, radius: parseFloat(cs.borderTopLeftRadius),
+          num: num ? parseFloat(getComputedStyle(num).fontSize) : 0, label: c.getAttribute('aria-label'),
+          sep: rows.every(x => getComputedStyle(x).borderTopWidth === '1px'), headFirst: c.firstElementChild.classList.contains('day-head') };
+      });
+    })()`);
+    assert.ok(r.length >= 10, `${w}px: esperava vários cartões, há ${r.length}`);
+    for (const c of r) {
+      const where = `${w}px ${theme} «${c.label}»`;
+      assert.equal(c.shadow, 'none', `${where}: o cartão não deve ter sombra`);
+      assert.equal(c.border, '1px', `${where}: borda discreta de 1px`);
+      assert.ok(c.headFirst, `${where}: o cabeçalho do dia é o primeiro elemento do cartão`);
+      assert.ok(c.num >= minNum, `${where}: número do dia com ${c.num}px`);
+      assert.ok(c.sep, `${where}: linhas separadas por um traço de 1px`);
+      assert.match(c.label, /^(Domingo|Segunda-feira|Terça-feira|Quarta-feira|Quinta-feira|Sexta-feira|Sábado), \d+ de \S+ de \d{4}$/);
+    }
+    assert.deepEqual(page.errors, []);
+    await page.close();
+  }
+});
+
+test('9. cada evento aparece uma só vez e as contagens não mudam com as linhas «A decorrer»', { skip }, async () => {
+  const page = await open({ width: 1280 });
+  await showAll(page);
+  const r = await page.eval(`(() => {
+    const ids = [...document.querySelectorAll('.event-row')].map(e => e.dataset.id);
+    const infoIds = [...document.querySelectorAll('.info-row')].map(e => e.dataset.id);
+    const months = [...document.querySelectorAll('.month-block')].map(m => ({ total: m.querySelector('.total').textContent, rows: m.querySelectorAll('.event-row').length }));
+    const days = [...document.querySelectorAll('.day-card')].map(c => ({ count: c.querySelector('.day-count')?.textContent || '', rows: c.querySelectorAll('.event-row').length, info: c.querySelectorAll('.info-row').length }));
+    return { count: document.getElementById('count').textContent, ids, infoIds, months, days, cont: document.querySelectorAll('.cont-row').length };
+  })()`);
+  assert.equal(new Set(r.ids).size, r.ids.length, 'há torneios repetidos');
+  assert.equal(new Set(r.infoIds).size, r.infoIds.length, 'há datas informativas repetidas');
+  assert.ok(r.ids.every(id => !r.infoIds.includes(id)));
+  assert.equal(r.count, `${r.ids.length} torneios`);
+  assert.ok(r.cont >= 2, `esperava linhas «A decorrer» na fixture (há ${r.cont})`);
+  for (const m of r.months) assert.equal(m.total, m.rows ? `${m.rows} ${m.rows === 1 ? 'torneio' : 'torneios'}` : '');
+  for (const d of r.days) {
+    const expected = d.rows ? `${d.rows} ${d.rows === 1 ? 'torneio' : 'torneios'}` : d.info ? `${d.info} ${d.info === 1 ? 'data informativa' : 'datas informativas'}` : '';
+    assert.equal(d.count, expected);
+  }
+  await page.close();
+});
+
+test('10. eventos de vários dias: intervalo no primeiro dia e «A decorrer · Dia N de M» nos seguintes', { skip }, async () => {
+  for (const w of [1280, 375]) {
+    const page = await open({ width: w });
+    const card = label => page.eval(`[...document.querySelectorAll('.day-card')].find(c => c.getAttribute('aria-label') === ${JSON.stringify(label)})?.innerText || ''`);
+    // Datas informativas de vários dias (janela de prerelease 15–17 Jan) continuam no dia 16.
+    const d16 = await card('Sábado, 16 de Janeiro de 2027');
+    assert.match(d16, /A DECORRER\s*Prerelease Edição Exemplo\s*Dia 2 de 3\s*·\s*15–17 Jan/i, `16 Jan: ${d16}`);
+    // Regional Championship 5–7 Mar: intervalo no dia 5, continuação no dia 7 (cartão do fim da Round 3).
+    const d5 = await card('Sexta-feira, 5 de Março de 2027');
+    assert.ok(d5.includes('5–7 Mar · 3 dias') && d5.includes('Regional Championship Exemplo'), `5 Mar: ${d5}`);
+    const d7 = await card('Domingo, 7 de Março de 2027');
+    assert.match(d7, /Regional Championship Exemplo\s*Dia 3 de 3/, `7 Mar: ${d7}`);
+    assert.ok(!/\d+ torneio/.test(d7), `7 Mar não conta o RC como torneio desse dia: ${d7}`);
+    // A linha «A decorrer» abre o mesmo evento e não tem preço.
+    const r = await page.eval(`(() => {
+      const c = [...document.querySelectorAll('.cont-row')].find(x => x.textContent.includes('Regional Championship Exemplo'));
+      const first = [...document.querySelectorAll('.event-row')].find(x => x.textContent.includes('Regional Championship Exemplo'));
+      return { same: c.dataset.id === first.dataset.id, tag: c.tagName, price: !!c.querySelector('.price-col'), aria: c.getAttribute('aria-label') };
+    })()`);
+    assert.ok(r.same && r.tag === 'BUTTON' && !r.price, JSON.stringify(r));
+    assert.match(r.aria, /^A decorrer: Regional Championship Exemplo, dia 3 de 3/);
+    await page.eval(`(() => { const c = [...document.querySelectorAll('.cont-row')].find(x => x.textContent.includes('Regional Championship Exemplo')); c.focus(); c.click(); })()`);
+    assert.ok((await page.eval(`document.getElementById('dialog-body').innerText`)).includes('Regional Championship Exemplo'));
+    assert.ok(await page.eval(`document.getElementById('detail-dialog').open`));
+    await page.eval(`document.getElementById('close-dialog').click()`);
+    assert.ok(await page.eval(`document.activeElement.classList.contains('cont-row')`), 'o foco volta à linha que abriu o modal');
+    // Filtros aplicam-se também às continuações.
+    await page.eval(`(() => { const s = document.getElementById('circuit'); s.value = 'type:Spotlight'; s.dispatchEvent(new Event('input')); })()`);
+    assert.ok(!(await page.eval(`document.getElementById('events').innerText`)).includes('Regional Championship Exemplo'));
+    assert.deepEqual(page.errors, []);
+    await page.close();
+  }
+});
+
+test('11. desktop: colunas alinhadas e o tipo junto ao nome do evento', { skip }, async () => {
+  for (const w of [1280, 1100, 900]) {
+    const page = await open({ width: w });
+    await showAll(page);
+    const r = await page.eval(`[...document.querySelectorAll('.event-row')].map(row => {
+      const R = s => row.querySelector(s).getBoundingClientRect();
+      const pill = R('.type-pill'), name = R('.store'), fmt = R('.format-col'), price = R('.price-col');
+      return { gap: name.left - pill.right, nameLeft: Math.round(name.left), fmtLeft: Math.round(fmt.left), priceRight: Math.round(price.right), rowRight: Math.round(row.getBoundingClientRect().right), name: row.querySelector('.store').textContent };
+    })`);
+    for (const x of r) assert.ok(x.gap >= 10 && x.gap <= 20, `${w}px «${x.name}»: ${x.gap.toFixed(1)}px entre o tipo e o nome`);
+    assert.equal(new Set(r.map(x => x.nameLeft)).size, 1, `${w}px: coluna do evento desalinhada`);
+    assert.equal(new Set(r.map(x => x.fmtLeft)).size, 1, `${w}px: coluna do formato desalinhada`);
+    assert.equal(new Set(r.map(x => x.priceRight)).size, 1, `${w}px: coluna da inscrição desalinhada`);
+    assert.ok(await page.eval(`getComputedStyle(document.querySelector('.col-head')).display !== 'none'`));
+    assert.ok((await page.eval('document.documentElement.scrollWidth - innerWidth')) <= 0, `${w}px: scroll horizontal`);
+    await page.close();
+  }
+});
+
+test('12. telemóvel 320–430 px: tipo e preço na primeira linha, nome e detalhes por baixo, sem sobreposições', { skip }, async () => {
+  for (const theme of ['light', 'dark']) {
+    const page = await open({ width: 320, theme });
+    await showAll(page);
+    for (const w of MOBILE_WIDTHS) {
+      await page.resize(w);
+      const r = await page.eval(`(() => {
+        const box = el => el.getBoundingClientRect();
+        const hit = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+        const bad = [];
+        for (const row of document.querySelectorAll('.event-row')) {
+          const t = box(row.querySelector('.event-type')), p = box(row.querySelector('.price-col')), n = box(row.querySelector('.store')), m = box(row.querySelector('.meta-m')), rb = box(row);
+          const name = row.querySelector('.store').textContent;
+          if (hit(t, p)) bad.push(name + ': tipo sobre o preço');
+          if (n.top < Math.max(t.bottom, p.bottom) - 0.5) bad.push(name + ': nome sobe para a linha do tipo');
+          if (m.top < n.bottom - 0.5 || m.height === 0) bad.push(name + ': detalhes em falta ou sobrepostos');
+          if (p.right > rb.right + 0.5 || t.right > rb.right + 0.5 || n.right > rb.right + 0.5) bad.push(name + ': sai do cartão');
+          if (Math.abs(p.top - t.top) > 6) bad.push(name + ': preço fora da primeira linha');
+        }
+        for (const el of document.querySelectorAll('.day-head')) { const n = box(el.querySelector('.day-num')), w = box(el.querySelector('.day-names')), c = el.querySelector('.day-count'); if (hit(n, w) || (c && hit(w, box(c)))) bad.push('cabeçalho do dia sobreposto'); }
+        return { bad: bad.slice(0, 5), overflow: document.documentElement.scrollWidth - innerWidth,
+          hidden: ['.col-head', '.format-col', '.event-time'].every(s => getComputedStyle(document.querySelector(s)).display === 'none') };
+      })()`);
+      assert.deepEqual(r.bad, [], `${w}px ${theme}`);
+      assert.ok(r.overflow <= 0, `${w}px ${theme}: scroll horizontal de ${r.overflow}px`);
+      assert.ok(r.hidden, `${w}px: colunas de desktop devem estar escondidas`);
+    }
+    assert.deepEqual(page.errors, []);
+    await page.close();
+  }
+});
+
+test('13. cor por tipo: consistente, distinta (LPP, Spotlight e Paupergeddon incluídos) e tipos novos com estilo genérico', { skip }, async () => {
+  const colours = {};
+  for (const theme of ['light', 'dark']) {
+    const page = await open({ width: 1280, theme });
+    await showAll(page);
+    colours[theme] = await page.eval(`(() => {
+      const out = {};
+      for (const row of document.querySelectorAll('.event-row')) {
+        const cls = [...row.classList].find(c => c.startsWith('t-'));
+        const bg = getComputedStyle(row.querySelector('.type-pill')).backgroundColor;
+        (out[cls] ||= new Set()).add(bg);
+      }
+      const legend = Object.fromEntries([...document.querySelectorAll('.legend-item')].map(l => [[...l.classList].find(c => c.startsWith('t-')), getComputedStyle(l, '::before').backgroundColor]));
+      const accents = Object.fromEntries([...document.querySelectorAll('.event-row')].map(r => [[...r.classList].find(c => c.startsWith('t-')), getComputedStyle(r).getPropertyValue('--t-ac').trim()]));
+      return { pills: Object.fromEntries(Object.entries(out).map(([k, v]) => [k, [...v]])), legend, accents,
+        unknown: [...document.querySelectorAll('.event-row')].find(r => r.textContent.includes('Liga de Verão'))?.className };
+    })()`);
+    await page.close();
+  }
+  for (const theme of ['light', 'dark']) {
+    const { pills, legend, accents, unknown } = colours[theme];
+    for (const [k, v] of Object.entries(pills)) assert.equal(v.length, 1, `${theme}: ${k} com cores diferentes em linhas diferentes`);
+    const values = Object.values(pills).map(v => v[0]);
+    assert.equal(new Set(values).size, values.length, `${theme}: dois tipos com a mesma cor: ${JSON.stringify(pills)}`);
+    for (const k of ['t-lpp', 't-spotlight', 't-paupergeddon', 't-rcq', 't-rc', 't-pt', 't-worlds', 't-lll', 't-cedh', 't-prerelease', 't-qualificador', 't-especial', 't-outro']) assert.ok(pills[k], `${theme}: falta ${k} na fixture`);
+    assert.match(unknown, /\bt-outro\b/, 'tipo desconhecido usa o estilo genérico');
+    for (const [k, c] of Object.entries(legend)) if (accents[k]) assert.ok(c, `${theme}: legenda sem cor para ${k}`);
+  }
+  // As cores mudam entre temas (versões próprias para fundo escuro).
+  assert.notEqual(colours.light.pills['t-rcq'][0], colours.dark.pills['t-rcq'][0]);
+});
+
+test('14. pesquisa, filtros, passados, modal e mudanças de largura sem erros na consola', { skip }, async () => {
+  const page = await open({ width: 1280, theme: 'dark' });
+  const set = (id, v) => page.eval(`(() => { const s = document.getElementById(${JSON.stringify(id)}); s.value = ${JSON.stringify(v)}; s.dispatchEvent(new Event('input')); return document.getElementById('count').textContent; })()`);
+  assert.equal(await set('search', 'paupergeddon'), '1 torneio');
+  assert.equal(await page.eval(`document.querySelectorAll('.day-card').length`), 1);
+  await set('search', '');
+  assert.match(await set('district', 'scope:internacional'), /^\d+ torneios$/);
+  assert.equal(await page.eval(`document.querySelectorAll('.info-row').length`), 0, 'datas informativas escondidas com filtro de local');
+  assert.ok(await page.eval(`[...document.querySelectorAll('.event-row')].every(r => r.querySelector('.price-col small').textContent === 'Internacional')`));
+  await page.eval(`document.getElementById('reset').click()`);
+  for (const sel of ['.event-row', '.info-row']) {
+    await page.eval(`document.querySelector(${JSON.stringify(sel)}).click()`);
+    assert.ok(await page.eval(`document.getElementById('detail-dialog').open && !!document.querySelector('.dialog-type')`), `${sel}: modal com etiqueta do tipo`);
+    await page.eval(`document.getElementById('detail-dialog').close()`);
+  }
+  await page.eval(`document.getElementById('past').click()`);
+  await page.eval(`document.getElementById('past').click()`);
+  for (const w of [1280, 1040, 900, 761, 760, 430, 320, 1280]) {
+    await page.resize(w);
+    assert.ok((await page.eval('document.documentElement.scrollWidth - innerWidth')) <= 0, `${w}px: scroll horizontal`);
+  }
+  assert.ok(await page.eval(`[...document.querySelectorAll('.event-row, .info-row, .cont-row')].every(b => b.tagName === 'BUTTON' && b.getAttribute('aria-label'))`), 'todas as linhas são botões com descrição');
+  assert.deepEqual(page.errors, []);
+  await page.close();
 });
