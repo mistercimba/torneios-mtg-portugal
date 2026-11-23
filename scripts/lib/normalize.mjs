@@ -52,6 +52,9 @@ const clean = v => {
 
 // ---------- descrição ----------
 
+const SOFT = '\u0000'; // marcador interno de quebra de linha "suave"
+const LIST_FIELDS = new Set(['premios', 'notas']);
+
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', '#39': "'" };
 function decodeEntities(s) {
   return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+|#39);/gi, (m, e) => {
@@ -68,7 +71,9 @@ export function descriptionToText(desc) {
   if (!desc) return '';
   let s = String(desc);
   if (/<\/?(p|br|div|span|a|b|i|u|ul|ol|li|strong|em|h\d)\b[^>]*>/i.test(s)) {
-    s = s.replace(/\r?\n/g, ' ')
+    // Quebras de linha reais dentro do HTML ficam marcadas como "suaves" (SOFT): nos campos
+    // de lista (PREMIOS, NOTAS) separam itens; nos restantes valem um espaço.
+    s = s.replace(/\r?\n/g, SOFT)
       .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<\/(p|div|li|h\d)>/gi, '\n')
       .replace(/<li[^>]*>/gi, '- ')
@@ -83,19 +88,30 @@ export function parseFields(text) {
   const fields = {};
   const loose = [];
   let current = null;
-  for (const line of text.split('\n')) {
+  for (const fullLine of text.split('\n')) {
+    const [line, ...soft] = fullLine.split(SOFT);
+    parseLine(line);
+    for (const seg of soft) {
+      if (!seg.trim()) continue;
+      const target = current ? fields[current] : loose;
+      if ((current && LIST_FIELDS.has(current)) || !target.length) target.push(seg.trim());
+      else target[target.length - 1] += ' ' + seg.trim();
+    }
+  }
+  return { fields, loose };
+
+  function parseLine(line) {
     const m = line.match(FIELD_RE);
     if (m) {
       current = FIELD_ALIASES[m[1]];
       fields[current] ||= [];
       if (m[2].trim()) fields[current].push(m[2].trim());
-      continue;
+      return;
     }
-    if (!line.trim()) continue;
+    if (!line.trim()) return;
     if (current) fields[current].push(line.trim());
     else loose.push(line.trim());
   }
-  return { fields, loose };
 }
 
 // ---------- valores ----------

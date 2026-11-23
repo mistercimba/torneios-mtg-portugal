@@ -32,6 +32,12 @@ test('descrição em HTML do editor do Google', () => {
   assert.equal(t, 'TIPO: Spotlight\nLIGACAO: https://melee.gg/T/1\nDETALHES ORIGINAIS:\nStandard\n<https://melee.gg/T/1>');
 });
 
+test('descrição mista: HTML com quebras de linha reais separa os prémios', () => {
+  const e = normalizeEvent({ id: 'm', summary: 'x', start: { date: '2026-11-28' }, description: '<p>TIPO: RCQ</p><p>PREMIOS:\n1º Prémio A\n2º Prémio B</p><p>DETALHES ORIGINAIS:</p><p>Standard<br />Judge: TBA</p>' });
+  assert.deepEqual(e.premios, ['1º Prémio A', '2º Prémio B']);
+  assert.deepEqual(e.detalhesOriginais, ['Standard', 'Judge: TBA']);
+});
+
 const base = { id: '1', summary: 'Teste', start: { dateTime: '2026-11-28T10:30:00Z' }, end: { dateTime: '2026-11-28T18:30:00Z' } };
 
 test('RCQ completo: preço, check-in, vagas, distrito pela localidade', () => {
