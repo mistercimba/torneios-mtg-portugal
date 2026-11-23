@@ -25,6 +25,7 @@
     {"date":"2026-10-24","store":"Mercadia Sul","city":"Almada","name":"Igor Alexandre","deck":"Jund Sacrifice","players":10},
     {"date":"2026-10-31","store":"Versus Gamecenter","city":"Lisboa","name":"Guilherme Pires","deck":"Izzet Spellementals","players":22},
     {"date":"2026-10-31","store":"ZukaCards","city":"Guimarães","name":"Fábio Gonçalves","deck":"Dimir Kaito","players":19},
-    {"date":"2026-10-31","store":"EndTurn","city":"Avintes","name":"Rodrigo Meira","deck":null,"players":12}
+    {"date":"2026-10-31","store":"EndTurn","city":"Avintes","name":"Rodrigo Meira","deck":null,"players":12},
+    {"date":"2026-11-15","store":"Mulligan","city":"Quarteira","name":"Tiago Jesus","deck":"Azorius Momo","players":null}
   ]
 }
