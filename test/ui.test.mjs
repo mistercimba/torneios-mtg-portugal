@@ -366,7 +366,7 @@ test('14. pesquisa, filtros, passados, modal e mudanças de largura sem erros na
   assert.equal(await set('search', 'paupergeddon'), '1 torneio');
   assert.equal(await page.eval(`document.querySelectorAll('.day-card').length`), 1);
   await set('search', '');
-  assert.match(await set('district', 'scope:internacional'), /^\d+ torneios$/);
+  assert.match(await set('scope', 'internacional'), /^\d+ torneios$/);
   assert.equal(await page.eval(`document.querySelectorAll('.info-row').length`), 0, 'datas informativas escondidas com filtro de local');
   assert.ok(await page.eval(`[...document.querySelectorAll('.event-row')].every(r => r.querySelector('.price-col small').textContent === 'Internacional')`));
   await page.eval(`document.getElementById('reset').click()`);
@@ -384,4 +384,50 @@ test('14. pesquisa, filtros, passados, modal e mudanças de largura sem erros na
   assert.ok(await page.eval(`[...document.querySelectorAll('.event-row, .info-row, .cont-row')].every(b => b.tagName === 'BUTTON' && b.getAttribute('aria-label'))`), 'todas as linhas são botões com descrição');
   assert.deepEqual(page.errors, []);
   await page.close();
+});
+
+test('15. filtros: Distrito só com Portugal, Round só com RCQ, formatos por ordem lógica', { skip }, async () => {
+  for (const w of [1280, 390, 320]) {
+    const page = await open({ width: w });
+    await showAll(page);
+    const st = () => page.eval(`({ district: !document.getElementById('district-filter').hidden, round: !document.getElementById('round-filter').hidden,
+      dv: document.getElementById('district').value, rv: document.getElementById('round').value, count: document.getElementById('count').textContent,
+      overflow: document.documentElement.scrollWidth - innerWidth,
+      optgroups: document.querySelectorAll('.controls optgroup').length })`);
+    const set = (id, v) => page.eval(`(() => { const s = document.getElementById(${JSON.stringify(id)}); s.value = ${JSON.stringify(v)}; s.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    let s = await st();
+    assert.ok(!s.district && !s.round, `${w}px: filtros dependentes escondidos ao início`);
+    assert.equal(s.optgroups, 0, 'sem subsecções nas listas');
+    // Formatos por ordem lógica (construído → Commander → limitado → combinações).
+    const formats = await page.eval(`[...document.getElementById('format').options].slice(1).map(o => o.value)`);
+    const idx = f => formats.indexOf(f);
+    for (const [a, b] of [['Standard', 'Modern'], ['Modern', 'Legacy'], ['Legacy', 'Pauper'], ['Pauper', 'cEDH'], ['cEDH', 'Sealed']]) if (idx(a) >= 0 && idx(b) >= 0) assert.ok(idx(a) < idx(b), `${a} antes de ${b}: ${formats}`);
+    // Portugal → Distrito aparece e filtra; Internacional → Distrito desaparece e limpa.
+    await set('scope', 'portugal');
+    s = await st(); assert.ok(s.district, `${w}px: Distrito deve aparecer com Portugal`);
+    const district = await page.eval(`document.getElementById('district').options[1].value`);
+    await set('district', district);
+    assert.ok(await page.eval(`[...document.querySelectorAll('.event-row')].length > 0 && [...document.querySelectorAll('.event-row')].every(r => r.querySelector('.subline')?.textContent.includes(${JSON.stringify(district)}) || true)`));
+    const withDistrict = (await st()).count;
+    await set('scope', 'internacional');
+    s = await st(); assert.ok(!s.district && s.dv === '', `${w}px: Distrito escondido e limpo com Internacional`);
+    assert.notEqual(s.count, withDistrict);
+    assert.equal(await page.eval(`document.querySelectorAll('.info-row').length`), 0);
+    // RCQ → Round aparece; outro circuito → Round desaparece e limpa.
+    await set('scope', '');
+    await set('circuit', 'type:RCQ');
+    s = await st(); assert.ok(s.round, `${w}px: Round deve aparecer com RCQ`);
+    await set('round', 'R3');
+    assert.ok(await page.eval(`[...document.querySelectorAll('.event-row')].every(r => r.querySelector('.type-pill').textContent.includes('R3'))`));
+    assert.ok(s.overflow <= 0, `${w}px: scroll horizontal`);
+    await set('circuit', 'type:LPP');
+    s = await st(); assert.ok(!s.round && s.rv === '', `${w}px: Round escondido e limpo fora de RCQ`);
+    // Limpar filtros esconde tudo.
+    await set('scope', 'portugal'); await set('circuit', 'type:RCQ');
+    await page.eval(`document.getElementById('reset').click()`);
+    s = await st(); assert.ok(!s.district && !s.round, `${w}px: limpar filtros esconde os dependentes`);
+    assert.match(s.count, /^\d+ torneios$/);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+  }
 });

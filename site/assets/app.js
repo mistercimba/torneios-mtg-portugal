@@ -103,9 +103,9 @@ const timeLine = e => {
 };
 
 /* ---------- Filtros dinâmicos (gerados a partir dos dados) ---------- */
-function fillSelect(el, groups) {
+function fillSelect(el, groups, all = 'Todos') {
   const keep = el.value;
-  el.innerHTML = '<option value="">Todos</option>' + groups.map(g => g.label
+  el.innerHTML = `<option value="">${all}</option>` + groups.map(g => g.label
     ? `<optgroup label="${esc(g.label)}">${g.options.map(o => `<option value="${esc(o.value)}">${esc(o.text)}</option>`).join('')}</optgroup>`
     : g.options.map(o => `<option value="${esc(o.value)}">${esc(o.text)}</option>`).join('')).join('');
   if ([...el.options].some(o => o.value === keep)) el.value = keep;
@@ -115,35 +115,54 @@ const byCount = (list, key) => {
   for (const e of list) { const k = key(e); if (k) counts.set(k, (counts.get(k) || 0) + 1); }
   return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt')).map(([k]) => k);
 };
+// Formatos por ordem lógica: construídos do mais recente ao mais antigo, depois Commander, depois limitados.
+// Formatos que não estão na lista ficam a seguir, por ordem alfabética; combinações («Draft + Standard») no fim.
+const FORMAT_ORDER = ['standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'premodern', 'commander', 'cedh',
+  'draft', 'sealed', 'limited', 'team draft', 'team sealed', 'team limited'];
+function formatRank(f) {
+  const k = normalize(f).trim();
+  const i = FORMAT_ORDER.indexOf(k);
+  if (i >= 0) return i;
+  return /\+|\//.test(k) ? 2000 : 1000;
+}
+const byFormatOrder = (a, b) => formatRank(a) - formatRank(b) || a.localeCompare(b, 'pt');
+
+function setDependentVisibility() {
+  // «Distrito» só com Portugal; «Round» só com RCQ (e só se houver rounds). Ao esconder, o valor volta a «Todos».
+  const showDistrict = $('#scope').value === 'portugal' && $('#district').options.length > 1;
+  const showRound = $('#circuit').value === 'type:RCQ' && $('#round').options.length > 1;
+  $('#district-filter').hidden = !showDistrict;
+  $('#round-filter').hidden = !showRound;
+  if (!showDistrict) $('#district').value = '';
+  if (!showRound) $('#round').value = '';
+}
+
 function buildFilters() {
   const pool = events.filter(e => !isInfo(e) && (showPast || !isPastEvent(e)));
-  fillSelect($('#format'), [{ options: byCount(pool, e => e.formato).map(f => ({ value: f, text: f })) }]);
-  const districts = [...new Set(pool.map(e => e.distrito).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt'));
-  fillSelect($('#district'), [
-    { options: [{ value: 'scope:portugal', text: 'Portugal' }, { value: 'scope:internacional', text: 'Internacional' }] },
-    { label: 'Distritos', options: districts.map(d => ({ value: 'district:' + d, text: d })) },
-  ]);
+  const formats = [...new Set(pool.map(e => e.formato).filter(Boolean))].sort(byFormatOrder);
+  fillSelect($('#format'), [{ options: formats.map(f => ({ value: f, text: f })) }]);
+  const districts = [...new Set(pool.filter(e => e.scope === 'portugal').map(e => e.distrito).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt'));
+  fillSelect($('#district'), [{ options: districts.map(d => ({ value: d, text: d })) }]);
   const types = byCount(events.filter(e => showPast || !isPastEvent(e)), e => e.tipo);
+  fillSelect($('#circuit'), [{ options: types.map(t => ({ value: 'type:' + t, text: t === 'Campeonato / Evento especial' ? 'Evento especial' : t })) }]);
   const rounds = [...new Set(pool.filter(e => e.typeKey === 'rcq' && e.ronda).map(e => e.ronda))].sort();
-  fillSelect($('#circuit'), [
-    { options: types.map(t => ({ value: 'type:' + t, text: t })) },
-    ...(rounds.length ? [{ label: 'RCQ por round', options: rounds.map(r => ({ value: 'round:' + r, text: `RCQ · Round ${r.replace(/\D/g, '')}` })) }] : []),
-  ]);
+  fillSelect($('#round'), [{ options: rounds.map(r => ({ value: r, text: `Round ${r.replace(/\D/g, '')}` })) }], 'Todas');
+  setDependentVisibility();
 }
 
 let today = todayLisbon();
 const isPastEvent = e => e.dateEnd < today;
 
 function matches(e, q) {
-  const f = $('#format').value, d = $('#district').value, c = $('#circuit').value;
+  const f = $('#format').value, sc = $('#scope').value, d = $('#district').value, c = $('#circuit').value, r = $('#round').value;
   if (!showPast && isPastEvent(e)) return false;
   if (q && ![e.title, e.loja, e.localidade, e.distrito, e.formato, e.set, e.tipo, e.ronda, e.fase, e.local, e.pais].some(v => normalize(v).includes(q))) return false;
-  if (c.startsWith('type:') && e.tipo !== c.slice(5)) return false;
-  if (c.startsWith('round:') && !(e.typeKey === 'rcq' && e.ronda === c.slice(6))) return false;
-  if (isInfo(e)) return !f && !d; // datas informativas só aparecem sem filtros de formato/local
+  if (c && e.tipo !== c.slice(5)) return false;
+  if (r && e.ronda !== r) return false;
+  if (isInfo(e)) return !f && !sc; // datas informativas só aparecem sem filtros de formato/local
   if (f && e.formato !== f) return false;
-  if (d.startsWith('scope:') && e.scope !== d.slice(6)) return false;
-  if (d.startsWith('district:') && e.distrito !== d.slice(9)) return false;
+  if (sc && e.scope !== sc) return false;
+  if (d && e.distrito !== d) return false;
   return true;
 }
 
@@ -201,10 +220,10 @@ function milestoneHtml(m, kind) {
 }
 
 function milestoneVisible(m) {
-  const c = $('#circuit').value, f = $('#format').value, d = $('#district').value;
-  if (f || d) return false;
+  const c = $('#circuit').value, f = $('#format').value, sc = $('#scope').value, r = $('#round').value;
+  if (f || sc) return false;
   if (!c) return true;
-  return c === 'type:' + m.circuit || c === 'round:' + m.ronda;
+  return c === 'type:' + m.circuit && (!r || r === m.ronda);
 }
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
@@ -367,8 +386,9 @@ document.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('cl
 document.getElementById('home').addEventListener('click', e => { e.preventDefault(); setView('agenda'); });
 applyView(viewFromHash());
 
-for (const id of ['search', 'format', 'district', 'circuit']) document.getElementById(id).addEventListener('input', renderEvents);
-document.getElementById('reset').addEventListener('click', () => { for (const id of ['search', 'format', 'district', 'circuit']) document.getElementById(id).value = ''; renderEvents(); });
+const FILTERS = ['search', 'format', 'scope', 'district', 'circuit', 'round'];
+for (const id of FILTERS) document.getElementById(id).addEventListener('input', () => { setDependentVisibility(); renderEvents(); });
+document.getElementById('reset').addEventListener('click', () => { for (const id of FILTERS) document.getElementById(id).value = ''; setDependentVisibility(); renderEvents(); });
 document.getElementById('past').addEventListener('click', ev => {
   showPast = !showPast;
   ev.currentTarget.setAttribute('aria-pressed', String(showPast));
