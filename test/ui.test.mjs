@@ -212,7 +212,7 @@ test('8. cartões por dia: número grande, cabeçalho no cartão, separadores di
       assert.ok(c.headFirst, `${where}: o cabeçalho do dia é o primeiro elemento do cartão`);
       assert.ok(c.num >= minNum, `${where}: número do dia com ${c.num}px`);
       assert.ok(c.sep, `${where}: linhas separadas por um traço de 1px`);
-      assert.match(c.label, /^(Domingo|Segunda-feira|Terça-feira|Quarta-feira|Quinta-feira|Sexta-feira|Sábado), \d+ de \S+ de \d{4}$/);
+      assert.match(c.label, /^(?:(?:Hoje|Amanhã|Este fim de semana), )?(Domingo|Segunda-feira|Terça-feira|Quarta-feira|Quinta-feira|Sexta-feira|Sábado), \d+ de \S+ de \d{4}$/);
     }
     assert.deepEqual(page.errors, []);
     await page.close();
@@ -454,4 +454,101 @@ test('15. filtros: Distrito só com Portugal, Round só com RCQ, formatos por or
     assert.deepEqual(page.errors, []);
     await page.close();
   }
+});
+
+// ---------- Melhorias rápidas (23/11/2026) ----------
+test('16. «Hoje», «Amanhã» e «Este fim de semana» nos cabeçalhos dos dias', { skip }, async () => {
+  for (const [w, theme] of [[1280, 'light'], [320, 'dark']]) {
+    const page = await open({ width: w, theme });
+    const r = await page.eval(`[...document.querySelectorAll('.day-card')].map(c => ({ date: c.dataset.date, rel: c.querySelector('.day-rel')?.textContent || null, label: c.getAttribute('aria-label'), overlap: (() => { const a = c.querySelector('.day-names').getBoundingClientRect(), b = c.querySelector('.day-count')?.getBoundingClientRect(); return b ? a.right > b.left + 0.5 : false; })() }))`);
+    const today = '2026-11-23'; // data fixa do harness (segunda-feira)
+    const diff = d => Math.round((new Date(d + 'T12:00:00') - new Date(today + 'T12:00:00')) / 86400000);
+    let marked = 0;
+    for (const c of r) {
+      const n = diff(c.date), wd = new Date(c.date + 'T12:00:00').getDay();
+      const expected = n === 0 ? 'Hoje' : n === 1 ? 'Amanhã' : n > 1 && n <= 6 && (wd === 6 || wd === 0) ? 'Este fim de semana' : null;
+      assert.equal(c.rel, expected, `${c.date}: ${c.rel}`);
+      if (expected) { assert.ok(c.label.startsWith(expected + ', '), c.label); marked++; }
+      assert.ok(!c.overlap, `${w}px ${c.date}: etiqueta sobreposta à contagem`);
+    }
+    assert.ok(marked >= 1, 'a fixture deve ter pelo menos um dia marcado');
+    assert.deepEqual(page.errors, []);
+    await page.close();
+  }
+});
+
+test('17. adicionar ao calendário: Google Calendar e ficheiro .ics com horas de Lisboa', { skip }, async () => {
+  const page = await open({ width: 1280 });
+  assert.equal(await page.eval(`lisbonToUtc('2026-11-28', '10:00').toISOString()`), '2026-11-28T10:00:00.000Z');
+  assert.equal(await page.eval(`lisbonToUtc('2027-07-10', '10:00').toISOString()`), '2027-07-10T09:00:00.000Z');
+  await page.eval(`document.querySelector('.event-row').click()`);
+  const r = await page.eval(`(() => {
+    const id = document.querySelector('.event-row').dataset.id, e = events.find(x => x.id === id);
+    const g = document.querySelector('#dialog-actions a[href^="https://calendar.google.com/"]');
+    return { g: g && g.href, label: document.querySelector('.add-cal-label')?.textContent, ics: icsFile(e), icsLink: !!document.querySelector('#dialog-actions .ics-link'), title: e.title,
+      multi: icsFile(events.find(x => x.dateStart !== x.dateEnd)) };
+  })()`);
+  assert.equal(r.label, 'Adicionar ao calendário:');
+  assert.ok(r.icsLink);
+  const g = new URL(r.g);
+  assert.equal(g.searchParams.get('action'), 'TEMPLATE');
+  assert.equal(g.searchParams.get('text'), r.title);
+  assert.match(g.searchParams.get('dates'), /^(\d{8}T\d{6}Z\/\d{8}T\d{6}Z|\d{8}\/\d{8})$/);
+  assert.ok(r.ics.startsWith('BEGIN:VCALENDAR\r\n') && r.ics.includes('BEGIN:VEVENT') && r.ics.trim().endsWith('END:VCALENDAR'));
+  assert.ok(r.ics.split('\r\n').every(l => l.length <= 75), 'linhas do .ics com no máximo 75 caracteres');
+  assert.ok(r.ics.includes('SUMMARY:') && r.ics.includes('UID:'));
+  assert.match(r.multi, /DTSTART;VALUE=DATE:\d{8}\r\nDTEND;VALUE=DATE:\d{8}/);
+  assert.deepEqual(page.errors, []);
+  await page.close();
+});
+
+test('18. formatos habituais sempre disponíveis; sem resultados mostra «Limpar filtros»', { skip }, async () => {
+  for (const w of [1280, 375]) {
+    const page = await open({ width: w });
+    const formats = await page.eval(`[...document.getElementById('format').options].slice(1).map(o => o.value)`);
+    const base = ['Standard', 'Pioneer', 'Modern', 'Legacy', 'Vintage', 'Pauper', 'Premodern', 'Commander', 'Limited'];
+    for (const f of base) assert.ok(formats.includes(f), `${f} na lista: ${formats}`);
+    assert.deepEqual(formats.filter(f => base.includes(f)), base, 'ordem lógica');
+    assert.equal(formats.at(-1), 'Limited');
+    const before = await page.eval(`document.getElementById('count').textContent`);
+    await page.eval(`(() => { const s = document.getElementById('format'); s.value = 'Vintage'; s.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    assert.equal(await page.eval(`document.getElementById('count').textContent`), '0 torneios');
+    assert.ok(await page.eval(`!!document.querySelector('#events .empty .empty-reset')`), 'botão Limpar filtros no estado vazio');
+    await page.eval(`document.querySelector('#events .empty-reset').click()`);
+    assert.equal(await page.eval(`document.getElementById('format').value`), '');
+    assert.equal(await page.eval(`document.getElementById('count').textContent`), before);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+  }
+});
+
+test('19. internacionais mostram o país; legenda só no computador; pré-visualização para partilha', { skip }, async () => {
+  const page = await open({ width: 1280 });
+  await showAll(page);
+  const intl = await page.eval(`[...document.querySelectorAll('.event-row .price-col.intl')].map(p => ({ main: p.firstChild.textContent, small: p.querySelector('small')?.textContent || '' }))`);
+  assert.ok(intl.length >= 3);
+  for (const p of intl) {
+    assert.ok(!/\d+ dias?/.test(p.main), `sem duração na coluna: ${p.main}`);
+    if (p.main !== 'Internacional') assert.equal(p.small, 'Internacional');
+  }
+  assert.ok(await page.eval(`getComputedStyle(document.getElementById('type-legend')).display !== 'none'`));
+  const meta = await page.eval(`(async () => {
+    const m = p => document.querySelector('meta[property="' + p + '"]')?.content;
+    const img = m('og:image'); const local = new URL(img).pathname.replace('/torneios-mtg-portugal/', '');
+    const res = await fetch(local); const blob = await res.blob();
+    const bmp = await createImageBitmap(blob);
+    return { img, url: m('og:url'), w: m('og:image:width'), h: m('og:image:height'), status: res.status, size: blob.size, dims: [bmp.width, bmp.height], card: document.querySelector('meta[name="twitter:card"]')?.content };
+  })()`);
+  assert.equal(meta.img, 'https://mistercimba.github.io/torneios-mtg-portugal/assets/og-image.png');
+  assert.equal(meta.url, 'https://mistercimba.github.io/torneios-mtg-portugal/');
+  assert.equal(meta.status, 200);
+  assert.deepEqual(meta.dims, [1200, 630]);
+  assert.equal(meta.w, '1200'); assert.equal(meta.h, '630');
+  assert.ok(meta.size < 300 * 1024, 'imagem com menos de 300 KB (limite do WhatsApp)');
+  assert.equal(meta.card, 'summary_large_image');
+  await page.resize(390);
+  assert.equal(await page.eval(`getComputedStyle(document.getElementById('type-legend')).display`), 'none');
+  assert.ok((await page.eval('document.documentElement.scrollWidth - innerWidth')) <= 0);
+  assert.deepEqual(page.errors, []);
+  await page.close();
 });

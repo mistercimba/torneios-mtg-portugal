@@ -58,6 +58,68 @@ const todayLisbon = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/L
 const daysBetween = (a, b) => Math.round((asDate(b) - asDate(a)) / 86400000);
 const safeUrl = u => (/^https?:\/\//i.test(u || '') ? u : null);
 
+/** «Hoje», «Amanhã» ou «Este fim de semana» (sábado/domingo dos próximos 6 dias), em relação a hoje em Lisboa. */
+function relativeDay(date) {
+  const diff = daysBetween(today, date);
+  if (diff === 0) return 'Hoje';
+  if (diff === 1) return 'Amanhã';
+  const wd = asDate(date).getDay();
+  if (diff > 1 && diff <= 6 && (wd === 6 || wd === 0)) return 'Este fim de semana';
+  return null;
+}
+
+/* ---------- Adicionar ao calendário (Google Calendar ou ficheiro .ics) ---------- */
+// Converte data + hora de Lisboa para UTC (as horas do events.json estão em hora de Lisboa).
+function lisbonToUtc(date, time) {
+  const [y, mo, d] = date.split('-').map(Number), [h, mi] = time.split(':').map(Number);
+  const guess = Date.UTC(y, mo - 1, d, h, mi);
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Lisbon', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(guess)).map(p => [p.type, p.value]));
+  const asLisbon = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute);
+  return new Date(guess - (asLisbon - guess));
+}
+const icsStamp = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+const icsDate = s => s.replace(/-/g, '');
+const nextDay = s => { const d = asDate(s); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+function calendarData(e) {
+  const timed = !e.allDay && e.timeStart && e.dateStart === e.dateEnd;
+  let start, end;
+  if (timed) {
+    start = lisbonToUtc(e.dateStart, e.timeStart);
+    end = e.timeEnd && e.timeEnd > e.timeStart ? lisbonToUtc(e.dateStart, e.timeEnd) : new Date(start.getTime() + 4 * 3600000);
+  }
+  const where = e.scope === 'portugal' ? [e.loja, e.local || e.localidade].filter(Boolean).join(', ') : (e.local || placeLine(e) || '');
+  const info = [
+    e.tipo + (e.ronda ? ' · ' + e.ronda : '') + (e.fase ? ' · ' + e.fase : ''),
+    e.formato ? 'Formato: ' + e.formato + (e.set ? ' · ' + e.set : '') : null,
+    e.checkin ? 'Check-in: ' + e.checkin : null,
+    e.scope === 'portugal' ? 'Inscrição: ' + (e.preco != null ? (e.preco === 0 ? 'Grátis' : euro(e.preco)) : (e.precoTexto || 'a confirmar')) : null,
+    safeUrl(e.ligacao) ? 'Inscrição / anúncio: ' + e.ligacao : null,
+    'Torneios MTG Portugal: ' + location.href.split('#')[0],
+  ].filter(Boolean).join('\n');
+  return { title: e.title, timed, start, end, where, info };
+}
+
+function googleCalendarUrl(e) {
+  const c = calendarData(e);
+  const dates = c.timed ? `${icsStamp(c.start)}/${icsStamp(c.end)}` : `${icsDate(e.dateStart)}/${icsDate(nextDay(e.dateEnd))}`;
+  const q = new URLSearchParams({ action: 'TEMPLATE', text: c.title, dates, details: c.info, location: c.where, ctz: 'Europe/Lisbon' });
+  return 'https://calendar.google.com/calendar/render?' + q.toString();
+}
+
+function icsFile(e) {
+  const c = calendarData(e);
+  const txt = v => String(v).replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+  const fold = line => { const out = []; let rest = line; while (rest.length > 74) { out.push(rest.slice(0, 74)); rest = ' ' + rest.slice(74); } out.push(rest); return out.join('\r\n'); };
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Torneios MTG Portugal//PT', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
+    `UID:${e.id}@torneios-mtg-portugal`, `DTSTAMP:${icsStamp(new Date())}`,
+    ...(c.timed ? [`DTSTART:${icsStamp(c.start)}`, `DTEND:${icsStamp(c.end)}`] : [`DTSTART;VALUE=DATE:${icsDate(e.dateStart)}`, `DTEND;VALUE=DATE:${icsDate(nextDay(e.dateEnd))}`]),
+    `SUMMARY:${txt(c.title)}`, ...(c.where ? [`LOCATION:${txt(c.where)}`] : []), `DESCRIPTION:${txt(c.info)}`,
+    ...(safeUrl(e.ligacao) ? [`URL:${e.ligacao}`] : []), 'END:VEVENT', 'END:VCALENDAR'];
+  return lines.map(fold).join('\r\n') + '\r\n';
+}
+
+
 /** "24–26 Outubro" ou "31 Outubro – 2 Novembro" (com ano se mudar). */
 function rangeLabel(e, short) {
   const a = asDate(e.dateStart), b = asDate(e.dateEnd);
@@ -151,7 +213,8 @@ function setDependentVisibility() {
 
 function buildFilters() {
   const pool = events.filter(e => !isInfo(e) && (showPast || !isPastEvent(e)));
-  const formats = [...new Set(pool.map(filterFormat).filter(Boolean))].sort(byFormatOrder);
+  // Lista fixa dos formatos habituais (mesmo sem torneios marcados) + formatos novos que apareçam no calendário.
+  const formats = [...new Set([...FORMAT_ORDER.map(k => FORMAT_NAME[k]), 'Limited', ...pool.map(filterFormat).filter(Boolean)])].sort(byFormatOrder);
   fillSelect($('#format'), [{ options: formats.map(f => ({ value: f, text: f })) }]);
   const districts = [...new Set(pool.filter(e => e.scope === 'portugal').map(e => e.distrito).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt'));
   fillSelect($('#district'), [{ options: districts.map(d => ({ value: d, text: d })) }]);
@@ -184,8 +247,9 @@ const formatText = e => (e.formato ? `${e.formato}${e.set ? ' · ' + e.set : ''}
 
 function priceHtml(e) {
   if (e.scope === 'internacional') {
-    const n = spanDays(e);
-    return `<span class="price-col unknown">${n} ${n === 1 ? 'dia' : 'dias'}<small>Internacional</small></span>`;
+    // País (última parte da localização); a duração já está na etiqueta das datas.
+    const country = (e.pais && e.pais !== 'Portugal' ? e.pais : (e.local || '').split(',').pop().trim()) || '';
+    return `<span class="price-col intl">${esc(country || 'Internacional')}${country ? '<small>Internacional</small>' : ''}</span>`;
   }
   if (e.preco != null) return `<span class="price-col">${esc(e.preco === 0 ? 'Grátis' : euro(e.preco))}<small>Inscrição</small></span>`;
   return `<span class="price-col unknown">${esc(e.precoTexto || 'A confirmar')}<small>Inscrição</small></span>`;
@@ -257,7 +321,7 @@ function renderEvents() {
   renderLegend(filtered);
   if (!filtered.length) {
     $('#month-links').innerHTML = '';
-    eventsEl.innerHTML = `<div class="empty">Nenhum torneio encontrado.</div>`;
+    eventsEl.innerHTML = `<div class="empty"><p>Nenhum torneio encontrado com estes filtros.</p><button type="button" class="empty-reset">Limpar filtros</button></div>`;
     return;
   }
   // Mês → dias (cada evento aparece uma só vez, no dia em que começa) com torneios, datas informativas e marcos.
@@ -293,8 +357,9 @@ function renderEvents() {
       const cont = multiDay.filter(e => e.dateStart < date && e.dateEnd >= date);
       const count = day.events.length ? plural(day.events.length, 'torneio', 'torneios')
         : day.info.length ? plural(day.info.length, 'data informativa', 'datas informativas') : '';
-      const label = `${longWeek[dt.getDay()]}, ${dt.getDate()} de ${months_[dt.getMonth()]} de ${dt.getFullYear()}`;
-      return `<article class="day-card" aria-label="${esc(label)}"><div class="day-head"><span class="day-num" aria-hidden="true">${dt.getDate()}</span><span class="day-names"><span class="day-wd">${longWeek[dt.getDay()]}</span><span class="day-mon">${months_[dt.getMonth()]} ${dt.getFullYear()}</span></span>${count ? `<span class="day-count">${count}</span>` : ''}</div>`
+      const rel = relativeDay(date);
+      const label = `${rel ? rel + ', ' : ''}${longWeek[dt.getDay()]}, ${dt.getDate()} de ${months_[dt.getMonth()]} de ${dt.getFullYear()}`;
+      return `<article class="day-card" data-date="${date}" aria-label="${esc(label)}"><div class="day-head"><span class="day-num" aria-hidden="true">${dt.getDate()}</span><span class="day-names"><span class="day-wd">${longWeek[dt.getDay()]}${rel ? ` <span class="day-rel">${rel}</span>` : ''}</span><span class="day-mon">${months_[dt.getMonth()]} ${dt.getFullYear()}</span></span>${count ? `<span class="day-count">${count}</span>` : ''}</div>`
         + day.before.join('') + day.events.map(rowHtml).join('') + day.info.map(infoHtml).join('')
         + cont.map(e => contHtml(e, date)).join('') + day.after.join('') + `</article>`;
     }).join('');
@@ -358,10 +423,19 @@ function openDetails(id) {
   const link = safeUrl(e.ligacao);
   const map = e.scope === 'portugal' && (e.local || e.localidade)
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([e.local || e.loja, e.localidade].filter(Boolean).join(', '))}` : null;
+  const icsName = (e.title || 'evento').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase().slice(0, 60) + '.ics';
   document.getElementById('dialog-actions').innerHTML =
-    (map ? `<a href="${esc(map)}" target="_blank" rel="noopener">Ver no mapa ↗</a>` : '')
+    `<span class="add-cal"><span class="add-cal-label">Adicionar ao calendário:</span><a href="${esc(googleCalendarUrl(e))}" target="_blank" rel="noopener">Google Calendar</a><a href="#" class="ics-link" data-name="${esc(icsName)}">Apple / Outlook (.ics)</a></span>`
+    + (map ? `<a href="${esc(map)}" target="_blank" rel="noopener">Ver no mapa ↗</a>` : '')
     + (link ? `<a class="primary" href="${esc(link)}" target="_blank" rel="noopener">${isInfo(e) ? 'Mais informação' : 'Inscrição / anúncio'} ↗</a>` : '<span class="unavailable">Ligação para inscrição não indicada</span>');
 
+  document.querySelector('#dialog-actions .ics-link').addEventListener('click', ev => {
+    ev.preventDefault();
+    const url = URL.createObjectURL(new Blob([icsFile(e)], { type: 'text/calendar;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = ev.currentTarget.dataset.name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  });
   dialog.showModal();
   document.getElementById('close-dialog').addEventListener('click', () => dialog.close());
   document.getElementById('close-dialog').focus();
@@ -399,6 +473,7 @@ document.getElementById('home').addEventListener('click', e => { e.preventDefaul
 applyView(viewFromHash());
 
 const FILTERS = ['search', 'format', 'scope', 'district', 'circuit', 'round'];
+eventsEl.addEventListener('click', ev => { if (ev.target.closest('.empty-reset')) document.getElementById('reset').click(); });
 for (const id of FILTERS) document.getElementById(id).addEventListener('input', () => { setDependentVisibility(); renderEvents(); });
 document.getElementById('reset').addEventListener('click', () => { for (const id of FILTERS) document.getElementById(id).value = ''; setDependentVisibility(); renderEvents(); });
 document.getElementById('past').addEventListener('click', ev => {
