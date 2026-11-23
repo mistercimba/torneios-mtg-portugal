@@ -43,7 +43,8 @@ Site estático (HTML + CSS + JS, sem servidor nem base de dados)
 | `scripts/lib/normalize.mjs` | Regras de leitura da descrição, tipos e âmbito |
 | `scripts/lib/places.mjs` | Tabela localidade → distrito |
 | `scripts/check-public.mjs` | Verificação anti-fuga antes de publicar |
-| `test/` | Testes do importador e de segurança, com fixture inventada |
+| `test/` | Testes do importador, de segurança e de interface, com fixture inventada |
+| `test/ui/harness.mjs` | Mini-cliente do Chrome (sem dependências) para os testes de interface |
 
 ## Configuração inicial (uma vez)
 
@@ -67,6 +68,8 @@ Enquanto o segredo não existir, o workflow corre os testes e termina sem public
 - **Novo TIPO:** funciona logo com estilo genérico; para lhe dar cor/etiqueta própria, acrescentar ao `TYPE_CATALOG` em `scripts/lib/normalize.mjs` e a cor em `site/assets/app.js`.
 
 ## Desenvolvimento local
+
+Os testes de interface abrem o site num Chrome headless (larguras de 320 px a 1280 px, modo claro e escuro, data fixa de 23/11/2026). Correm no GitHub Actions e localmente se houver Chrome instalado; caso contrário são ignorados (`CHROME_PATH` permite indicar outro executável).
 
 ```bash
 node --test test/*.test.mjs

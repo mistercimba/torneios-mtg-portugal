@@ -168,7 +168,11 @@ function renderEvents() {
   const q = normalize($('#search').value.trim());
   const filtered = events.filter(e => matches(e, q));
   const tournaments = filtered.filter(e => !isInfo(e)).length;
-  $('#count').textContent = `${tournaments} ${tournaments === 1 ? 'torneio' : 'torneios'}`;
+  const infoDates = filtered.length - tournaments;
+  // Só torneios contam como «torneios»; se apenas houver datas informativas, diz-se isso.
+  $('#count').textContent = tournaments || !infoDates
+    ? `${tournaments} ${tournaments === 1 ? 'torneio' : 'torneios'}`
+    : `${infoDates} ${infoDates === 1 ? 'data informativa' : 'datas informativas'}`;
   if (!filtered.length) {
     $('#month-links').innerHTML = '';
     eventsEl.innerHTML = `<div class="empty">Nenhum torneio encontrado.</div>`;
@@ -277,15 +281,33 @@ dialog.addEventListener('close', () => { originFocus?.focus(); });
 dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
 
 /* ---------- Vistas ---------- */
-function setView(view) {
+/* ---------- Vistas (Agenda / Vencedores), ligadas ao endereço ---------- */
+// #winners → Vencedores; qualquer outro endereço (#agenda, #m-2026-11, vazio) → Agenda.
+// Mudar de vista cria uma entrada no histórico, por isso o botão Voltar funciona.
+const viewFromHash = () => (location.hash === '#winners' ? 'winners' : 'agenda');
+let currentView = null;
+
+function applyView(view) {
+  const changed = view !== currentView;
+  currentView = view;
+  document.body.dataset.view = view;
   document.querySelectorAll('.view').forEach(e => e.classList.toggle('active', e.id === view));
   document.querySelectorAll('[data-view]').forEach(b => { const is = b.dataset.view === view; b.classList.toggle('active', is); b.setAttribute('aria-current', is ? 'page' : 'false'); });
-  document.querySelector('.main-search').style.display = view === 'agenda' ? 'flex' : 'none';
-  window.scrollTo({ top: 0, behavior: 'instant' });
-  history.replaceState(null, '', '#' + view);
+  if (!changed) return;
+  const target = location.hash.startsWith('#m-') ? document.getElementById(location.hash.slice(1)) : null;
+  if (target) target.scrollIntoView();
+  else window.scrollTo({ top: 0, behavior: 'instant' });
 }
+
+function setView(view) {
+  if (viewFromHash() === view && location.hash) { applyView(view); window.scrollTo({ top: 0, behavior: 'instant' }); return; }
+  location.hash = view; // dispara hashchange → applyView
+}
+
+window.addEventListener('hashchange', () => applyView(viewFromHash()));
 document.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.view)));
 document.getElementById('home').addEventListener('click', e => { e.preventDefault(); setView('agenda'); });
+applyView(viewFromHash());
 
 for (const id of ['search', 'format', 'district', 'circuit']) document.getElementById(id).addEventListener('input', renderEvents);
 document.getElementById('reset').addEventListener('click', () => { for (const id of ['search', 'format', 'district', 'circuit']) document.getElementById(id).value = ''; renderEvents(); });
@@ -323,8 +345,11 @@ async function init() {
   try {
     const w = await loadJson('data/winners.json');
     $('#winners-title').textContent = w.title || '';
-    $('#results').innerHTML = (w.results || []).map(r => { const d = asDate(r.date); return `<div class="result"><span class="date">${d.getDate()} ${mon3(d).toUpperCase()}<br>${d.getFullYear()}</span><span class="win">${esc(r.name)}</span><span class="store-cell">${esc(r.store)}<span class="location">${esc(r.city)}</span></span><span class="deck">${esc(r.deck || 'Não indicado')}</span><span class="num">${r.players == null ? '—' : r.players}</span></div>`; }).join('');
+    $('#results').innerHTML = (w.results || []).map(r => {
+      const d = asDate(r.date);
+      const meta = [r.store, r.city, r.deck || 'Deck não indicado'].filter(Boolean).map(esc).join(' · ');
+      return `<div class="result"><span class="date">${d.getDate()} ${mon3(d).toUpperCase()}<br>${d.getFullYear()}</span><span class="win">${esc(r.name)}</span><span class="store-cell">${esc(r.store)}<span class="location">${esc(r.city)}</span></span><span class="deck">${esc(r.deck || 'Não indicado')}</span><span class="num">${r.players == null ? '—' : r.players}<small>jogadores</small></span><span class="result-meta">${meta}</span></div>`;
+    }).join('');
   } catch (err) { console.error(err); }
-  if (location.hash === '#winners') setView('winners');
 }
 init();

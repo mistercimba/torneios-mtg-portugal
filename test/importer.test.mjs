@@ -38,6 +38,20 @@ test('descrição mista: HTML com quebras de linha reais separa os prémios', ()
   assert.deepEqual(e.detalhesOriginais, ['Standard', 'Judge: TBA']);
 });
 
+test('evento que acaba às 00:00 do dia seguinte fica num só dia; eventos de vários dias não mudam', () => {
+  const night = normalizeEvent({ id: 'n', summary: 'LCQ', start: { dateTime: '2025-11-07T20:00:00Z' }, end: { dateTime: '2025-11-08T00:00:00Z' }, description: 'TIPO: Qualificador' });
+  assert.deepEqual([night.dateStart, night.dateEnd, night.timeStart, night.timeEnd], ['2025-11-07', '2025-11-07', '20:00', '00:00']);
+  // Verão (UTC+1): 21:00–00:00 em Lisboa
+  const summer = normalizeEvent({ id: 's', summary: 'x', start: { dateTime: '2026-07-10T20:00:00Z' }, end: { dateTime: '2026-07-10T23:00:00Z' }, description: 'TIPO: Outro' });
+  assert.deepEqual([summer.dateStart, summer.dateEnd, summer.timeEnd], ['2026-07-10', '2026-07-10', '00:00']);
+  const twoDays = normalizeEvent({ id: 't', summary: 'x', start: { dateTime: '2026-12-19T10:00:00Z' }, end: { dateTime: '2026-12-20T18:00:00Z' }, description: 'TIPO: Outro' });
+  assert.deepEqual([twoDays.dateStart, twoDays.dateEnd], ['2026-12-19', '2026-12-20']);
+  const toMidnightTwoDaysLater = normalizeEvent({ id: 'u', summary: 'x', start: { dateTime: '2026-12-19T10:00:00Z' }, end: { dateTime: '2026-12-21T00:00:00Z' }, description: 'TIPO: Outro' });
+  assert.equal(toMidnightTwoDaysLater.dateEnd, '2026-12-21');
+  const allDay = normalizeEvent({ id: 'a', summary: 'x', start: { date: '2027-01-15' }, end: { date: '2027-01-18' }, description: 'TIPO: Prerelease' });
+  assert.deepEqual([allDay.dateStart, allDay.dateEnd], ['2027-01-15', '2027-01-17']);
+});
+
 const base = { id: '1', summary: 'Teste', start: { dateTime: '2026-11-28T10:30:00Z' }, end: { dateTime: '2026-11-28T18:30:00Z' } };
 
 test('RCQ completo: preço, check-in, vagas, distrito pela localidade', () => {

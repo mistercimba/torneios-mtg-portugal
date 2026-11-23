@@ -179,7 +179,9 @@ export function normalizeDates(start, end) {
   }
   const s = lisbonParts(start.dateTime);
   const e = end?.dateTime ? lisbonParts(end.dateTime) : s;
-  return { allDay: false, dateStart: s.date, dateEnd: e.date, timeStart: s.time, timeEnd: e.time, instantStart: new Date(start.dateTime).toISOString() };
+  // Um evento que termina exactamente às 00:00 do dia seguinte (ex.: 20:00–00:00) não é de vários dias.
+  const endsAtMidnight = e.time === '00:00' && e.date === addDays(s.date, 1) && s.time !== '00:00';
+  return { allDay: false, dateStart: s.date, dateEnd: endsAtMidnight ? s.date : e.date, timeStart: s.time, timeEnd: e.time, instantStart: new Date(start.dateTime).toISOString() };
 }
 
 // ---------- ligações ----------

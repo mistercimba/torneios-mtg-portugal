@@ -29,6 +29,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
 .main-search svg{position:absolute;left:14px;width:18px;height:18px;color:var(--muted);pointer-events:none}
 .main-search input{border:1px solid var(--border-input);border-radius:9px;background:var(--surface);color:var(--text);height:46px;width:100%;padding:0 14px 0 43px;outline:0;font-size:14px}
 .main-search input:focus{border-color:var(--accent)}.main-search input::placeholder{color:var(--muted);opacity:1}
+/* Na vista Vencedores a pesquisa fica invisível mas ocupa o mesmo espaço: a navegação não muda de sítio. */
+body[data-view="winners"] .main-search{visibility:hidden}
 .nav{display:flex;gap:26px;align-items:center;align-self:stretch;flex:none}
 .nav button:not(.theme-toggle){border:0;background:transparent;position:relative;letter-spacing:.01em;font-size:14px;font-weight:700;color:var(--secondary);padding:0 0;height:100%}
 .nav button.active:not(.theme-toggle){color:var(--text)}.nav button.active:not(.theme-toggle):after{content:"";position:absolute;bottom:-1px;left:0;right:0;height:3px;background:var(--accent)}
@@ -93,10 +95,12 @@ html[data-theme="light"] .round-milestone.start .milestone-name{color:#a46720}
 .winners-head{display:flex;justify-content:space-between;align-items:center;gap:15px;margin:40px 0 20px}.winners-head h2{font-size:28px;letter-spacing:-.03em;margin:0}.winners-head p{color:var(--muted);font-size:14px;margin:0}
 .results-cols,.result{display:grid;grid-template-columns:110px minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) 72px;gap:14px;align-items:center}
 .results-cols{border-top:1px solid var(--strong-line);border-bottom:1px solid var(--line);padding:14px 6px;color:var(--muted);font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:700}
-.result{border-bottom:1px solid var(--line);padding:14px 6px;font-size:12px}
-.result .date{font-variant-numeric:tabular-nums;font-size:11px;color:var(--green);font-weight:700}
-.result .win{font-weight:800}.result .location{font-size:11px;color:var(--muted);display:block;margin-top:2px}
-.result .deck{color:var(--secondary)}.result .num{text-align:right;color:var(--muted)}
+.result{border-bottom:1px solid var(--line);padding:16px 6px;font-size:15px;line-height:1.4}
+.result .date{font-variant-numeric:tabular-nums;font-size:13px;color:var(--green);font-weight:700}
+.result .win{font-weight:800}.result .location{font-size:13px;color:var(--muted);display:block;margin-top:3px}
+.result .deck{color:var(--secondary)}.result .num{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.result .num small{display:none}
+.result .result-meta{display:none}
 .footer{border-top:1px solid var(--line);padding:24px 0 35px;color:var(--muted);font-size:11px}
 .footer .wrapper{display:flex;justify-content:space-between;flex-wrap:wrap;gap:15px}.footer strong{color:var(--text)}
 .footer a{color:var(--secondary);text-decoration:underline;text-underline-offset:3px}
@@ -162,7 +166,10 @@ html[data-theme="dark"] .c-brown{--c-bg:#33271c;--c-bd:#574231;--c-fg:#e3c3a1}
 }
 @media(max-width:760px){
  .wrapper{padding:0 18px}
- .site-header .wrapper{height:auto;min-height:66px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding-top:10px;padding-bottom:10px}
+ .site-header .wrapper{height:auto;min-height:66px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding-top:10px;padding-bottom:10px;align-items:center;align-content:start;container-type:inline-size}
+ /* Logótipo escala com a largura real do cabeçalho (sem barra de scroll), para nunca tocar na navegação. */
+ .brand{font-size:clamp(10px,calc((100cqw - 196px) / 13.2),17px);gap:.32em}
+ body[data-view="winners"] .main-search{display:none}
  .identity{grid-row:1;grid-column:1}.nav{grid-row:1;grid-column:2;gap:12px;height:34px}
  .main-search{grid-row:2;grid-column:1/-1;width:100%;margin:0;height:44px}
  .main-search input{height:44px;font-size:14px}
@@ -192,14 +199,29 @@ html[data-theme="dark"] .c-brown{--c-bg:#33271c;--c-bd:#574231;--c-fg:#e3c3a1}
  .eyebrow{gap:6px;margin-bottom:5px}.event-format,.event-series,.event-round{font-size:11px}
  .price-col{font-size:16px}.price-col.unknown{font-size:12px}.price-col small{font-size:11px}
  .arr{font-size:18px}
- .results-cols{display:none}.result{display:grid;grid-template-columns:70px minmax(0,1fr) 56px;gap:8px}
- .result .store-cell,.result .deck{display:none}.result .num{text-align:right}
+ /* Vencedores em duas linhas: data · vencedor · jogadores / loja · localidade · deck */
+ .results-cols{display:none}
+ .result{display:grid;grid-template-columns:62px minmax(0,1fr) auto;grid-template-areas:"date win num" "date meta num";column-gap:10px;row-gap:3px;align-items:start;padding:14px 0}
+ .result .date{grid-area:date;font-size:13px;line-height:1.35;padding-top:1px}
+ .result .win{grid-area:win;font-size:15px;line-height:1.35;overflow-wrap:anywhere}
+ .result .result-meta{grid-area:meta;display:block;font-size:13px;line-height:1.45;color:var(--muted);overflow-wrap:anywhere}
+ .result .store-cell,.result .deck{display:none}
+ .result .num{grid-area:num;text-align:right;font-size:15px;font-weight:700;color:var(--text);line-height:1.35}
+ .result .num small{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-top:2px}
  .winners-head{margin:28px 0 18px}
  .dialog-body{padding:24px 20px 20px}.dialog-actions{padding:15px 20px}
 }
-@media(max-width:390px){
- .brand{font-size:13px}.identity{gap:0}
+@media(max-width:430px){
  .nav{gap:8px}.nav button:not(.theme-toggle){font-size:11px}.nav button.theme-toggle{height:32px;width:32px}
+ .brand{font-size:clamp(10px,calc((100cqw - 172px) / 13.2),17px)}
+}
+@media(max-width:390px){
  .store{font-size:17px}.event-row{grid-template-columns:minmax(0,1fr) 64px 13px;gap:6px}
  .price-col{font-size:14px}
+}
+@media(max-width:359px){
+ .wrapper{padding:0 14px}
+ .site-header .wrapper{column-gap:8px}
+ .nav{gap:6px}.nav button.theme-toggle{height:30px;width:30px}
+ .brand{font-size:clamp(10px,calc((100cqw - 160px) / 13),17px);gap:.25em}
 }
