@@ -1,0 +1,91 @@
+name: Sincronizar calendário e publicar
+
+on:
+  schedule:
+    - cron: '7,37 * * * *'   # a cada 30 minutos
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Publicar mesmo que o nº de eventos caia mais de 50%'
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+
+# Permissões mínimas por omissão; só o deploy recebe permissões de escrita no Pages.
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      # Enquanto o segredo não existir, o workflow termina sem erro e sem publicar nada.
+      - name: Verificar configuração
+        id: check
+        env:
+          HAS_SECRET: ${{ secrets.CALENDAR_ICS_URL != '' }}
+        run: |
+          if [ "$HAS_SECRET" = "true" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Segredo CALENDAR_ICS_URL ainda não configurado — nada foi publicado."
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Testes (importador e segurança)
+        run: node --test test/*.test.mjs
+
+      - name: Configurar Pages
+        id: pages
+        if: steps.check.outputs.configured == 'true'
+        uses: actions/configure-pages@v5
+
+      # O segredo só existe neste passo, como variável de ambiente. O GitHub mascara-o nos logs
+      # e o script nunca o escreve (mensagens de erro passam por redact()).
+      - name: Ler o Google Calendar (só leitura)
+        if: steps.check.outputs.configured == 'true'
+        env:
+          CALENDAR_ICS_URL: ${{ secrets.CALENDAR_ICS_URL }}
+          PREVIOUS_EVENTS_URL: ${{ steps.pages.outputs.base_url }}/data/events.json
+          FORCE_SYNC: ${{ inputs.force || false }}
+        run: node scripts/build-data.mjs
+
+      - name: Verificar que só vão dados públicos
+        if: steps.check.outputs.configured == 'true'
+        env:
+          CALENDAR_ICS_URL: ${{ secrets.CALENDAR_ICS_URL }}
+        run: node scripts/check-public.mjs site
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.check.outputs.configured == 'true'
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.configured == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

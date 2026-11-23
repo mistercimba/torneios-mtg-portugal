@@ -1,0 +1,13 @@
+{
+  "name": "torneios-mtg-portugal",
+  "private": true,
+  "type": "module",
+  "description": "Agenda de torneios de Magic: The Gathering em Portugal, gerada a partir do Google Calendar.",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "build": "node scripts/build-data.mjs",
+    "build:fixture": "node scripts/build-data.mjs --input test/fixtures/exemplo.ics",
+    "dev": "python3 -m http.server 8000 -d site"
+  }
+}

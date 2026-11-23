@@ -1,0 +1,6 @@
+{
+  "milestones": [
+    { "circuit": "RCQ", "ronda": "R2", "label": "Round 2 · Standard", "start": "2026-08-15", "end": "2026-11-29" },
+    { "circuit": "RCQ", "ronda": "R3", "label": "Round 3 · Standard", "start": "2026-12-11", "end": "2027-03-07" }
+  ]
+}

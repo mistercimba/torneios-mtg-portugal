@@ -1,0 +1,30 @@
+{
+  "title": "RCQ · Round 2 · 2026",
+  "results": [
+    {"date":"2026-08-15","store":"Ventura Games","city":"Barreiro","name":"Miguel Valente","deck":"Dimir Midrange","players":16},
+    {"date":"2026-08-23","store":"Versus Gamecenter","city":"Lisboa","name":"Tiago Marques","deck":"Dimir Midrange","players":30},
+    {"date":"2026-08-29","store":"Mulligan","city":"Portimão","name":"Sérgio Preto","deck":null,"players":9},
+    {"date":"2026-08-30","store":"Mercadia Sul","city":"Almada","name":"Ricardo Velez","deck":"Temur Harmonizer","players":15},
+    {"date":"2026-08-30","store":"Arena Porto","city":"Porto","name":"Vitor Bessa","deck":null,"players":26},
+    {"date":"2026-09-06","store":"Versus Gamecenter","city":"Lisboa","name":"Nelson Rodrigues","deck":"4C Control","players":23},
+    {"date":"2026-09-12","store":"Mercadia Sul","city":"Almada","name":"André Oliveira","deck":"Mono-Green Landfall","players":12},
+    {"date":"2026-09-13","store":"Lotus Valley","city":"Arruda dos Vinhos","name":"André Compal","deck":"Mono-Green Landfall","players":8},
+    {"date":"2026-09-13","store":"Arena Porto","city":"Porto","name":"Celestino Machado","deck":"Naya Delirium","players":32},
+    {"date":"2026-09-13","store":"PlayHub","city":"Faro","name":"André Simões","deck":"Bant Airbend","players":10},
+    {"date":"2026-09-19","store":"Magus","city":"Vila Nova de Famalicão","name":"Nuno Vale","deck":"Mono-Green Landfall","players":26},
+    {"date":"2026-09-19","store":"Mulligan","city":"Quarteira","name":"João Barracha","deck":"Rakdos Discard","players":null},
+    {"date":"2026-09-19","store":"Mercadia Games","city":"Benfica","name":"Ricardo Soares","deck":"Mono-Green Landfall","players":9},
+    {"date":"2026-10-03","store":"FriendZone Lounge","city":"Aveiro","name":"Victor Graveto","deck":"Dimir Kaito","players":17},
+    {"date":"2026-10-03","store":"ZukaCards","city":"Guimarães","name":"Nuno Amaral","deck":null,"players":11},
+    {"date":"2026-10-04","store":"Versus Gamecenter","city":"Lisboa","name":"Miguel Simões","deck":null,"players":18},
+    {"date":"2026-10-10","store":"Templars Arena","city":"Rio de Mouro","name":"Diogo Santos","deck":null,"players":15},
+    {"date":"2026-10-17","store":"Mercadia Games","city":"Benfica","name":"André Santos","deck":"Izzet Spellementals","players":14},
+    {"date":"2026-10-17","store":"Magus","city":"Vila Nova de Famalicão","name":"Paulo Pinto","deck":"Dimir Midrange","players":28},
+    {"date":"2026-10-18","store":"Versus Gamecenter","city":"Lisboa","name":"Márcio Carvalho","deck":"Mono-Green Landfall","players":22},
+    {"date":"2026-10-18","store":"Arena Porto","city":"Porto","name":"Diogo Pereira","deck":null,"players":29},
+    {"date":"2026-10-24","store":"Mercadia Sul","city":"Almada","name":"Igor Alexandre","deck":"Jund Sacrifice","players":10},
+    {"date":"2026-10-31","store":"Versus Gamecenter","city":"Lisboa","name":"Guilherme Pires","deck":"Izzet Spellementals","players":22},
+    {"date":"2026-10-31","store":"ZukaCards","city":"Guimarães","name":"Fábio Gonçalves","deck":"Dimir Kaito","players":19},
+    {"date":"2026-10-31","store":"EndTurn","city":"Avintes","name":"Rodrigo Meira","deck":null,"players":12}
+  ]
+}

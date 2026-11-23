@@ -1,0 +1,8 @@
+build/
+node_modules/
+.DS_Store
+
+# Dados reais do calendário: nunca vão para o repositório público.
+test/fixtures/private/
+# Gerado pelo GitHub Actions a cada sincronização.
+site/data/events.json
