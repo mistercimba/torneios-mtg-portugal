@@ -155,25 +155,34 @@ test('7. evento que acaba às 00:00 aparece num só dia; eventos de vários dias
   await page.close();
 });
 
-// Limite de 4:1 (e não 4,5:1): as etiquetas âmbar e «Formato a confirmar» da v10.3 ficam em 4,2–4,4:1
-// no modo claro. Fica registado como pendente; este teste impede que piore.
+// Contraste mínimo de 4,5:1 (WCAG AA) para texto e etiquetas, nos dois temas, incluindo o modal.
 test('modo claro e escuro: sem erros e etiquetas legíveis em desktop e mobile', { skip }, async () => {
   for (const theme of ['light', 'dark']) for (const w of [1280, 390]) {
     const page = await open({ width: w, theme });
     assert.equal(await page.eval(`document.documentElement.dataset.theme`), theme);
-    const lowContrast = await page.eval(`(() => {
+    const check = () => page.eval(`(() => {
       const lum = c => { const [r,g,b] = c.match(/\\d+(\\.\\d+)?/g).slice(0,3).map(Number).map(v => { v/=255; return v <= .03928 ? v/12.92 : ((v+.055)/1.055)**2.4; }); return .2126*r+.7152*g+.0722*b; };
       const bgOf = el => { while (el) { const c = getComputedStyle(el).backgroundColor; if (c && !c.endsWith(', 0)') && c !== 'transparent') return c; el = el.parentElement; } return getComputedStyle(document.body).backgroundColor; };
       const bad = [];
-      for (const el of document.querySelectorAll('.store, .win, .event-format, .event-series, .event-round, .price-col, .month-title h3, .count, .result-meta, .milestone-name')) {
+      for (const el of document.querySelectorAll('.store, .win, .event-format, .event-series, .event-round, .price-col, .month-title h3, .count, .result-meta, .milestone-name, .info-kind, .event-checkin, .subline, .event-place small, .price-col small, .filter label, .dialog-meta, .dialog-location, .dialog-tab, .detail-label, .detail-value, .detail-section li, .dialog-note, .unavailable')) {
         if (!el.offsetParent) continue;
         const a = lum(getComputedStyle(el).color), b = lum(bgOf(el));
         const ratio = (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
-        if (ratio < 4) bad.push(el.className + ' ' + ratio.toFixed(2));
+        if (ratio < 4.5) bad.push(el.className + ' ' + ratio.toFixed(2));
       }
       return bad.slice(0, 5);
     })()`);
-    assert.deepEqual(lowContrast, [], `${theme} ${w}px: contraste baixo`);
+    // Agenda com passados visíveis (inclui etiquetas âmbar, «Formato a confirmar», marcos e datas informativas).
+    await page.eval(`document.getElementById('past').click()`);
+    assert.deepEqual(await check(), [], `${theme} ${w}px: contraste baixo na agenda`);
+    assert.ok(await page.eval(`!!document.querySelector('.event-format.c-amber') && !!document.querySelector('.event-format.pending')`), 'a fixture deve incluir etiquetas âmbar e pendentes');
+    // Modal de um evento em revisão (aviso, etiquetas, detalhes).
+    await page.eval(`[...document.querySelectorAll('.event-row')].find(r => r.textContent.includes('Qualificador') && r.textContent.includes('Loja Exemplo Sul')).click()`);
+    assert.deepEqual(await check(), [], `${theme} ${w}px: contraste baixo no modal`);
+    await page.eval(`document.getElementById('detail-dialog').close()`);
+    // Vencedores.
+    await page.eval(`document.querySelector('[data-view="winners"]').click()`);
+    assert.deepEqual(await check(), [], `${theme} ${w}px: contraste baixo nos vencedores`);
     assert.deepEqual(page.errors, []);
     await page.close();
   }

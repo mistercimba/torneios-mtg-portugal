@@ -81,6 +81,7 @@ html[data-theme="light"] .round-milestone.start .milestone-name{color:#a46720}
 .event-format{font-weight:700;letter-spacing:.02em}
 .event-series,.event-round{font-weight:800}
 .event-format.pending{text-transform:none;letter-spacing:0;font-weight:600;color:var(--muted)}
+html:not([data-theme="dark"]) .event-format.pending{color:#64727e} /* 4,6:1 sobre --surface (era 4,4:1) */
 .store{font-size:24px;line-height:1.18;letter-spacing:-.03em;font-weight:780;display:block;color:var(--text);margin-bottom:7px;overflow-wrap:anywhere}
 .event-row:hover .store{color:var(--accent)}
 .subline{display:none}
@@ -110,6 +111,9 @@ html[data-theme="light"] .round-milestone.start .milestone-name{color:#a46720}
 .dialog-body{padding:27px 29px 20px;max-height:calc(92dvh - 83px);overflow-y:auto}
 .dialog-top{display:flex;align-items:start;justify-content:space-between;gap:16px}
 .dialog-meta{font-size:11px;color:var(--green);font-weight:650;letter-spacing:.04em;text-transform:uppercase}
+html:not([data-theme="dark"]) .dialog-meta{color:#188052} /* 4,6:1 sobre o fundo do modal (era 4,4:1) */
+/* No modal (fundo --surface), o cinzento secundário passa de 4,4:1 para 4,6:1. */
+html:not([data-theme="dark"]) .dialog{--muted:#64727e}
 .dialog h2{font-size:27px;line-height:1.17;margin:8px 0;font-weight:720;letter-spacing:-.045em;overflow-wrap:anywhere}
 .dialog-location{font-size:13px;color:var(--secondary)}
 .dialog-location + .dialog-location{margin-top:2px;color:var(--muted)}
@@ -140,7 +144,7 @@ html:not([data-theme=dark]) .dialog-actions a.primary{color:white}
 
 /* ---------- Paleta das etiquetas (formato · circuito · ronda) ---------- */
 .c-blue{--c-bg:#edf3fb;--c-bd:#d5e1f0;--c-fg:#2d5f97}
-.c-amber{--c-bg:#fff3df;--c-bd:#f0ddba;--c-fg:#a46720}
+.c-amber{--c-bg:#fff3df;--c-bd:#f0ddba;--c-fg:#9b621e} /* era #a46720 (4,2:1); ajustado para 4,6:1 */
 .c-purple{--c-bg:#f1effd;--c-bd:#ddd7fb;--c-fg:#6652b5}
 .c-green{--c-bg:#e8f5ee;--c-bd:#cbe7d7;--c-fg:#1f7a4a}
 .c-teal{--c-bg:#e6f5f5;--c-bd:#c4e5e6;--c-fg:#17717a}
