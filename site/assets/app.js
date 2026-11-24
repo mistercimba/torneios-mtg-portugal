@@ -197,10 +197,11 @@ const placeLine = e => {
   return [e.local, e.pais].filter(Boolean).join(' · ');
 };
 const timeLine = e => {
-  // Na lista só a hora em que começa o check-in; o intervalo completo fica no detalhe do torneio.
-  if (e.checkin) return `Check-in ${String(e.checkin).split(/\s*[–-]\s*/)[0]}`;
+  // Na lista só a hora a que começa (no calendário, o início dos RCQs é o início do check-in);
+  // o intervalo do check-in fica no detalhe do torneio.
   if (e.dateStart !== e.dateEnd) return rangeLabel(e, true);
-  if (!e.allDay && e.timeStart) return `Início ${e.timeStart}`;
+  if (e.checkin) return String(e.checkin).split(/\s*[–-]\s*/)[0];
+  if (!e.allDay && e.timeStart) return e.timeStart;
   return '';
 };
 

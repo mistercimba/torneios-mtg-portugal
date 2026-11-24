@@ -174,7 +174,7 @@ test('7. evento que acaba às 00:00 aparece num só dia; eventos de vários dias
   const night = await row('Loja Exemplo Centro');
   // LCQ nocturno: 4 Dez 20:00 → 5 Dez 00:00
   const nightRow = await page.eval(`[...document.querySelectorAll('.event-row')].find(r => r.getAttribute('aria-label').includes('4 Dezembro'))?.innerText`);
-  assert.ok(nightRow && nightRow.includes('Início 20:00'), `linha do evento nocturno: ${nightRow} / ${night}`);
+  assert.ok(nightRow && nightRow.includes('20:00'), `linha do evento nocturno: ${nightRow} / ${night}`);
   assert.ok(!/4–5|5 Dezembro/.test(nightRow), 'não deve aparecer como 2 dias');
   await page.eval(`[...document.querySelectorAll('.event-row')].find(r => r.getAttribute('aria-label').includes('4 Dezembro')).click()`);
   const modal = await page.eval(`document.getElementById('dialog-body').innerText`);
