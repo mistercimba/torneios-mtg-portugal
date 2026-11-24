@@ -178,7 +178,7 @@ test('7. evento que acaba às 00:00 aparece num só dia; eventos de vários dias
   assert.ok(!/4–5|5 Dezembro/.test(nightRow), 'não deve aparecer como 2 dias');
   await page.eval(`[...document.querySelectorAll('.event-row')].find(r => r.getAttribute('aria-label').includes('4 Dezembro')).click()`);
   const modal = await page.eval(`document.getElementById('dialog-body').innerText`);
-  assert.ok(modal.includes('20:00–00:00'), `modal: ${modal}`);
+  assert.ok(modal.includes('20:00') && !/5 DEZEMBRO|5 Dezembro/.test(modal), `modal: ${modal}`); // só a hora de início, num só dia
   assert.ok(!modal.includes('Datas'), 'modal não deve mostrar intervalo de datas');
   await page.eval(`document.getElementById('detail-dialog').close()`);
   const twoDay = await page.eval(`[...document.querySelectorAll('.event-row')].find(r => r.getAttribute('aria-label').includes('19 Dezembro') && r.textContent.includes('Loja Exemplo Norte'))?.innerText`);
@@ -697,8 +697,8 @@ test('22b. ficha das lojas: morada, Instagram e site por defeito no detalhe, no 
   assert.ok(d.loc.includes('Rua Exemplo 1, 4760-000 Vila Nova de Famalicão'), JSON.stringify(d.loc));
   const href = t => d.links.find(([x]) => x.startsWith(t))?.[1];
   assert.equal(href('Instagram'), 'https://www.instagram.com/loja_exemplo');
-  assert.equal(href('Site da loja'), 'https://exemplo.pt');
-  assert.ok(decodeURIComponent(href('Ver no mapa')).includes('Rua Exemplo 1'));
+  assert.equal(href('Site'), 'https://exemplo.pt');
+  assert.ok(decodeURIComponent(href('Mapa')).includes('Rua Exemplo 1'));
   await page.eval(`document.querySelector('#dialog-actions .store-link').click()`);
   await page.waitFor(`document.querySelector('.store-page h2')`);
   const st = await page.eval(`({ addr: document.querySelector('.store-address')?.textContent, ig: !!document.querySelector('.store-actions a[href="https://www.instagram.com/loja_exemplo"]') })`);
@@ -929,3 +929,22 @@ test('27. ecrãs baixos: «Limpar/Feito» das listas sempre visíveis; vencedore
   await page.close();
 });
 
+
+test('28. detalhe compacto: sem informação repetida; calendário num menu; acções numa barra', { skip }, async () => {
+  for (const w of [1280, 390]) {
+    const page = await open({ width: w });
+    await page.eval(`[...document.querySelectorAll('.event-row')].find(r => r.querySelector('.type-pill').textContent.startsWith('RCQ')).click()`);
+    const d = await page.eval(`(() => {
+      const facts = [...document.querySelectorAll('.facts dt')].map(x => x.textContent);
+      const menu = document.querySelector('.add-cal');
+      return { facts, tabs: document.querySelectorAll('.dialog-tab').length, meta: document.querySelector('.dialog-meta').textContent,
+        menuClosed: !menu.open, google: !!menu.querySelector('a[href^="https://calendar.google.com/"]'), oldGrid: !!document.querySelector('.detail-grid') };
+    })()`);
+    assert.ok(!d.facts.some(f => /Formato|Ronda|Horário|Vagas.*Vagas/.test(f)), `${w}px: factos repetidos ${d.facts}`);
+    assert.ok(d.tabs <= 2, `${w}px: etiquetas a mais`);
+    assert.ok(d.menuClosed && d.google && !d.oldGrid);
+    assert.match(d.meta, /\d{4}/);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+  }
+});

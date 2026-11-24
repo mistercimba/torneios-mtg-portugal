@@ -562,7 +562,7 @@ const addressOf = e => (e.scope !== 'portugal' ? null : looksLikeAddress(e.local
 const socialUrl = (v, base) => (!v ? null : /^https?:\/\//i.test(v) ? safeUrl(v) : base + encodeURIComponent(v.replace(/^@/, '').replace(/^\/+|\/+$/g, '')));
 function storeLinksHtml(info) {
   if (!info) return '';
-  return [[socialUrl(info.instagram, 'https://www.instagram.com/'), 'Instagram'], [socialUrl(info.facebook, 'https://www.facebook.com/'), 'Facebook'], [safeUrl(info.site), 'Site da loja']]
+  return [[socialUrl(info.instagram, 'https://www.instagram.com/'), 'Instagram'], [socialUrl(info.facebook, 'https://www.facebook.com/'), 'Facebook'], [safeUrl(info.site), 'Site']]
     .filter(([u]) => u).map(([u, t]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${t} ↗</a>`).join('');
 }
 let winners = [];
@@ -707,40 +707,37 @@ function openDetails(id) {
   const name = displayName(e);
   const dateMeta = e.dateStart === e.dateEnd ? formatDate(e.dateStart) : `${rangeLabel(e)} ${asDate(e.dateEnd).getFullYear()}`;
 
-  // A etiqueta do tipo usa a cor do tipo (como na agenda); as restantes mantêm o estilo da v10.3.
+  // Cabeçalho: data e horário numa linha; etiquetas só com o tipo (+ round) e o formato.
+  // Só a hora de início (a hora de fim é apenas um slot no calendário); com check-in, a hora já está nos factos.
+  const time = e.dateStart === e.dateEnd && !e.allDay && e.timeStart && !e.checkin ? e.timeStart : '';
+  const when = [dateMeta, time].filter(Boolean).join(' · ');
   const tabs = [
-    `<span class="dialog-tab dialog-type ${typeClass(e)}">${esc(typeName(e.tipo) + (e.fase ? ' · ' + e.fase : ''))}</span>`,
-    ...[e.formato ? `${e.formato}${e.set ? ' · ' + e.set : ''}` : null,
-      roundText(e) || null, e.vagas ? `${e.vagas} vagas` : null,
-      e.scope === 'internacional' ? 'Internacional' : null,
-    ].filter(Boolean).map(t => `<span class="dialog-tab">${esc(t)}</span>`),
+    `<span class="dialog-tab dialog-type ${typeClass(e)}">${esc([typeName(e.tipo), e.fase, roundText(e)].filter(Boolean).join(' · '))}</span>`,
+    ...(isInfo(e) ? [] : [`<span class="dialog-tab${e.formato ? '' : ' muted'}">${esc(e.formato ? `${e.formato}${e.set ? ' · ' + e.set : ''}` : 'Formato a confirmar')}</span>`]),
   ];
 
-  const details = [];
-  const add = (label, value, muted) => details.push(`<div class="detail"><div class="detail-label">${esc(label)}</div><div class="detail-value${muted ? ' muted' : ''}">${esc(value)}</div></div>`);
-  if (e.scope === 'portugal') add('Inscrição', e.preco != null ? (e.preco === 0 ? 'Grátis' : euro(e.preco)) : (e.precoTexto || 'A confirmar'), e.preco == null && !e.precoTexto);
-  if (e.checkin) add('Check-in', e.checkin);
-  if (e.dateStart !== e.dateEnd) add('Datas', `${rangeLabel(e)} ${asDate(e.dateEnd).getFullYear()}`);
-  else if (!e.allDay && e.timeStart) add(e.timeEnd && e.timeEnd !== e.timeStart ? 'Horário' : 'Início', `${e.timeStart}${e.timeEnd && e.timeEnd !== e.timeStart ? '–' + e.timeEnd : ''}`);
-  if (!isInfo(e)) add('Formato', e.formato ? `${e.formato}${e.set ? ' · ' + e.set : ''}` : 'A confirmar', !e.formato);
-  if (e.scope === 'portugal') add('Juiz', e.juiz || 'A confirmar', !e.juiz);
-  if (e.ronda) add('Ronda', e.rondaDeduzida ? `${roundText(e)} (pela data)` : roundText(e));
-  if (e.fase) add('Fase', e.fase);
-  if (e.vagas) add('Vagas', String(e.vagas));
-  if (e.qualifica) add('Qualifica para', e.qualifica);
+  // Factos curtos em grelha compacta (sem repetir o que já está no cabeçalho).
+  const facts = [];
+  const fact = (label, value, muted) => facts.push(`<div class="fact"><dt>${esc(label)}</dt><dd${muted ? ' class="muted"' : ''}>${esc(value)}</dd></div>`);
+  if (e.scope === 'portugal' && !isInfo(e)) fact('Inscrição', e.preco != null ? (e.preco === 0 ? 'Grátis' : euro(e.preco)) : (e.precoTexto || 'A confirmar'), e.preco == null && !e.precoTexto);
+  if (e.checkin) fact('Check-in', e.checkin);
+  if (e.scope === 'portugal' && !isInfo(e)) fact('Juiz', e.juiz || 'A confirmar', !e.juiz);
+  if (e.vagas) fact('Vagas', String(e.vagas));
+  if (e.rondaDeduzida) fact('Round', 'Atribuída pela data');
 
   const list = (title, items) => (items && items.length ? `<div class="detail-section"><h3>${esc(title)}</h3><ul>${items.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>` : '');
   const sub = [];
-  if (name !== e.title) sub.push(e.title);
   const addr = addressOf(e);
   const where = e.scope === 'portugal' ? (addr ? null : [placeLine(e), e.local && normalize(e.local) !== normalize(e.loja) ? e.local : null].filter(Boolean).join(' — ')) || null : placeLine(e);
   if (addr) sub.push(addr);
   if (where) sub.push(e.scope === 'internacional' && flagFor(countryOf(e)) ? `${where} ${flagFor(countryOf(e))}` : where);
+  if (isInfo(e) && name !== e.title) sub.unshift(e.title);
 
   document.getElementById('dialog-body').innerHTML =
-    `<div class="dialog-top"><div><div class="dialog-meta">${esc(dateMeta)}</div><h2 id="modal-title">${esc(name)}</h2>${sub.map(s => `<div class="dialog-location">${esc(s)}</div>`).join('')}</div><button type="button" class="dialog-close" id="close-dialog" aria-label="Fechar detalhes">×</button></div>`
+    `<div class="dialog-top"><div><div class="dialog-meta">${esc(when)}</div><h2 id="modal-title">${esc(name)}</h2>${sub.map(s => `<div class="dialog-location">${esc(s)}</div>`).join('')}</div><button type="button" class="dialog-close" id="close-dialog" aria-label="Fechar detalhes">×</button></div>`
     + `<div class="dialog-tabs">${tabs.join('')}</div>`
-    + (details.length ? `<div class="detail-grid">${details.join('')}</div>` : '')
+    + (e.qualifica ? `<div class="dialog-qualifica">Qualifica para <b>${esc(e.qualifica)}</b></div>` : '')
+    + (facts.length ? `<dl class="facts">${facts.join('')}</dl>` : '')
     + list('Prémios', e.premios)
     + list('Notas', e.notas)
     + (e.emRevisao ? '<div class="dialog-note">Alguns dados deste evento estão a ser confirmados. Consulta o anúncio original antes de te inscreveres.</div>' : '');
@@ -750,14 +747,14 @@ function openDetails(id) {
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr ? [e.loja, addr].filter(Boolean).join(', ') : [e.local || e.loja, e.localidade].filter(Boolean).join(', '))}` : null);
   const icsName = (e.title || 'evento').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase().slice(0, 60) + '.ics';
   const store = storeKey(e);
+  // Acções compactas: inscrição em destaque; o resto em botões curtos; calendário num menu.
   document.getElementById('dialog-actions').innerHTML =
-    `<span class="add-cal"><span class="add-cal-label">Adicionar ao calendário:</span><a href="${esc(googleCalendarUrl(e))}" target="_blank" rel="noopener">Google Calendar</a><a href="#" class="ics-link" data-name="${esc(icsName)}">Apple / Outlook (.ics)</a></span>`
-    + `<button type="button" class="share-btn" id="share-event">Partilhar</button>`
-    + (store ? `<a href="#loja-${esc(store)}" class="store-link">Ver a loja</a>` : '')
-    + (map ? `<a href="${esc(map)}" target="_blank" rel="noopener">Ver no mapa ↗</a>` : '')
+    (link ? `<a class="primary" href="${esc(link)}" target="_blank" rel="noopener">${isInfo(e) ? 'Mais informação' : 'Inscrição / anúncio'} ↗</a>` : (isInfo(e) ? '' : '<span class="unavailable">Sem link de inscrição</span>'))
+    + (map ? `<a href="${esc(map)}" target="_blank" rel="noopener">Mapa ↗</a>` : '')
     + storeLinksHtml(storeInfo(e))
-    + (link ? `<a class="primary" href="${esc(link)}" target="_blank" rel="noopener">${isInfo(e) ? 'Mais informação' : 'Inscrição / anúncio'} ↗</a>` : (isInfo(e) ? '' : '<span class="unavailable">Ligação para inscrição não indicada</span>'));
-
+    + (store ? `<a href="#loja-${esc(store)}" class="store-link">Loja</a>` : '')
+    + `<button type="button" class="share-btn" id="share-event">Partilhar</button>`
+    + `<details class="add-cal"><summary>Calendário</summary><div class="add-cal-menu"><span class="add-cal-label">Adicionar ao calendário:</span><a href="${esc(googleCalendarUrl(e))}" target="_blank" rel="noopener">Google Calendar</a><a href="#" class="ics-link" data-name="${esc(icsName)}">Apple / Outlook (.ics)</a></div></details>`;
   document.querySelector('#dialog-actions .ics-link').addEventListener('click', ev => {
     ev.preventDefault();
     const url = URL.createObjectURL(new Blob([icsFile(e)], { type: 'text/calendar;charset=utf-8' }));
