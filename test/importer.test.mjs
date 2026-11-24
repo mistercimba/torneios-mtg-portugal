@@ -207,3 +207,61 @@ test('vencedores: erros de rede ou documento privado mantêm o ficheiro anterior
   assert.equal(res.results, null);
   assert.match(res.error, /HTTP 404/);
 });
+
+// ---------- Listas oficiais dos RCQs vs calendário ----------
+import { parseAnnouncements, compareWithCalendar, rcqCheckMarkdown, storeKeyFor } from '../scripts/lib/rcq-check.mjs';
+
+test('listas RCQ: lê os torneios anunciados (preço, check-in, juiz, vagas, link)', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const r2 = parseAnnouncements(await readFile(new URL('./fixtures/rcq-r2.txt', import.meta.url), 'utf8'), { round: 'R2' });
+  const r3 = parseAnnouncements(await readFile(new URL('./fixtures/rcq-r3.txt', import.meta.url), 'utf8'), { round: 'R3' });
+  assert.equal(r2.length, 12); // 6 de 28–29 Nov + 6 anunciados na secção dos vencedores (1, 14 e 22 Nov)
+  assert.equal(r3.length, 4);
+  const lotus = r2.find(a => a.store === 'Lotus Valley');
+  assert.deepEqual([lotus.date, lotus.city, lotus.format, lotus.price, lotus.vagas, lotus.checkin, lotus.judge], ['2026-11-28', 'Arruda dos Vinhos', 'Standard', 30, 32, '10:00–10:30', 'Daniel Candeias L2']);
+  const magus = r2.find(a => a.store === 'Magus' && a.date === '2026-11-28');
+  assert.equal(magus.judge, null, '«Judge: TBA» → sem juiz');
+  assert.equal(magus.link, 'https://www.facebook.com/events/1817063529417416/');
+  assert.deepEqual(r3.map(a => [a.date, a.store, a.format]), [['2026-12-13', 'Arena Porto', 'Standard'], ['2027-01-10', 'Arena Porto', 'Standard'], ['2027-02-07', 'Arena Porto', 'Sealed Nauctis'], ['2027-03-07', 'Arena Porto', 'Standard']]);
+  assert.ok(!r2.some(a => a.store.includes('Ventura')), 'vencedores não são anúncios');
+});
+
+test('listas RCQ: diferenças com o calendário (loja, falta, sobra, dados) e iguais', () => {
+  const ann = [
+    { date: '2026-11-28', store: 'Templar Games', city: 'Tomar', format: 'Standard', price: 28, vagas: null, checkin: '14:00–14:30', judge: 'Filipe Silvestre L1', link: null, round: 'R2' },
+    { date: '2026-11-28', store: 'End Turn', city: 'Avintes', format: 'Standard', price: 22, vagas: null, checkin: '09:30–10:00', judge: 'Diogo Ferreira L1', link: null, round: 'R2' },
+    { date: '2026-11-29', store: 'Arena Porto', city: 'Porto', format: 'Standard', price: 21, vagas: null, checkin: '09:30–10:00', judge: null, link: 'https://x.pt/e', round: 'R2' },
+    { date: '2026-12-13', store: 'Arena Porto', city: 'Porto', format: 'Standard', price: 21, vagas: null, checkin: '09:30–10:00', judge: null, link: null, round: 'R3' },
+    { date: '2026-11-01', store: 'Passado', city: 'Porto', format: 'Standard', price: 21, round: 'R2' },
+  ];
+  const ev = (o) => ({ typeKey: 'rcq', scope: 'portugal', set: null, vagas: null, ligacao: null, juiz: null, ...o });
+  const events = [
+    ev({ dateStart: '2026-11-28', loja: 'Templars Arena Gamecenter', localidade: 'Rio de Mouro', formato: 'Standard', preco: 28, checkin: '14:00–14:30', juiz: 'Filipe Silvestre L1', ronda: 'R2' }),
+    ev({ dateStart: '2026-11-28', loja: 'EndTurn', localidade: 'Avintes', formato: 'Standard', preco: 22, checkin: '09:30–10:00', juiz: 'Diogo Ferreira L1', ronda: 'R2' }),
+    ev({ dateStart: '2026-11-29', loja: 'Arena Porto', localidade: 'Porto', formato: 'Standard', preco: 20, checkin: '09:30–10:00', ronda: 'R2' }),
+    ev({ dateStart: '2027-01-17', loja: 'Zenith', localidade: 'Leiria', formato: 'Standard', preco: 20, ronda: 'R3' }),
+    ev({ dateStart: '2026-12-05', loja: 'Outro circuito', localidade: 'Porto', formato: 'Pauper', typeKey: 'lpp' }),
+  ];
+  const r = compareWithCalendar(ann, events, '2026-11-24');
+  assert.equal(r.checked, 4);
+  assert.equal(r.ok, 1, 'End Turn igual (EndTurn no calendário conta como a mesma loja)');
+  const kinds = r.problems.map(p => `${p.date} ${p.kind}`);
+  assert.deepEqual(kinds, ['2026-11-28 loja', '2026-11-29 diferente', '2026-12-13 falta', '2027-01-17 sobra']);
+  assert.match(r.problems[1].message, /preço: calendário 20 €, lista 21 €; ligação em falta/);
+  const md = rcqCheckMarkdown(r);
+  assert.match(md, /4 RCQs anunciados .* 1 iguais · 4 diferenças/);
+  assert.match(md, /Templar Games \(Tomar\) — \*\*Loja diferente\*\*/);
+  assert.match(rcqCheckMarkdown(null), /Não foi possível ler as listas/);
+});
+
+test('listas RCQ: a chave da loja é a mesma do site (app.js)', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const app = await readFile(new URL('../site/assets/app.js', import.meta.url), 'utf8');
+  // As duas implementações usam as mesmas palavras genéricas e aliases de cidade.
+  assert.ok(app.includes("const STORE_STOPWORDS = /\\b(games?|gamestore|gamecenter|gaming|store|loja|de|jogos)\\b/g;"));
+  assert.ok(app.includes("const CITY_ALIAS = { benfica: 'lisboa' };"));
+  assert.equal(storeKeyFor('End Turn', 'Avintes'), storeKeyFor('EndTurn', 'Avintes'));
+  assert.equal(storeKeyFor('Mulligan Quarteira', 'Quarteira'), storeKeyFor('Mulligan Games', 'Quarteira'));
+  assert.equal(storeKeyFor('Arena Porto', 'Porto'), 'arena-porto');
+  assert.notEqual(storeKeyFor('Templar Games', 'Tomar'), storeKeyFor('Templars Arena Gamecenter', 'Rio de Mouro'));
+});

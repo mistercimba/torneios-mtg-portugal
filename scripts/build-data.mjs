@@ -19,7 +19,8 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseIcs } from './lib/ics.mjs';
 import { normalizeEvent, flagDuplicates } from './lib/normalize.mjs';
-import { fetchWinners } from './lib/winners.mjs';
+import { fetchWinners, fetchListTexts } from './lib/winners.mjs';
+import { parseAnnouncements, compareWithCalendar, rcqCheckMarkdown } from './lib/rcq-check.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = resolve(ROOT, 'site/data/events.json');
@@ -170,10 +171,10 @@ function reviewMarkdown(events, excluded, generatedAt) {
 const WINNERS_OUT = resolve(ROOT, 'site/data/winners.json');
 
 /** Actualiza site/data/winners.json a partir das listas; mantém o ficheiro anterior se algo correr mal. */
-export async function updateWinners(cfg, generatedAt, { fetchImpl = fetch, out = WINNERS_OUT } = {}) {
+export async function updateWinners(cfg, generatedAt, { fetchImpl = fetch, out = WINNERS_OUT, lists = null } = {}) {
   let previous = [];
   try { previous = JSON.parse(await readFile(out, 'utf8')).results || []; } catch { /* sem ficheiro anterior */ }
-  const { results, error } = await fetchWinners(cfg.sources, { fetchImpl });
+  const { results, error } = await fetchWinners(cfg.sources, { fetchImpl, lists });
   if (error) return `Vencedores: mantidos os ${previous.length} anteriores (${error}).`;
   if (previous.length >= 6 && results.length < previous.length * 0.5) return `Vencedores: a lista devolveu ${results.length} (antes ${previous.length}); mantidos os anteriores.`;
   await writeFile(out, JSON.stringify({ title: cfg.title || '', generatedAt, results }, null, 1) + '\n');
@@ -200,13 +201,26 @@ async function main() {
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, json);
 
-  const review = redact(reviewMarkdown(events, excluded, generatedAt));
+  // Listas oficiais dos RCQs (só na sincronização real): vencedores + verificação contra o calendário.
+  // Um erro aqui nunca impede a publicação.
+  let rcqSection = '';
+  const listsCfg = config.rcqLists;
+  if (!inputs.length && listsCfg?.sources?.length) {
+    const lists = await fetchListTexts(listsCfg.sources);
+    console.log(await updateWinners(listsCfg, generatedAt, { lists }));
+    let check = null;
+    if (!lists.error) {
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon' }).format(new Date());
+      check = compareWithCalendar(lists.texts.flatMap(t => parseAnnouncements(t.text, { round: t.round })), events, today);
+      console.log(`Listas RCQ: ${check.checked} anunciados · ${check.ok} iguais · ${check.problems.length} diferenças.`);
+    }
+    rcqSection = '\n' + rcqCheckMarkdown(check);
+  }
+
+  const review = redact(reviewMarkdown(events, excluded, generatedAt) + rcqSection);
   await mkdir(REVIEW_DIR, { recursive: true });
   await writeFile(resolve(REVIEW_DIR, 'review.md'), review);
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, review);
-
-  // Vencedores a partir das listas oficiais (só na sincronização real; um erro aqui não impede a publicação).
-  if (!inputs.length && config.winners?.sources?.length) console.log(await updateWinners(config.winners, generatedAt));
 
   const scopes = events.reduce((acc, e) => ((acc[e.scope] = (acc[e.scope] || 0) + 1), acc), {});
   console.log(`OK: ${events.length} eventos (${Object.entries(scopes).map(([k, v]) => `${k} ${v}`).join(', ')}).`);

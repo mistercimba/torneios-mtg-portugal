@@ -79,20 +79,28 @@ export function parseWinnersText(text, { round = null } = {}) {
   return results;
 }
 
-/**
- * Junta os vencedores de várias listas. Erros de rede ou de leitura não param a publicação:
- * devolve { results: null, error } e o site mantém o winners.json anterior.
- */
-export async function fetchWinners(sources, { fetchImpl = fetch } = {}) {
-  const results = [];
+/** Lê o texto das listas. Erros de rede ou documento privado: { texts: null, error }. */
+export async function fetchListTexts(sources, { fetchImpl = fetch } = {}) {
+  const texts = [];
   for (const s of sources || []) {
     let res;
     try {
       res = await fetchImpl(docExportUrl(s.docId), { headers: { 'user-agent': 'torneios-mtg-portugal-sync' }, redirect: 'follow' });
-    } catch { return { results: null, error: `lista ${s.round}: erro de rede` }; }
-    if (!res.ok) return { results: null, error: `lista ${s.round}: HTTP ${res.status} (o documento tem de estar partilhado com «qualquer pessoa com o link»)` };
-    results.push(...parseWinnersText(await res.text(), { round: s.round }));
+    } catch { return { texts: null, error: `lista ${s.round}: erro de rede` }; }
+    if (!res.ok) return { texts: null, error: `lista ${s.round}: HTTP ${res.status} (o documento tem de estar partilhado com «qualquer pessoa com o link»)` };
+    texts.push({ round: s.round, text: await res.text() });
   }
+  return { texts, error: null };
+}
+
+/**
+ * Junta os vencedores de várias listas. Erros de rede ou de leitura não param a publicação:
+ * devolve { results: null, error } e o site mantém o winners.json anterior.
+ */
+export async function fetchWinners(sources, { fetchImpl = fetch, lists = null } = {}) {
+  const { texts, error } = lists || await fetchListTexts(sources, { fetchImpl });
+  if (error) return { results: null, error };
+  const results = texts.flatMap(t => parseWinnersText(t.text, { round: t.round }));
   results.sort((a, b) => a.date.localeCompare(b.date));
   return { results, error: null };
 }
