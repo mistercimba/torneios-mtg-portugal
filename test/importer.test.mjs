@@ -152,6 +152,15 @@ test('pré-releases sem FORMATO ficam Sealed; com FORMATO mantém-se o do calend
   assert.equal(b.formato, 'Two-Headed Giant');
 });
 
+test('eventos antigos sem PREMIOS: prémios tirados dos detalhes originais, sem cabeçalhos nem formato/check-in', () => {
+  const e = normalizeEvent({ id: 'old', summary: 'RCQ Praga - Magus', start: { date: '2026-01-31' }, description: 'TIPO: RCQ\nDETALHES ORIGINAIS:\nStandard 22€\nCheck-in: 10h00-10h30\nJudge: TBA\nPrémios (min 16 jogadores):\n1º lugar: 40€ em Store Credit\n• Promo Pack para o top 8\nTorneio com pausa para almoço e corte para Top 8\nPromo Manifold Mouse FOIL para o vencedor' });
+  assert.deepEqual(e.premios, ['1º lugar: 40€ em Store Credit', 'Promo Pack para o top 8', 'Promo Manifold Mouse FOIL para o vencedor']);
+  assert.equal(e.premiosDosDetalhes, true);
+  const f = normalizeEvent({ id: 'new', summary: 'RCQ', start: { date: '2026-12-12' }, description: 'TIPO: RCQ\nPREMIOS:\n1º Carta X\nDETALHES ORIGINAIS:\n1º Carta Y' });
+  assert.deepEqual(f.premios, ['1º Carta X']);
+  assert.equal(f.premiosDosDetalhes, false);
+});
+
 test('dados reais (opcional, só local): todos os eventos lidos e todos os tipos reconhecidos', { skip: !existsSync(new URL('./fixtures/private/torneios-mtg-real.ics', import.meta.url)) }, async () => {
   const { events } = parseIcs(await readFile(new URL('./fixtures/private/torneios-mtg-real.ics', import.meta.url), 'utf8'));
   const norm = events.map(normalizeEvent);

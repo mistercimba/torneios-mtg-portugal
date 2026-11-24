@@ -55,6 +55,15 @@ const clean = v => {
 
 const SOFT = '\u0000'; // marcador interno de quebra de linha "suave"
 const LIST_FIELDS = new Set(['premios', 'notas']);
+const PRIZE_RE = /(promo|pr[ée]mio|\btop\b|vencedor|booster|store credit|\bsc\b|\d+\s?[ºª°]|lugar|playmat|ta[çc]a|pins?\b)/i;
+const NOT_PRIZE_RE = /^(torneio|check-?in|judge|juiz|in[íi]cio|inscri[çc][ãa]o|rel\b|decklist)|^(standard|sealed|modern|pioneer|pauper|legacy|draft|limited|commander)\b.*\d+\s?€/i;
+/** Linhas de prémios dos detalhes originais (para eventos antigos sem o campo PREMIOS). */
+export function prizeLines(lines) {
+  return (lines || [])
+    .map(l => l.replace(/^[\s•\-*🏆🎁🥇🥈🥉]+/u, '').trim())
+    .filter(l => l && PRIZE_RE.test(l) && !NOT_PRIZE_RE.test(l))
+    .filter(l => !/^pr[ée]mios?\b[^:]*:\s*$/i.test(l)); // cabeçalhos «Prémios:» / «Prémios (min 16 jogadores):»
+}
 
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', '#39': "'" };
 function decodeEntities(s) {
@@ -297,6 +306,11 @@ export function normalizeEvent(raw) {
     .split('\n').map(l => l.trim()).filter(Boolean)
     .filter(l => !/^https?:\/\/\S+$/.test(l) && normalizeKey(l) !== normalizeKey(formatoRaw) && !isPending(l));
 
+  // Eventos antigos sem PREMIOS: os prémios estavam só nos detalhes originais do anúncio.
+  // Aproveitam-se as linhas de prémios (sem cabeçalhos, formato/preço, check-in ou juiz).
+  const premiosCampo = list('premios');
+  const premios = premiosCampo.length ? premiosCampo : prizeLines(detalhes);
+
   return {
     id: raw.id,
     title: (raw.summary || '').trim(),
@@ -326,7 +340,8 @@ export function normalizeEvent(raw) {
     juiz: clean(single('juiz')),
     vagas,
     ligacao,
-    premios: list('premios'),
+    premios,
+    premiosDosDetalhes: !premiosCampo.length && premios.length > 0,
     notas: list('notas').concat(loose),
     detalhesOriginais: detalhes,
     rever,
