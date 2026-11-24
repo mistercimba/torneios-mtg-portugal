@@ -312,9 +312,14 @@ export function normalizeEvent(raw) {
   const premios = premiosCampo.length ? premiosCampo : prizeLines(detalhes);
   if (!premiosCampo.length && premios.length) issue('premios-dos-detalhes', `Sem campo PREMIOS: ${premios.length} linha(s) de prémios tiradas dos detalhes originais (para fixar, copiar para PREMIOS no calendário).`, 'info');
 
+  // Data em que o evento foi criado no calendário (só o dia), para a etiqueta «Novo» no site.
+  const cr = String(raw.created || '').match(/^(\d{4})-?(\d{2})-?(\d{2})/);
+  const criado = cr ? `${cr[1]}-${cr[2]}-${cr[3]}` : null;
+
   return {
     id: raw.id,
     title: (raw.summary || '').trim(),
+    criado,
     status: raw.status || 'confirmed',
     ...dates,
     tipo: type.label,

@@ -120,5 +120,6 @@ function finishEvent(props, calendarTz) {
     end: one('DTEND') ? parseDateValue(one('DTEND'), calendarTz) : null,
     recurrence: props.RRULE ? props.RRULE.map(p => p.value) : null,
     updated: text('LAST-MODIFIED') || null,
+    created: text('CREATED') || null,
   };
 }

@@ -948,3 +948,16 @@ test('28. detalhe compacto: sem informação repetida; calendário num menu; ac�
     await page.close();
   }
 });
+
+test('29. etiqueta «Novo» nos torneios acrescentados nos últimos 7 dias', { skip }, async () => {
+  const page = await open({ width: 1280 });
+  const r = await page.eval(`(() => {
+    const rows = [...document.querySelectorAll('.event-row')];
+    const pill = id => !!rows.find(x => x.dataset.id === events.find(e => e.title.includes(id))?.id)?.querySelector('.new-pill');
+    return { novos: document.querySelectorAll('.event-row .new-pill').length, centro: pill('Loja Exemplo Centro'), antigo: events.filter(e => e.criado && e.criado < '2026-11-16').every(e => !rows.find(x => x.dataset.id === e.id)?.querySelector('.new-pill')) };
+  })()`);
+  assert.ok(r.novos >= 1 && r.centro, JSON.stringify(r));
+  assert.ok(r.antigo, 'criado há mais de 7 dias não tem etiqueta');
+  assert.deepEqual(page.errors, []);
+  await page.close();
+});

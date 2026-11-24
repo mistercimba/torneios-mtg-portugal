@@ -405,6 +405,11 @@ function typePillHtml(e) {
   return `<span class="type-pill"${title}>${esc(typeLabel(e))}${extra ? ' · ' + extra : ''}</span>`;
 }
 
+// «Novo»: acrescentado ao calendário nos últimos 7 dias (só torneios que ainda vão acontecer).
+const NEW_DAYS = 7;
+const isNew = e => !!e.criado && !isInfo(e) && !isPastEvent(e) && e.criado <= today && (asDate(today) - asDate(e.criado)) / 864e5 <= NEW_DAYS;
+const newPill = e => (isNew(e) ? ' <span class="new-pill" title="Acrescentado nos últimos 7 dias">Novo</span>' : '');
+
 function rowHtml(e) {
   // Três colunas: tipo, onde (loja/evento + local) e formato. Preço e horário ficam no detalhe do torneio.
   const place = placeLine(e);
@@ -416,7 +421,7 @@ function rowHtml(e) {
   const meta = [`<b>${esc(fmt || 'Formato a confirmar')}</b>`, placeHtml].filter(Boolean).join('  ·  ');
   return `<button type="button" class="event-row ${typeClass(e)}${e.scope === 'internacional' ? ' intl' : ''}" data-id="${esc(e.id)}" aria-label="Detalhes de ${esc(displayName(e))}, ${esc(formatDate(e.dateStart))}">`
     + `<span class="event-type">${typePillHtml(e)}${range}</span>`
-    + `<span class="event-main"><span class="store">${esc(displayName(e))}</span>${place ? `<span class="subline">${placeHtml}</span>` : ''}<span class="meta-m">${meta}</span>${e.qualifica ? `<span class="qualifies">Qualifica para ${esc(e.qualifica)}</span>` : ''}</span>`
+    + `<span class="event-main"><span class="store">${esc(displayName(e))}${newPill(e)}</span>${place ? `<span class="subline">${placeHtml}</span>` : ''}<span class="meta-m">${meta}</span>${e.qualifica ? `<span class="qualifies">Qualifica para ${esc(e.qualifica)}</span>` : ''}</span>`
     + `<span class="format-col${fmt ? '' : ' pending'}">${esc(fmt || 'Formato a confirmar')}</span></button>`;
 }
 
@@ -948,7 +953,7 @@ async function init() {
     today = todayLisbon();
     const updated = new Date(data.generatedAt);
     const stamp = new Intl.DateTimeFormat('pt-PT', { timeZone: 'Europe/Lisbon', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(updated);
-    $('#footnote').innerHTML = `<strong>Fonte:</strong> Google Calendar «Torneios MTG», sincronizado automaticamente. Última actualização: ${esc(stamp)}. Horas em hora de Portugal continental.`;
+    $('#footnote').innerHTML = `<strong>Fonte:</strong> Google Calendar «Torneios MTG». Última actualização: ${esc(stamp)}. Horas em hora de Portugal continental.`;
     $('#updated').textContent = `actualizado ${stamp}`;
     await storesReady;
     buildFilters();
