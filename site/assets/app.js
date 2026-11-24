@@ -88,7 +88,19 @@ const COUNTRY_CODES = {
   japao: 'JP', japan: 'JP', china: 'CN', taiwan: 'TW', 'taipe chines': 'TW', 'coreia do sul': 'KR', tailandia: 'TH', thailand: 'TH', singapura: 'SG', singapore: 'SG',
   australia: 'AU', 'nova zelandia': 'NZ',
 };
-const countryOf = e => (e.pais && e.pais !== 'Portugal' ? e.pais : (e.local || '').includes(',') ? e.local.split(',').pop().trim() : '');
+// Cidades habituais do circuito internacional, para quando o calendário só tem a cidade (o ideal é «Cidade, País»).
+const CITY_COUNTRY = {
+  lille: 'França', paris: 'França', lyon: 'França', ghent: 'Bélgica', gante: 'Bélgica', bruxelas: 'Bélgica', utrecht: 'Países Baixos', amesterdao: 'Países Baixos', amsterdam: 'Países Baixos',
+  bilbau: 'Espanha', bilbao: 'Espanha', valencia: 'Espanha', barcelona: 'Espanha', madrid: 'Espanha', sevilha: 'Espanha', zagrebe: 'Croácia', zagreb: 'Croácia',
+  londres: 'Reino Unido', london: 'Reino Unido', birmingham: 'Reino Unido', milao: 'Itália', bolonha: 'Itália', frankfurt: 'Alemanha', dortmund: 'Alemanha', praga: 'Chéquia',
+  atlanta: 'EUA', detroit: 'EUA', minneapolis: 'EUA', 'las vegas': 'EUA', chicago: 'EUA', seattle: 'EUA', 'nova iorque': 'EUA', orlando: 'EUA', 'st. louis': 'EUA', toquio: 'Japão', tokyo: 'Japão',
+};
+const countryOf = e => {
+  if (e.pais && e.pais !== 'Portugal') return e.pais;
+  const local = e.local || '';
+  if (local.includes(',')) return local.split(',').pop().trim();
+  return CITY_COUNTRY[normalize(local).trim()] || '';
+};
 function flagFor(country) {
   const code = COUNTRY_CODES[normalize(country).trim()];
   return code ? String.fromCodePoint(...[...code].map(c => 0x1f1e6 + c.charCodeAt(0) - 65)) : '';
@@ -191,14 +203,6 @@ const timeLine = e => {
   return '';
 };
 
-/* ---------- Filtros dinâmicos (gerados a partir dos dados) ---------- */
-function fillSelect(el, groups, all = 'Todos') {
-  const keep = el.value;
-  el.innerHTML = `<option value="">${all}</option>` + groups.map(g => g.label
-    ? `<optgroup label="${esc(g.label)}">${g.options.map(o => `<option value="${esc(o.value)}">${esc(o.text)}</option>`).join('')}</optgroup>`
-    : g.options.map(o => `<option value="${esc(o.value)}">${esc(o.text)}</option>`).join('')).join('');
-  if ([...el.options].some(o => o.value === keep)) el.value = keep;
-}
 const byCount = (list, key) => {
   const counts = new Map();
   for (const e of list) { const k = key(e); if (k) counts.set(k, (counts.get(k) || 0) + 1); }
@@ -228,43 +232,144 @@ function formatRank(f) {
 }
 const byFormatOrder = (a, b) => formatRank(a) - formatRank(b) || a.localeCompare(b, 'pt');
 
-function setDependentVisibility() {
-  // «Distrito» só com Portugal; «Round» só com RCQ (e só se houver rounds). Ao esconder, o valor volta a «Todos».
-  const showDistrict = $('#scope').value === 'portugal' && $('#district').options.length > 1;
-  const showRound = $('#circuit').value === 'type:RCQ' && $('#round').options.length > 1;
-  $('#district-filter').hidden = !showDistrict;
-  $('#round-filter').hidden = !showRound;
-  if (!showDistrict) $('#district').value = '';
-  if (!showRound) $('#round').value = '';
-}
+/* ---------- Filtros: listas com escolha múltipla e subopções (Portugal → distritos, RCQ → rounds) ---------- */
+// Cada filtro guarda um conjunto de «fichas». Cada torneio tem uma ficha por filtro; passa se o filtro
+// estiver vazio ou se a sua ficha estiver escolhida. Um grupo (Portugal, RCQ) representa todas as fichas filhas.
+const sel = { format: new Set(), place: new Set(), circuit: new Set() };
+const PLACEHOLDER = { format: 'Formato', place: 'Onde', circuit: 'Circuito' };
+let trees = { format: [], place: [], circuit: [] };
+const TOKEN = {
+  format: e => filterFormat(e),
+  place: e => e.scope === 'portugal' ? 'pt:' + (e.distrito || '') : 'intl:' + countryOf(e),
+  circuit: e => e.typeKey === 'rcq' ? 'RCQ:' + (e.ronda || '') : 'type:' + e.tipo,
+};
+const typeName = t => (t === 'Campeonato / Evento especial' ? 'Evento especial' : t);
+const leaf = (value, label, extra = {}) => ({ label, values: [value], ...extra });
+const group = (id, label, children) => ({ id, label, children, values: children.flatMap(c => c.values) });
+const allValues = key => trees[key].flatMap(n => n.values);
 
 function buildFilters() {
   const pool = events.filter(e => !isInfo(e) && (showPast || !isPastEvent(e)));
-  // Lista fixa dos formatos habituais (mesmo sem torneios marcados) + formatos novos que apareçam no calendário.
+  // Formatos: lista fixa dos habituais (mesmo sem torneios marcados) + formatos novos que apareçam no calendário.
   const formats = [...new Set([...FORMAT_ORDER.map(k => FORMAT_NAME[k]), 'Limited', ...pool.map(filterFormat).filter(Boolean)])].sort(byFormatOrder);
-  fillSelect($('#format'), [{ options: formats.map(f => ({ value: f, text: f })) }], 'Formato');
-  const districts = [...new Set(pool.filter(e => e.scope === 'portugal').map(e => e.distrito).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt'));
-  fillSelect($('#district'), [{ options: districts.map(d => ({ value: d, text: d })) }], 'Distrito');
-  const types = byCount(events.filter(e => showPast || !isPastEvent(e)), e => e.tipo);
-  fillSelect($('#circuit'), [{ options: types.map(t => ({ value: 'type:' + t, text: t === 'Campeonato / Evento especial' ? 'Evento especial' : t })) }], 'Circuito');
-  const rounds = [...new Set(pool.filter(e => e.typeKey === 'rcq' && e.ronda).map(e => e.ronda))].sort();
-  fillSelect($('#round'), [{ options: rounds.map(r => ({ value: r, text: `Round ${r.replace(/\D/g, '')}` })) }], 'Round');
-  setDependentVisibility();
+  trees.format = formats.map(f => leaf(f, f));
+  const pt = [...new Set(pool.filter(e => e.scope === 'portugal').map(e => e.distrito || ''))].sort((a, b) => (!a) - (!b) || a.localeCompare(b, 'pt'));
+  const intl = [...new Set(pool.filter(e => e.scope !== 'portugal').map(countryOf))].sort((a, b) => (!a) - (!b) || a.localeCompare(b, 'pt'));
+  trees.place = [
+    group('pt', 'Portugal', pt.map(d => leaf('pt:' + d, d || 'Outros locais'))),
+    group('intl', 'Internacional', intl.map(c => leaf('intl:' + c, c || 'Vários locais', { flag: flagFor(c) }))),
+  ].filter(g => g.children.length);
+  const types = byCount(events.filter(e => !isInfo(e) && (showPast || !isPastEvent(e))), e => e.tipo);
+  const rounds = [...new Set(pool.filter(e => e.typeKey === 'rcq').map(e => e.ronda || ''))].sort((a, b) => (!a) - (!b) || a.localeCompare(b));
+  trees.circuit = types.map(t => (t === 'RCQ' && rounds.length > 1)
+    ? group('rcq', 'RCQ', rounds.map(r => leaf('RCQ:' + r, r ? `Round ${r.replace(/\D/g, '')}` : 'Sem round')))
+    : t === 'RCQ' ? leaf('RCQ:' + (rounds[0] || ''), 'RCQ') : leaf('type:' + t, typeName(t)));
+  // Escolhas que deixaram de existir (por exemplo ao esconder os passados) saem do filtro.
+  for (const key of Object.keys(sel)) { const ok = new Set(allValues(key)); for (const v of sel[key]) if (!ok.has(v)) sel[key].delete(v); }
+  for (const key of Object.keys(sel)) renderPanel(key);
 }
+
+/** Torneios que passam em todos os filtros menos `skip` (para os números ao lado de cada opção). */
+function facetPool(skip, q) {
+  return events.filter(e => !isInfo(e) && (showPast || !isPastEvent(e)) && matchesQuery(e, q)
+    && Object.keys(sel).every(k => k === skip || !sel[k].size || sel[k].has(TOKEN[k](e))));
+}
+const nodeState = (key, n) => { const c = n.values.filter(v => sel[key].has(v)).length; return c === 0 ? 'off' : c === n.values.length ? 'on' : 'some'; };
+
+function optionHtml(key, n, counts, child) {
+  const count = n.values.reduce((s, v) => s + (counts.get(v) || 0), 0);
+  const st = nodeState(key, n);
+  const id = `${key}-opt-${n.id || n.values[0]}`.replace(/[^\w-]/g, '_');
+  return `<label class="ms-opt${child ? ' child' : ''}${n.children ? ' parent' : ''}${count ? '' : ' zero'}" for="${id}">`
+    + `<input type="checkbox" id="${id}" data-values="${esc(JSON.stringify(n.values))}"${st === 'on' ? ' checked' : ''}${st === 'some' ? ' data-some="1"' : ''}>`
+    + `<span class="ms-text">${n.flag ? `<span class="flag" aria-hidden="true">${n.flag}</span>` : ''}${esc(n.label)}</span><span class="ms-count">${count}</span></label>`;
+}
+
+function renderPanel(key) {
+  const root = document.querySelector(`.ms[data-key="${key}"]`);
+  const q = normalize($('#search').value.trim());
+  const counts = new Map();
+  for (const e of facetPool(key, q)) { const t = TOKEN[key](e); counts.set(t, (counts.get(t) || 0) + 1); }
+  root.querySelector('.ms-list').innerHTML = trees[key].map(n => n.children
+    ? optionHtml(key, n, counts, false) + n.children.map(c => optionHtml(key, c, counts, true)).join('')
+    : optionHtml(key, n, counts, false)).join('');
+  root.querySelectorAll('input[data-some]').forEach(i => { i.indeterminate = true; });
+  // Texto do botão: o nome escolhido (um grupo completo conta como um só nome) ou «nome +N».
+  const names = [];
+  for (const n of trees[key]) {
+    const st = nodeState(key, n);
+    if (st === 'on') names.push(n.label);
+    else if (st === 'some') n.children.forEach(c => { if (nodeState(key, c) === 'on') names.push(c.label); });
+  }
+  const btn = root.querySelector('.ms-btn');
+  btn.classList.toggle('active', names.length > 0);
+  btn.querySelector('.ms-label').textContent = !names.length ? PLACEHOLDER[key] : names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`;
+  btn.setAttribute('aria-label', names.length ? `${PLACEHOLDER[key]}: ${names.join(', ')}` : PLACEHOLDER[key]);
+}
+
+let openMs = null;
+function closePanel(focusButton) {
+  if (!openMs) return;
+  const btn = openMs.querySelector('.ms-btn');
+  openMs.querySelector('.ms-panel').hidden = true;
+  btn.setAttribute('aria-expanded', 'false');
+  openMs.classList.remove('open');
+  if (focusButton) btn.focus();
+  openMs = null;
+}
+function openPanel(root, focusFirst) {
+  closePanel(false);
+  openMs = root;
+  root.classList.add('open');
+  root.querySelector('.ms-panel').hidden = false;
+  root.querySelector('.ms-btn').setAttribute('aria-expanded', 'true');
+  const first = root.querySelector('.ms-list input');
+  if (first && focusFirst) first.focus({ preventScroll: true });
+}
+document.querySelectorAll('.ms').forEach(root => {
+  const key = root.dataset.key;
+  // Com o rato o foco fica no botão; com o teclado (detail 0) passa para a primeira opção.
+  root.querySelector('.ms-btn').addEventListener('click', ev => (openMs === root ? closePanel(true) : openPanel(root, ev.detail === 0)));
+  root.querySelector('.ms-list').addEventListener('change', ev => {
+    const input = ev.target.closest('input[type=checkbox]');
+    if (!input) return;
+    const values = JSON.parse(input.dataset.values);
+    const allOn = values.every(v => sel[key].has(v));
+    for (const v of values) allOn ? sel[key].delete(v) : sel[key].add(v);
+    const focusId = input.id;
+    renderEvents();
+    const again = document.getElementById(focusId);
+    if (again) again.focus({ preventScroll: true });
+  });
+  root.querySelector('.ms-clear').addEventListener('click', () => { sel[key].clear(); renderEvents(); const f = root.querySelector('.ms-list input'); if (f) f.focus({ preventScroll: true }); });
+  root.querySelector('.ms-done').addEventListener('click', () => closePanel(true));
+  root.addEventListener('keydown', ev => {
+    if (ev.key === 'Escape' && openMs === root) { ev.preventDefault(); ev.stopPropagation(); closePanel(true); return; }
+    if ((ev.key === 'ArrowDown' || ev.key === 'ArrowUp') && openMs === root) {
+      const inputs = [...root.querySelectorAll('.ms-list input')];
+      const i = inputs.indexOf(document.activeElement);
+      const next = inputs[Math.max(0, Math.min(inputs.length - 1, i + (ev.key === 'ArrowDown' ? 1 : -1)))];
+      if (next) { ev.preventDefault(); next.focus(); }
+    }
+  });
+});
+document.addEventListener('pointerdown', ev => { if (openMs && !openMs.contains(ev.target)) closePanel(false); });
+document.addEventListener('focusin', ev => { if (openMs && !openMs.contains(ev.target)) closePanel(false); });
+const hasFilters = () => Object.values(sel).some(s => s.size);
 
 let today = todayLisbon();
 const isPastEvent = e => e.dateEnd < today;
 
+function matchesQuery(e, q) {
+  return !q || [e.title, e.loja, e.localidade, e.distrito, e.formato, e.set, e.tipo, e.ronda, e.fase, e.local, e.pais].some(v => normalize(v).includes(q));
+}
 function matches(e, q) {
-  const f = $('#format').value, sc = $('#scope').value, d = $('#district').value, c = $('#circuit').value, r = $('#round').value;
   if (!showPast && isPastEvent(e)) return false;
-  if (q && ![e.title, e.loja, e.localidade, e.distrito, e.formato, e.set, e.tipo, e.ronda, e.fase, e.local, e.pais].some(v => normalize(v).includes(q))) return false;
-  if (c && e.tipo !== c.slice(5)) return false;
-  if (r && e.ronda !== r) return false;
-  if (isInfo(e)) return !f && !sc; // datas informativas só aparecem sem filtros de formato/local
-  if (f && filterFormat(e) !== f) return false;
-  if (sc && e.scope !== sc) return false;
-  if (d && e.distrito !== d) return false;
+  if (!matchesQuery(e, q)) return false;
+  if (sel.circuit.size && !sel.circuit.has(TOKEN.circuit(e))) return false;
+  if (isInfo(e)) return !sel.format.size && !sel.place.size; // datas informativas só aparecem sem filtros de formato/local
+  if (sel.format.size && !sel.format.has(TOKEN.format(e))) return false;
+  if (sel.place.size && !sel.place.has(TOKEN.place(e))) return false;
   return true;
 }
 
@@ -324,10 +429,9 @@ function milestoneHtml(m, kind) {
 }
 
 function milestoneVisible(m) {
-  const c = $('#circuit').value, f = $('#format').value, sc = $('#scope').value, r = $('#round').value;
-  if (f || sc) return false;
-  if (!c) return true;
-  return c === 'type:' + m.circuit && (!r || r === m.ronda);
+  if (sel.format.size || sel.place.size) return false;
+  if (!sel.circuit.size) return true;
+  return m.circuit === 'RCQ' ? (m.ronda ? sel.circuit.has('RCQ:' + m.ronda) : [...sel.circuit].some(v => v.startsWith('RCQ:'))) : sel.circuit.has('type:' + m.circuit);
 }
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
@@ -401,7 +505,8 @@ function renderEvents() {
   $('#count').textContent = countText(filtered);
   renderQuick();
   // «Limpar filtros» só aparece quando há algum filtro ou pesquisa activa.
-  $('#reset').hidden = !['search', 'format', 'scope', 'district', 'circuit', 'round'].some(id => document.getElementById(id).value.trim());
+  $('#reset').hidden = !hasFilters() && !$('#search').value.trim();
+  for (const key of Object.keys(sel)) renderPanel(key);
   renderLegend(filtered);
   syncFiltersToUrl();
   if (!filtered.length) {
@@ -487,16 +592,34 @@ function resultHtml(r) {
 /* ---------- Endereços partilháveis ---------- */
 // Filtros no endereço (?formato=Standard&onde=portugal&distrito=Lisboa&circuito=RCQ&round=R3&q=...&passados=1)
 // e torneio aberto (?t=<id>). A vista (Agenda, Vencedores, loja) continua no #.
-const URL_KEYS = { search: 'q', format: 'formato', scope: 'onde', district: 'distrito', circuit: 'circuito', round: 'round' };
 let urlReady = false;
+const listParam = v => (v ? v.split(',').map(x => x.trim()).filter(Boolean) : []);
+const findNode = (key, pred) => { for (const n of trees[key]) { if (pred(n)) return n; for (const c of n.children || []) if (pred(c)) return c; } return null; };
 
+/** Endereço: grupos completos pelo nome (onde=portugal, circuito=RCQ); escolhas parciais em distrito/pais/round. */
 function currentParams() {
   const p = new URLSearchParams();
-  for (const [id, key] of Object.entries(URL_KEYS)) {
-    let v = document.getElementById(id).value.trim();
-    if (id === 'circuit' && v) v = v.slice(5);
-    if (v) p.set(key, v);
+  const q = document.getElementById('search').value.trim();
+  if (q) p.set('q', q);
+  if (sel.format.size) p.set('formato', trees.format.filter(n => nodeState('format', n) === 'on').map(n => n.label).join(','));
+  const onde = [], distrito = [], pais = [];
+  for (const n of trees.place) {
+    const st = nodeState('place', n);
+    if (st === 'on') onde.push(n.id === 'pt' ? 'portugal' : 'internacional');
+    else if (st === 'some') for (const c of n.children) if (nodeState('place', c) === 'on') (n.id === 'pt' ? distrito : pais).push(c.values[0].replace(/^\w+:/, ''));
   }
+  if (onde.length) p.set('onde', onde.join(','));
+  if (distrito.length) p.set('distrito', distrito.join(','));
+  if (pais.length) p.set('pais', pais.join(','));
+  const circuito = [], round = [];
+  for (const n of trees.circuit) {
+    const st = nodeState('circuit', n);
+    const name = n.values[0].startsWith('RCQ:') ? 'RCQ' : n.values[0].slice(5);
+    if (st === 'on') circuito.push(name);
+    else if (st === 'some') for (const c of n.children) if (nodeState('circuit', c) === 'on') round.push(c.values[0].slice(4));
+  }
+  if (circuito.length) p.set('circuito', circuito.join(','));
+  if (round.length) p.set('round', round.join(','));
   if (showPast) p.set('passados', '1');
   return p;
 }
@@ -518,16 +641,18 @@ function syncFiltersToUrl() {
 function applyFiltersFromUrl() {
   const p = new URLSearchParams(location.search);
   if (p.get('passados') === '1' && !showPast) document.getElementById('past').click();
-  const setIf = (id, v) => { const el = document.getElementById(id); if (v != null && [...el.options].some(o => o.value === v)) el.value = v; };
   if (p.get('q')) document.getElementById('search').value = p.get('q');
-  setIf('format', p.get('formato'));
-  setIf('scope', p.get('onde'));
-  setDependentVisibility();
-  setIf('district', p.get('distrito'));
-  setIf('circuit', p.get('circuito') ? 'type:' + p.get('circuito') : null);
-  setDependentVisibility();
-  setIf('round', p.get('round'));
-  setDependentVisibility();
+  const add = (key, node) => { if (node) node.values.forEach(v => sel[key].add(v)); };
+  for (const f of listParam(p.get('formato'))) add('format', findNode('format', n => normalize(n.label) === normalize(f)));
+  for (const o of listParam(p.get('onde'))) add('place', trees.place.find(n => n.id === (normalize(o) === 'portugal' ? 'pt' : 'intl')));
+  for (const d of listParam(p.get('distrito'))) add('place', findNode('place', n => !n.children && normalize(n.values[0]) === normalize('pt:' + d)));
+  for (const c of listParam(p.get('pais'))) add('place', findNode('place', n => !n.children && normalize(n.values[0]) === normalize('intl:' + c)));
+  const rounds = listParam(p.get('round'));
+  for (const c of listParam(p.get('circuito'))) {
+    if (normalize(c) === 'rcq' && rounds.length) continue; // RCQ só com alguns rounds: tratado a seguir
+    add('circuit', normalize(c) === 'rcq' ? findNode('circuit', n => n.values[0].startsWith('RCQ:') && (n.children || n.label === 'RCQ')) : findNode('circuit', n => normalize(n.values[0]) === normalize('type:' + c)));
+  }
+  for (const r of rounds) add('circuit', findNode('circuit', n => !n.children && n.values[0] === 'RCQ:' + r));
   urlReady = true;
   renderEvents();
   const t = p.get('t');
@@ -657,10 +782,9 @@ document.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('cl
 document.getElementById('home').addEventListener('click', e => { e.preventDefault(); setView('agenda'); });
 applyView(viewFromHash());
 
-const FILTERS = ['search', 'format', 'scope', 'district', 'circuit', 'round'];
 eventsEl.addEventListener('click', ev => { if (ev.target.closest('.empty-reset')) document.getElementById('reset').click(); });
-for (const id of FILTERS) document.getElementById(id).addEventListener('input', () => { setDependentVisibility(); renderEvents(); });
-document.getElementById('reset').addEventListener('click', () => { for (const id of FILTERS) document.getElementById(id).value = ''; setDependentVisibility(); renderEvents(); });
+document.getElementById('search').addEventListener('input', () => renderEvents());
+document.getElementById('reset').addEventListener('click', () => { document.getElementById('search').value = ''; Object.values(sel).forEach(x => x.clear()); renderEvents(); });
 document.getElementById('share-filters').addEventListener('click', async ev => {
   const btn = ev.currentTarget, msg = await shareLink(location.origin + location.pathname + '?' + currentParams().toString(), 'Torneios MTG Portugal');
   if (msg) { btn.textContent = msg; setTimeout(() => { btn.textContent = 'Partilhar filtros'; }, 2000); }
@@ -675,28 +799,28 @@ document.getElementById('past').addEventListener('click', ev => {
 
 /* ---------- Atalhos por tipo (botões rápidos) ---------- */
 const QUICK = [
-  { label: 'Todos', circuit: '', scope: '' },
-  { label: 'RCQ', circuit: 'type:RCQ', scope: '' },
-  { label: 'LPP', circuit: 'type:LPP', scope: '' },
-  { label: 'Internacionais', circuit: '', scope: 'internacional' },
+  { label: 'Todos', circuit: null, place: null },
+  { label: 'RCQ', circuit: n => n.values[0].startsWith('RCQ:'), place: null, cls: 'rcq' },
+  { label: 'LPP', circuit: n => n.values[0] === 'type:LPP', place: null, cls: 'lpp' },
+  { label: 'Internacionais', circuit: null, place: n => n.id === 'intl' },
 ];
+const quickValues = (key, pred) => (pred ? trees[key].filter(pred).flatMap(n => n.values) : []);
+const sameSet = (set, arr) => set.size === arr.length && arr.every(v => set.has(v));
 function renderQuick() {
   const el = document.getElementById('quick-types');
-  const circuits = [...document.getElementById('circuit').options].map(o => o.value);
-  const c = document.getElementById('circuit').value, sc = document.getElementById('scope').value;
-  el.innerHTML = QUICK.filter(q => !q.circuit || circuits.includes(q.circuit)).map(q => {
-    const on = c === q.circuit && sc === q.scope;
-    return `<button type="button" class="quick ${q.circuit ? typeClass({ typeKey: q.circuit.slice(5).toLowerCase() }) : ''}" data-circuit="${q.circuit}" data-scope="${q.scope}" aria-pressed="${on}">${q.label}</button>`;
+  el.innerHTML = QUICK.map((q, i) => {
+    const c = quickValues('circuit', q.circuit), pl = quickValues('place', q.place);
+    if ((q.circuit && !c.length) || (q.place && !pl.length)) return '';
+    const on = sameSet(sel.circuit, c) && sameSet(sel.place, pl);
+    return `<button type="button" class="quick ${q.cls ? typeClass({ typeKey: q.cls }) : ''}" data-quick="${i}" aria-pressed="${on}">${q.label}</button>`;
   }).join('');
 }
 document.getElementById('quick-types').addEventListener('click', ev => {
   const b = ev.target.closest('button.quick');
   if (!b) return;
-  document.getElementById('circuit').value = b.dataset.circuit;
-  document.getElementById('scope').value = b.dataset.scope;
-  document.getElementById('round').value = '';
-  document.getElementById('district').value = '';
-  setDependentVisibility();
+  const q = QUICK[b.dataset.quick];
+  sel.circuit = new Set(quickValues('circuit', q.circuit));
+  sel.place = new Set(quickValues('place', q.place));
   renderEvents();
 });
 

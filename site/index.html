@@ -53,15 +53,9 @@
 <button class="clear share-filters" id="share-filters" type="button" hidden>Partilhar filtros</button>
 </div>
 <div class="controls">
-<div class="filter"><label for="format" class="sr-only">Formato</label><select id="format"><option value="">Formato</option></select></div>
-<div class="filter-stack">
-<div class="filter"><label for="scope" class="sr-only">Onde</label><select id="scope"><option value="">Onde</option><option value="portugal">Portugal</option><option value="internacional">Internacional</option></select></div>
-<div class="filter filter-sub" id="district-filter" hidden><label for="district" class="sr-only">Distrito</label><select id="district"><option value="">Distrito</option></select></div>
-</div>
-<div class="filter-stack">
-<div class="filter"><label for="circuit" class="sr-only">Circuito</label><select id="circuit"><option value="">Circuito</option></select></div>
-<div class="filter filter-sub" id="round-filter" hidden><label for="round" class="sr-only">Round</label><select id="round"><option value="">Round</option></select></div>
-</div>
+<div class="ms" data-key="format"><button type="button" class="ms-btn" id="format-btn" aria-haspopup="true" aria-expanded="false" aria-controls="format-panel"><span class="ms-label">Formato</span></button><div class="ms-panel" id="format-panel" role="group" aria-label="Formato" hidden><div class="ms-list"></div><div class="ms-foot"><button type="button" class="ms-clear">Limpar</button><button type="button" class="ms-done">Feito</button></div></div></div>
+<div class="ms" data-key="place"><button type="button" class="ms-btn" id="place-btn" aria-haspopup="true" aria-expanded="false" aria-controls="place-panel"><span class="ms-label">Onde</span></button><div class="ms-panel" id="place-panel" role="group" aria-label="Onde" hidden><div class="ms-list"></div><div class="ms-foot"><button type="button" class="ms-clear">Limpar</button><button type="button" class="ms-done">Feito</button></div></div></div>
+<div class="ms" data-key="circuit"><button type="button" class="ms-btn" id="circuit-btn" aria-haspopup="true" aria-expanded="false" aria-controls="circuit-panel"><span class="ms-label">Circuito</span></button><div class="ms-panel" id="circuit-panel" role="group" aria-label="Circuito" hidden><div class="ms-list"></div><div class="ms-foot"><button type="button" class="ms-clear">Limpar</button><button type="button" class="ms-done">Feito</button></div></div></div>
 </div>
 </div>
 <div class="list-meta">
