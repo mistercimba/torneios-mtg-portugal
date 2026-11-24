@@ -3,7 +3,7 @@
 // e devolve as diferenças para o relatório de revisão. Nunca impede a publicação.
 
 import { parseCheckin, parsePrice } from './normalize.mjs';
-import { splitStore } from './winners.mjs';
+import { splitStore, seasonYear } from './winners.mjs';
 
 const MONTHS = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const plain = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -24,12 +24,10 @@ export function storeKeyFor(name, city) {
 }
 
 /** Torneios anunciados numa lista (com preço). Devolve [{ date, store, city, format, price, checkin, judge, vagas, link, round }]. */
-export function parseAnnouncements(text, { round = null, season = null, startYear = null } = {}) {
+export function parseAnnouncements(text, { round = null, season = null } = {}) {
   const lines = clean(text);
   const m = String(text).match(/Season\s+(\d{2})\s*\/\s*(\d{2})/i);
   if (!season && m) season = `20${m[1]}/${m[2]}`;
-  // Mesmo critério dos vencedores: a época começa no 1.º ano e passa ao seguinte quando o mês volta para trás.
-  let year = startYear || (season ? Number(season.slice(0, 4)) : null), lastMonth = 0;
   const out = [];
   let date = null, cur = null;
   for (const line of lines) {
@@ -37,8 +35,7 @@ export function parseAnnouncements(text, { round = null, season = null, startYea
     const d = line.match(/^(\d{1,2})\s+([A-Za-zÇçÃãÉéÍíÓóÚúÂâÊêÔô]+)\b(?:\s*\(.*\))?\s*$/);
     if (d && MONTHS.includes(plain(d[2]))) {
       const month = MONTHS.indexOf(plain(d[2])) + 1;
-      if (year && month < lastMonth) year += 1;
-      lastMonth = month;
+      const year = seasonYear(season, month); // mesmo critério dos vencedores
       date = year ? `${year}-${String(month).padStart(2, '0')}-${String(Number(d[1])).padStart(2, '0')}` : null;
       cur = null;
       continue;

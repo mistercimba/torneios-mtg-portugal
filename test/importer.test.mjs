@@ -200,8 +200,8 @@ test('vencedores: Round 1 (Abril a Agosto) fica toda no 1.º ano da época', () 
   // A época vem do texto («Season 26/27») ou da configuração; R1 de épocas diferentes não se misturam.
   assert.equal(parseWinnersText(text, { round: 'R1' })[0].season, '2026/27');
   const next = parseWinnersText(text.replace('Season 26/27', ''), { round: 'R1', season: '2027/28' });
-  // Listas antigas que começam no 2.º ano da época (WPNQ Round 6: Janeiro a Março de 2024).
-  const r6 = parseWinnersText('Vencedores\n6 JANEIRO\nVentura Games (Barreiro) - Standard (29 jogadores)\nMário Paredes (Domain)\n24 MARÇO\nFriendZone Lounge (Aveiro) - Standard (9 jogadores)\nMiguel Moreira (Dimir Midrange)\n', { round: 'R6', season: '2023/24', startYear: 2024 });
+  // Janeiro–Março são do 2.º ano da época (WPNQ Round 6: Janeiro a Março de 2024).
+  const r6 = parseWinnersText('Vencedores\n6 JANEIRO\nVentura Games (Barreiro) - Standard (29 jogadores)\nMário Paredes (Domain)\n24 MARÇO\nFriendZone Lounge (Aveiro) - Standard (9 jogadores)\nMiguel Moreira (Dimir Midrange)\n', { round: 'R6', season: '2023/24' });
   assert.deepEqual(r6.map(x => x.date), ['2024-01-06', '2024-03-24']);
   assert.deepEqual(next.map(x => [x.season, x.date]), [['2027/28', '2027-04-04'], ['2027/28', '2027-08-02']]);
 });
@@ -259,6 +259,12 @@ test('vencedores: erros de rede ou documento privado mantêm o ficheiro anterior
 
 // ---------- Listas oficiais dos RCQs vs calendário ----------
 import { parseAnnouncements, compareWithCalendar, rcqCheckMarkdown, storeKeyFor } from '../scripts/lib/rcq-check.mjs';
+
+test('listas RCQ: o ano dos anúncios vem da época, mesmo fora de ordem (Abril–Dezembro = 1.º ano)', () => {
+  const t = 'Season 26/27 Round 2\n28 NOVEMBRO (Sábado)\nMagus (V. N. de Famalicão) - Standard 10€\n1 NOVEMBRO (Domingo)\nArena Porto (Porto) - Standard 10€\n10 JANEIRO (Domingo)\nZenith (Leiria) - Standard 10€\n';
+  assert.deepEqual(parseAnnouncements(t, { round: 'R2', season: '2026/27' }).map(a => a.date), ['2026-11-28', '2026-11-01', '2027-01-10']);
+  assert.deepEqual(parseAnnouncements(t, { round: 'R2' }).map(a => a.date), ['2026-11-28', '2026-11-01', '2027-01-10'], 'época lida do texto');
+});
 
 test('listas RCQ: lê os torneios anunciados (preço, check-in, juiz, vagas, link)', async () => {
   const { readFile } = await import('node:fs/promises');

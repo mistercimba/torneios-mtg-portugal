@@ -235,7 +235,7 @@ async function main() {
     let check = null;
     if (!lists.error) {
       const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon' }).format(new Date());
-      check = compareWithCalendar(lists.texts.flatMap(t => parseAnnouncements(t.text, { round: t.round, season: t.season, startYear: t.startYear })), events, today);
+      check = compareWithCalendar(lists.texts.flatMap(t => parseAnnouncements(t.text, { round: t.round, season: t.season })), events, today);
       console.log(`Listas RCQ: ${check.checked} anunciados · ${check.ok} iguais · ${check.problems.length} diferenças.`);
     }
     rcqSection = '\n' + rcqCheckMarkdown(check);
