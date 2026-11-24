@@ -965,11 +965,68 @@ async function init() {
   try {
     const w = await loadJson('data/winners.json');
     winners = w.results || [];
+    winRounds = w.rounds || [];
     $('#winners-title').textContent = w.title || '';
-    $('#results').innerHTML = winners.map(resultHtml).join('');
+    renderWinners();
   } catch (err) { console.error(err); }
   dataReady = true;
   if (events.length) applyFiltersFromUrl();
   applyView(viewFromHash());
+}
+/* ---------- Vencedores: escolher a round (Todas / R2 / R3…) ---------- */
+let winRound = '', winRounds = [];
+function renderWinners() {
+  const rounds = [...new Set([...winRounds, ...winners.map(r => r.round)].filter(Boolean))].sort();
+  const el = document.getElementById('win-rounds');
+  el.innerHTML = rounds.length > 1 ? ['', ...rounds].map(r => `<button type="button" class="quick" data-round="${esc(r)}" aria-pressed="${r === winRound}">${r ? 'Round ' + esc(r.replace(/\D/g, '')) : 'Todas'}</button>`).join('') : '';
+  const list = winRound ? winners.filter(r => r.round === winRound) : winners;
+  $('#win-stats').innerHTML = statsHtml(list);
+  $('#results').innerHTML = list.map(resultHtml).join('');
+}
+document.getElementById('win-rounds').addEventListener('click', ev => {
+  const b = ev.target.closest('button[data-round]');
+  if (!b) return;
+  winRound = b.dataset.round;
+  renderWinners();
+});
+
+/* ---------- Estatísticas dos RCQs (a partir das listas oficiais de vencedores) ---------- */
+function statsHtml(list) {
+  if (!list.length) return `<p class="stat-empty win-empty">Ainda não há vencedores ${winRound ? 'da Round ' + esc(winRound.replace(/\D/g, '')) : ''} nas listas oficiais.</p>`;
+  const count = (arr, key) => { const m = new Map(); for (const x of arr) { const k = key(x); if (k) m.set(k, (m.get(k) || 0) + 1); } return [...m].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt')); };
+  const withPlayers = list.filter(r => r.players);
+  const totalPlayers = withPlayers.reduce((s, r) => s + r.players, 0);
+  const sealed = list.filter(r => /sealed|draft|limited/i.test(r.format || '')).length;
+  const std = list.length - sealed;
+  // Formato construído de cada round (R1 Modern, R2/R3 Standard); em «Todas» mostra os vários.
+  const constructed = [...new Set(list.filter(r => !/sealed|draft|limited/i.test(r.format || '')).map(r => r.format).filter(Boolean))].sort();
+  const cLabel = constructed.length === 1 ? esc(constructed[0]) : 'Construído';
+  const cSmall = constructed.map(esc).join(' · ');
+  const bars = (rows, max, fmt = n => n) => `<ol class="stat-bars">${rows.map(([k, n, extra]) => `<li><span class="stat-name">${k}${extra ? ` <small>${extra}</small>` : ''}</span><span class="stat-bar"><i style="width:${Math.max(6, Math.round(n / max * 100))}%"></i></span><span class="stat-num">${fmt(n)}</span></li>`).join('')}</ol>`;
+
+  // Arquétipos: só RCQs construídos com deck indicado.
+  const decks = count(list.filter(r => !/sealed|draft|limited/i.test(r.format || '')), r => r.deck);
+  const noDeck = list.filter(r => !/sealed|draft|limited/i.test(r.format || '') && !r.deck).length;
+  // Lojas: nº de RCQs com resultado e média de jogadores.
+  const stores = count(list, r => r.store).slice(0, 6).map(([store, n]) => {
+    const ps = list.filter(r => r.store === store && r.players).map(r => r.players);
+    return [esc(store), n, ps.length ? `· ${Math.round(ps.reduce((a, b) => a + b, 0) / ps.length)} jog.` : ''];
+  });
+  const players = count(list, r => r.name);
+  const repeat = players.filter(([, n]) => n > 1);
+
+  return `<div class="win-stats">
+    <div class="stat-tiles">
+      <div class="stat-tile"><b>${list.length}</b><span>RCQs com vencedor</span></div>
+      <div class="stat-tile"><b>${totalPlayers}</b><span>jogadores no total</span></div>
+      <div class="stat-tile"><b>${withPlayers.length ? Math.round(totalPlayers / withPlayers.length) : '—'}</b><span>jogadores por RCQ (média)</span></div>
+      <div class="stat-tile"><b>${std} · ${sealed}</b><span>${cLabel} · Sealed</span></div>
+    </div>
+    <div class="stat-cols">
+      <section class="stat-box"><h3>Arquétipos vencedores${cSmall ? ` <small>${cSmall}</small>` : ''}</h3>${decks.length ? bars(decks.slice(0, 6).map(([k, n]) => [esc(k), n]), decks[0][1]) : '<p class="stat-empty">Sem decks indicados.</p>'}${noDeck ? `<p class="stat-foot">${noDeck} ${noDeck === 1 ? 'RCQ' : 'RCQs'} sem deck indicado na lista.</p>` : ''}</section>
+      <section class="stat-box"><h3>Lojas com mais RCQs <small>média de jogadores</small></h3>${bars(stores, stores[0][1])}</section>
+      <section class="stat-box"><h3>Vencedores</h3>${repeat.length ? bars(repeat.slice(0, 6).map(([k, n]) => [esc(k), n]), repeat[0][1], n => `${n} vitórias`) : `<p class="stat-big">${players.length}</p><p class="stat-foot">vencedores diferentes em ${list.length} RCQs — ainda ninguém repetiu.</p>`}</section>
+    </div>
+  </div>`;
 }
 init();

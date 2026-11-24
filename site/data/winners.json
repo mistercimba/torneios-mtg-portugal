@@ -1,31 +1,680 @@
 {
- "title": "RCQ · Época 2026/27",
- "results": [
-  {"date":"2026-08-15","store":"Ventura Games","city":"Barreiro","name":"Miguel Valente","deck":"Dimir Midrange","players":16,"format":"Standard","round":"R2"},
-  {"date":"2026-08-23","store":"Versus Gamecenter","city":"Lisboa","name":"Tiago Marques","deck":"Dimir Midrange","players":30,"format":"Standard","round":"R2"},
-  {"date":"2026-08-29","store":"Mulligan Portimão","city":"Portimão","name":"Sérgio Preto","deck":null,"players":9,"format":"Sealed The Hobbit","round":"R2"},
-  {"date":"2026-08-30","store":"Mercadia Sul","city":"Almada","name":"Ricardo Velez","deck":"Temur Harmonizer","players":15,"format":"Standard","round":"R2"},
-  {"date":"2026-08-30","store":"Arena Porto","city":"Porto","name":"Vitor Bessa","deck":null,"players":26,"format":"Sealed The Hobbit","round":"R2"},
-  {"date":"2026-09-06","store":"Versus Gamecenter","city":"Lisboa","name":"Nelson Rodrigues","deck":"4C Control","players":23,"format":"Standard","round":"R2"},
-  {"date":"2026-09-12","store":"Mercadia Sul","city":"Almada","name":"André Oliveira","deck":"Mono-Green Landfall","players":12,"format":"Standard","round":"R2"},
-  {"date":"2026-09-13","store":"Lotus Valley","city":"Arruda dos Vinhos","name":"André Compal","deck":"Mono-Green Landfall","players":8,"format":"Standard","round":"R2"},
-  {"date":"2026-09-13","store":"Arena Porto","city":"Porto","name":"Celestino Machado","deck":"Naya Delirium","players":32,"format":"Standard","round":"R2"},
-  {"date":"2026-09-13","store":"PlayHub","city":"Faro","name":"André Simões","deck":"Bant Airbend","players":10,"format":"Standard","round":"R2"},
-  {"date":"2026-09-19","store":"Magus","city":"Vila Nova de Famalicão","name":"Nuno Vale","deck":"Mono-Green Landfall","players":26,"format":"Standard","round":"R2"},
-  {"date":"2026-09-19","store":"Mulligan Quarteira","city":"Quarteira","name":"João Barracha","deck":"Rakdos Discard","players":null,"format":"Standard","round":"R2"},
-  {"date":"2026-09-19","store":"Mercadia Games","city":"Benfica","name":"Ricardo Soares","deck":"Mono-Green Landfall","players":9,"format":"Standard","round":"R2"},
-  {"date":"2026-10-03","store":"FriendZone Lounge","city":"Aveiro","name":"Victor Graveto","deck":"Dimir Kaito","players":17,"format":"Standard","round":"R2"},
-  {"date":"2026-10-03","store":"ZukaCards","city":"Guimarães","name":"Nuno Amaral","deck":null,"players":11,"format":"Sealed Reality Fracture","round":"R2"},
-  {"date":"2026-10-04","store":"Versus Gamecenter","city":"Lisboa","name":"Miguel Simões","deck":null,"players":18,"format":"Sealed Reality Fracture","round":"R2"},
-  {"date":"2026-10-10","store":"Templars Arena","city":"Rio de Mouro","name":"Diogo Santos","deck":null,"players":15,"format":"Sealed Reality Fracture","round":"R2"},
-  {"date":"2026-10-17","store":"Mercadia Games","city":"Benfica","name":"André Santos","deck":"Izzet Spellementals","players":14,"format":"Standard","round":"R2"},
-  {"date":"2026-10-17","store":"Magus","city":"Vila Nova de Famalicão","name":"Paulo Pinto","deck":"Dimir Midrange","players":28,"format":"Standard","round":"R2"},
-  {"date":"2026-10-18","store":"Versus Gamecenter","city":"Lisboa","name":"Márcio Carvalho","deck":"Mono-Green Landfall","players":22,"format":"Standard","round":"R2"},
-  {"date":"2026-10-18","store":"Arena Porto","city":"Porto","name":"Diogo Pereira","deck":null,"players":29,"format":"Sealed Reality Fracture","round":"R2"},
-  {"date":"2026-10-24","store":"Mercadia Sul","city":"Almada","name":"Igor Alexandre","deck":"Jund Sacrifice","players":10,"format":"Standard","round":"R2"},
-  {"date":"2026-10-31","store":"Versus Gamecenter","city":"Lisboa","name":"Guilherme Pires","deck":"Izzet Spellementals","players":22,"format":"Standard","round":"R2"},
-  {"date":"2026-10-31","store":"ZukaCards","city":"Guimarães","name":"Fábio Gonçalves","deck":"Dimir Kaito","players":19,"format":"Standard","round":"R2"},
-  {"date":"2026-10-31","store":"EndTurn","city":"Avintes","name":"Rodrigo Meira","deck":null,"players":12,"format":"Sealed Reality Fracture","round":"R2"},
-  {"date":"2026-11-15","store":"Mulligan Quarteira","city":"Quarteira","name":"Tiago Jesus","deck":"Azorius Momo","players":null,"format":"Standard","round":"R2"}
- ]
+  "title": "RCQ · Época 2026/27",
+  "rounds": [
+    "R1",
+    "R2",
+    "R3"
+  ],
+  "results": [
+    {
+      "date": "2026-04-04",
+      "store": "Ventura Games",
+      "city": "Barreiro",
+      "name": "Emanuel Noivo",
+      "deck": "Boros Energy",
+      "players": 43,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-04-11",
+      "store": "Versus Gamecenter",
+      "city": "Lisboa",
+      "name": "António LIma",
+      "deck": "Boros Energy",
+      "players": 46,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-04-12",
+      "store": "Mulligan Games",
+      "city": "Quarteira",
+      "name": "Ikinho",
+      "deck": "Jeskai Blink",
+      "players": 13,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-04-12",
+      "store": "Arena Porto",
+      "city": "Porto",
+      "name": "Fábio Gonçalves",
+      "deck": "Boros Energy",
+      "players": 31,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-04-12",
+      "store": "Lotus Valley",
+      "city": "Arruda dos Vinhos",
+      "name": "Guilherme Pires",
+      "deck": "Tameshi Belcher",
+      "players": 22,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-04-25",
+      "store": "Magus",
+      "city": "Vila Nova de Famalicão",
+      "name": "José Tulha",
+      "deck": "Affinity",
+      "players": 30,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-04-25",
+      "store": "Player’s Spot",
+      "city": "Barreiro",
+      "name": "Jaime Calapez",
+      "deck": "Boros Energy",
+      "players": 25,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-05-01",
+      "store": "Arena Porto",
+      "city": "Porto",
+      "name": "José Neves",
+      "deck": null,
+      "players": 31,
+      "format": "Sealed Secrets of Strixhaven (c/ Top 8 Draft)",
+      "round": "R1"
+    },
+    {
+      "date": "2026-05-01",
+      "store": "Triplace Games",
+      "city": "Setúbal",
+      "name": "André Oliveira",
+      "deck": "Izzet Affinity",
+      "players": 33,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-05-02",
+      "store": "Lotus Valley",
+      "city": "Arruda dos Vinhos",
+      "name": "João Belo",
+      "deck": "Ruby Storm",
+      "players": 22,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-05-03",
+      "store": "Mulligan Games",
+      "city": "Quarteira",
+      "name": "Fábio Sancadas",
+      "deck": "Boros Energy",
+      "players": 13,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-05-09",
+      "store": "Mercadia Games",
+      "city": "Lisboa",
+      "name": "Rafael Baio",
+      "deck": "Yawgmoth",
+      "players": 16,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-05-09",
+      "store": "FriendZone Lounge",
+      "city": "Aveiro",
+      "name": "Ricardo Baptista",
+      "deck": "Ruby Storm",
+      "players": 18,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-05-09",
+      "store": "Multiverse Geek House",
+      "city": "Entrocamento",
+      "name": "Luis Fernandes",
+      "deck": null,
+      "players": 26,
+      "format": "Sealed Secrets of Strixhaven",
+      "round": "R1"
+    },
+    {
+      "date": "2026-05-10",
+      "store": "Versus Gamecenter",
+      "city": "Lisboa",
+      "name": "Linda Rodrigues",
+      "deck": "Boros Energy",
+      "players": 31,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-05-16",
+      "store": "Mercadia Sul",
+      "city": "Almada",
+      "name": "Diogo Moreira",
+      "deck": "Mardu Blink",
+      "players": 25,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-05-16",
+      "store": "Magus",
+      "city": "Vila Nova de Famalicão",
+      "name": "David Lino",
+      "deck": "Boros Energy",
+      "players": 26,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-05-17",
+      "store": "Weatherlight Games",
+      "city": "Évora",
+      "name": "Simão Duarte",
+      "deck": "Izzet SteelCutter",
+      "players": 28,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-05-23",
+      "store": "FriendZone Lounge",
+      "city": "Aveiro",
+      "name": "Filipe Louro",
+      "deck": "Azorius Control",
+      "players": 19,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-05-23",
+      "store": "Conflux",
+      "city": "Linda-a-Velha",
+      "name": "Ricardo Beja",
+      "deck": "Izzet Affinity",
+      "players": 27,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-05-24",
+      "store": "Versus Gamecenter",
+      "city": "Lisboa",
+      "name": "Luís Gobern",
+      "deck": "Eldrazi Ramp",
+      "players": 20,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-05-30",
+      "store": "End Turn",
+      "city": "Avintes",
+      "name": "Jesus Domínguez",
+      "deck": "Belcher",
+      "players": 16,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-05-30",
+      "store": "Templars Arena",
+      "city": "Rio de Mouro",
+      "name": "Márcio Carvalho",
+      "deck": null,
+      "players": 9,
+      "format": "Sealed Secrets of Strixhaven",
+      "round": "R1"
+    },
+    {
+      "date": "2026-06-06",
+      "store": "Mercadia Games",
+      "city": "Lisboa",
+      "name": "André Rodrigues",
+      "deck": "Boros Energy",
+      "players": 26,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-06-07",
+      "store": "Mulligan Games Quarteira",
+      "city": "Quarteira",
+      "name": "André Simões",
+      "deck": "Affinity",
+      "players": 14,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-06-10",
+      "store": "Mercadia Sul",
+      "city": "Almada",
+      "name": "Ruben Sousa",
+      "deck": "Domain Zoo",
+      "players": 18,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-06-10",
+      "store": "Arena Porto",
+      "city": "Porto",
+      "name": "Paulo Pinto",
+      "deck": "Izzet Prowess",
+      "players": 30,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-06-13",
+      "store": "Conflux",
+      "city": "Linda-a-Velha",
+      "name": "José Moniz",
+      "deck": "Amulet Titan",
+      "players": 16,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-06-13",
+      "store": "Magus",
+      "city": "Vila Nova de Famalicão",
+      "name": "Nuno Amaral",
+      "deck": "Storm",
+      "players": 21,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-06-14",
+      "store": "Mulligan Games Portimão",
+      "city": "Portimão",
+      "name": "Eduardo Santos",
+      "deck": null,
+      "players": 19,
+      "format": "Sealed Secrets of Strixhaven",
+      "round": "R1"
+    },
+    {
+      "date": "2026-06-27",
+      "store": "Versus Gamecenter",
+      "city": "Lisboa",
+      "name": "Oleksandr Shetsov",
+      "deck": "Eldrazi Ramp",
+      "players": 27,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-06-27",
+      "store": "Magus",
+      "city": "Vila Nova de Famalicão",
+      "name": "José Machado",
+      "deck": "Izzet Affinity",
+      "players": 25,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-06-28",
+      "store": "Weatherlight Games",
+      "city": "Évora",
+      "name": "Paulo Lopes",
+      "deck": "Boros LD",
+      "players": 15,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-07-05",
+      "store": "Arena Porto",
+      "city": "Porto",
+      "name": "José Bandeira",
+      "deck": null,
+      "players": 23,
+      "format": "Sealed Marvel Super Heroes",
+      "round": "R1"
+    },
+    {
+      "date": "2026-07-11",
+      "store": "Conflux",
+      "city": "Linda-a-Velha",
+      "name": "Mário Paredes",
+      "deck": "Living End",
+      "players": 21,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-07-12",
+      "store": "Versus Gamecenter",
+      "city": "Lisboa",
+      "name": "Ricardo Vicente",
+      "deck": "Esper Goryo’s",
+      "players": 13,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-07-18",
+      "store": "Mulligan Quarteira",
+      "city": "Quarteira",
+      "name": "Hugo Pinto",
+      "deck": "Selesnya Cauldron",
+      "players": 8,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-07-18",
+      "store": "Mercadia Games",
+      "city": "Lisboa",
+      "name": "Vanessa Lemos",
+      "deck": "Living End",
+      "players": 25,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-07-25",
+      "store": "Mercadia Sul",
+      "city": "Almada",
+      "name": "Tiago Cruz",
+      "deck": "Izzet Prowess",
+      "players": 13,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-08-01",
+      "store": "Triplace Games",
+      "city": "Setúbal",
+      "name": "André Santos",
+      "deck": "Broodscale",
+      "players": 14,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-08-02",
+      "store": "Arena Porto",
+      "city": "Porto",
+      "name": "Pedro Faria",
+      "deck": "Esper Blink",
+      "players": 22,
+      "format": "Modern",
+      "round": "R1"
+    },
+    {
+      "date": "2026-08-15",
+      "store": "Ventura Games",
+      "city": "Barreiro",
+      "name": "Miguel Valente",
+      "deck": "Dimir Midrange",
+      "players": 16,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-08-23",
+      "store": "Versus Gamecenter",
+      "city": "Lisboa",
+      "name": "Tiago Marques",
+      "deck": "Dimir Midrange",
+      "players": 30,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-08-29",
+      "store": "Mulligan Portimão",
+      "city": "Portimão",
+      "name": "Sérgio Preto",
+      "deck": null,
+      "players": 9,
+      "format": "Sealed The Hobbit",
+      "round": "R2"
+    },
+    {
+      "date": "2026-08-30",
+      "store": "Mercadia Sul",
+      "city": "Almada",
+      "name": "Ricardo Velez",
+      "deck": "Temur Harmonizer",
+      "players": 15,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-08-30",
+      "store": "Arena Porto",
+      "city": "Porto",
+      "name": "Vitor Bessa",
+      "deck": null,
+      "players": 26,
+      "format": "Sealed The Hobbit",
+      "round": "R2"
+    },
+    {
+      "date": "2026-09-06",
+      "store": "Versus Gamecenter",
+      "city": "Lisboa",
+      "name": "Nelson Rodrigues",
+      "deck": "4C Control",
+      "players": 23,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-09-12",
+      "store": "Mercadia Sul",
+      "city": "Almada",
+      "name": "André Oliveira",
+      "deck": "Mono-Green Landfall",
+      "players": 12,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-09-13",
+      "store": "Lotus Valley",
+      "city": "Arruda dos Vinhos",
+      "name": "André Compal",
+      "deck": "Mono-Green Landfall",
+      "players": 8,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-09-13",
+      "store": "Arena Porto",
+      "city": "Porto",
+      "name": "Celestino Machado",
+      "deck": "Naya Delirium",
+      "players": 32,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-09-13",
+      "store": "PlayHub",
+      "city": "Faro",
+      "name": "André Simões",
+      "deck": "Bant Airbend",
+      "players": 10,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-09-19",
+      "store": "Magus",
+      "city": "Vila Nova de Famalicão",
+      "name": "Nuno Vale",
+      "deck": "Mono-Green Landfall",
+      "players": 26,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-09-19",
+      "store": "Mulligan Quarteira",
+      "city": "Quarteira",
+      "name": "João Barracha",
+      "deck": "Rakdos Discard",
+      "players": null,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-09-19",
+      "store": "Mercadia Games",
+      "city": "Benfica",
+      "name": "Ricardo Soares",
+      "deck": "Mono-Green Landfall",
+      "players": 9,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-10-03",
+      "store": "FriendZone Lounge",
+      "city": "Aveiro",
+      "name": "Victor Graveto",
+      "deck": "Dimir Kaito",
+      "players": 17,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-10-03",
+      "store": "ZukaCards",
+      "city": "Guimarães",
+      "name": "Nuno Amaral",
+      "deck": null,
+      "players": 11,
+      "format": "Sealed Reality Fracture",
+      "round": "R2"
+    },
+    {
+      "date": "2026-10-04",
+      "store": "Versus Gamecenter",
+      "city": "Lisboa",
+      "name": "Miguel Simões",
+      "deck": null,
+      "players": 18,
+      "format": "Sealed Reality Fracture",
+      "round": "R2"
+    },
+    {
+      "date": "2026-10-10",
+      "store": "Templars Arena",
+      "city": "Rio de Mouro",
+      "name": "Diogo Santos",
+      "deck": null,
+      "players": 15,
+      "format": "Sealed Reality Fracture",
+      "round": "R2"
+    },
+    {
+      "date": "2026-10-17",
+      "store": "Mercadia Games",
+      "city": "Benfica",
+      "name": "André Santos",
+      "deck": "Izzet Spellementals",
+      "players": 14,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-10-17",
+      "store": "Magus",
+      "city": "Vila Nova de Famalicão",
+      "name": "Paulo Pinto",
+      "deck": "Dimir Midrange",
+      "players": 28,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-10-18",
+      "store": "Versus Gamecenter",
+      "city": "Lisboa",
+      "name": "Márcio Carvalho",
+      "deck": "Mono-Green Landfall",
+      "players": 22,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-10-18",
+      "store": "Arena Porto",
+      "city": "Porto",
+      "name": "Diogo Pereira",
+      "deck": null,
+      "players": 29,
+      "format": "Sealed Reality Fracture",
+      "round": "R2"
+    },
+    {
+      "date": "2026-10-24",
+      "store": "Mercadia Sul",
+      "city": "Almada",
+      "name": "Igor Alexandre",
+      "deck": "Jund Sacrifice",
+      "players": 10,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-10-31",
+      "store": "Versus Gamecenter",
+      "city": "Lisboa",
+      "name": "Guilherme Pires",
+      "deck": "Izzet Spellementals",
+      "players": 22,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-10-31",
+      "store": "ZukaCards",
+      "city": "Guimarães",
+      "name": "Fábio Gonçalves",
+      "deck": "Dimir Kaito",
+      "players": 19,
+      "format": "Standard",
+      "round": "R2"
+    },
+    {
+      "date": "2026-10-31",
+      "store": "EndTurn",
+      "city": "Avintes",
+      "name": "Rodrigo Meira",
+      "deck": null,
+      "players": 12,
+      "format": "Sealed Reality Fracture",
+      "round": "R2"
+    },
+    {
+      "date": "2026-11-15",
+      "store": "Mulligan Quarteira",
+      "city": "Quarteira",
+      "name": "Tiago Jesus",
+      "deck": "Azorius Momo",
+      "players": null,
+      "format": "Standard",
+      "round": "R2"
+    }
+  ]
 }

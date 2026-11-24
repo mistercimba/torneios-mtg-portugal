@@ -191,6 +191,14 @@ test('vencedores: lê a secção «Vencedores» da lista da Round 2 e ignora os 
   assert.deepEqual(parseWinnersText(await readFile(new URL('./fixtures/rcq-r3.txt', import.meta.url), 'utf8'), { round: 'R3' }), []);
 });
 
+test('vencedores: Round 1 (Abril a Agosto) fica toda no 1.º ano da época', () => {
+  const text = 'Season 26/27 Round 1 MODERN\n\nVencedores\n4 ABRIL (Sábado)\nVentura Games (Barreiro) - Modern (43 jogadores)\nEmanuel Noivo (Boros Energy)\n2 AGOSTO (Domingo)\nArena Porto - Modern (20 jogadores)\nAna Silva (Affinity)\n';
+  assert.deepEqual(parseWinnersText(text, { round: 'R1' }).map(x => [x.round, x.date, x.store, x.players]), [
+    ['R1', '2026-04-04', 'Ventura Games', 43],
+    ['R1', '2026-08-02', 'Arena Porto', 20],
+  ]);
+});
+
 test('vencedores: anos da época, lojas sem parênteses e quebras de linha do Google Docs', () => {
   const text = '﻿Season 26/27 Round 3 STANDARD\r\n\r\nVencedores\r\n13 DEZEMBRO (Domingo)\r\nArena Porto - Standard (30 jogadores)\r\nAna Silva (Izzet Prowess)\r\n10 JANEIRO (Domingo)\u000bZenith (Leiria) - Sealed Nauctis (12 jogadores)\u000bRui Costa\r\n';
   const r = parseWinnersText(text, { round: 'R3' });

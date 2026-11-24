@@ -45,18 +45,22 @@ export function splitStore(raw) {
 export function parseWinnersText(text, { round = null } = {}) {
   const all = lines(text);
   const season = String(text).match(/Season\s+(\d{2})\s*\/\s*(\d{2})/i);
-  const y1 = season ? 2000 + Number(season[1]) : null, y2 = season ? 2000 + Number(season[2]) : null;
+  const y1 = season ? 2000 + Number(season[1]) : null;
   const start = all.findIndex(l => /^vencedores:?$/i.test(l));
   if (start < 0) return [];
   const results = [];
   let date = null, pending = null;
+  // Todas as rounds de uma época começam no 1.º ano («Season 26/27»: R1 em Abril de 2026, R3 em Dezembro de 2026).
+  // As listas estão por ordem: quando o mês volta para trás (Dezembro → Janeiro), passa-se ao ano seguinte.
+  let year = y1, lastMonth = 0;
   for (const line of all.slice(start + 1)) {
     if (!line) continue;
     // Cabeçalho de data: «15 AGOSTO (Sábado)».
     const d = line.match(/^(\d{1,2})\s+([A-Za-zÇçÃãÉéÍíÓóÚúÂâÊêÔô]+)\b(?:\s*\(.*\))?\s*$/);
     if (d && MONTHS.includes(plain(d[2]))) {
       const month = MONTHS.indexOf(plain(d[2])) + 1;
-      const year = y1 ? (month >= 7 ? y1 : y2) : null;
+      if (year && month < lastMonth) year += 1;
+      lastMonth = month;
       date = year ? `${year}-${String(month).padStart(2, '0')}-${String(Number(d[1])).padStart(2, '0')}` : null;
       pending = null;
       continue;

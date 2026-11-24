@@ -961,3 +961,28 @@ test('29. etiqueta «Novo» nos torneios acrescentados nos últimos 7 dias', { s
   assert.deepEqual(page.errors, []);
   await page.close();
 });
+
+test('30. vencedores: estatísticas dos RCQs e escolha da round', { skip }, async () => {
+  const page = await open({ width: 1280, hash: '#winners' });
+  await page.waitFor(`document.querySelector('.stat-tile')`);
+  const st = () => page.eval(`({ chips: [...document.querySelectorAll('#win-rounds .quick')].map(b => [b.textContent, b.getAttribute('aria-pressed')]), rcqs: document.querySelector('.stat-tile b')?.textContent || null, rows: document.querySelectorAll('#results .result').length, empty: document.querySelector('.win-empty')?.textContent || '' })`);
+  let s = await st();
+  assert.deepEqual(s.chips.map(c => c[0]), ['Todas', 'Round 1', 'Round 2', 'Round 3']);
+  assert.equal(Number(s.rcqs), s.rows, 'nº de RCQs = linhas da lista');
+  const total = s.rows;
+  await page.eval(`[...document.querySelectorAll('#win-rounds .quick')].find(b => b.textContent === 'Round 3').click()`);
+  s = await st();
+  const r3 = await page.eval(`winners.filter(r => r.round === 'R3').length`);
+  assert.equal(s.rows, r3, 'Round 3: só os resultados dessa round');
+  if (!r3) assert.match(s.empty, /Ainda não há vencedores da Round 3/);
+  await page.eval(`[...document.querySelectorAll('#win-rounds .quick')].find(b => b.textContent === 'Round 2').click()`);
+  const r2 = await st();
+  assert.ok(r2.rows <= total && r2.chips.find(c => c[0] === 'Round 2')[1] === 'true');
+  await page.eval(`[...document.querySelectorAll('#win-rounds .quick')].find(b => b.textContent === 'Round 1').click()`);
+  const r1 = await st();
+  assert.equal(r1.rows, await page.eval(`winners.filter(r => r.round === 'R1').length`), 'Round 1: resultados da R1');
+  assert.equal(r1.rows + r2.rows + r3, total, 'as rounds somam o total');
+  assert.ok(await page.eval(`[...document.querySelectorAll('.stat-bars li')].length > 0`));
+  assert.deepEqual(page.errors, []);
+  await page.close();
+});

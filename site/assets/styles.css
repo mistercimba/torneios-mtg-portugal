@@ -357,3 +357,22 @@ html[data-theme=dark] .offline-note{background:#3b2d1e;color:#f4c77e;border-colo
 @media(max-width:359px){.quick{padding:6px 9px;font-size:12px}.quick-types{gap:5px}}
 .new-pill{display:inline-block;vertical-align:middle;margin-left:8px;padding:2px 7px;border-radius:999px;background:var(--green);color:#081b11;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;line-height:1.4}
 html:not([data-theme=dark]) .new-pill{background:#188052;color:#fff}
+/* Estatísticas dos RCQs (página Vencedores) */
+.win-stats{margin:0 0 28px}
+.stat-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.stat-tile{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:12px 14px}
+.stat-tile b{display:block;font-size:24px;font-weight:800;letter-spacing:-.02em;color:var(--text)}
+.stat-tile span{font-size:12px;color:var(--muted)}
+.stat-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.stat-box{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:14px}
+.stat-box h3{margin:0 0 10px;font-size:13px;font-weight:750}.stat-box h3 small{font-weight:600;color:var(--muted);margin-left:4px}
+.stat-bars{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+.stat-bars li{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(40px,1fr) auto;align-items:center;gap:8px;font-size:12.5px}
+.stat-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.stat-bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden}.stat-bar i{display:block;height:100%;border-radius:99px;background:var(--green)}
+.stat-num{font-weight:750;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}.stat-name small{font-size:11px;color:var(--muted)}
+.stat-big{font-size:28px;font-weight:800;margin:4px 0 0}.stat-foot,.stat-empty{font-size:11.5px;color:var(--muted);margin:8px 0 0}
+.results-heading{font-size:13px;font-weight:750;margin:0 0 8px}
+@media(max-width:760px){.stat-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.stat-cols{grid-template-columns:1fr}.stat-tile b{font-size:21px}}
+.win-rounds{margin:0 0 12px}.win-rounds:empty{display:none}
+.win-empty{margin:0 0 24px;font-size:13px}
