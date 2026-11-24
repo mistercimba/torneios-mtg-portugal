@@ -191,10 +191,10 @@ export async function updateWinners(cfg, generatedAt, { fetchImpl = fetch, out =
   const { results, error } = await fetchWinners(cfg.sources, { fetchImpl, lists });
   if (error) return `Vencedores: mantidos os ${previous.length} anteriores (${error}).`;
   if (previous.length >= 6 && results.length < previous.length * 0.5) return `Vencedores: a lista devolveu ${results.length} (antes ${previous.length}); mantidos os anteriores.`;
-  // «rounds»: as rounds das listas oficiais, para o site mostrar a escolha (mesmo antes de haver vencedores).
-  const rounds = [...new Set((cfg.sources || []).map(x => x.round).filter(Boolean))];
+  // «rounds»: época + round de cada lista oficial, para o site mostrar a escolha (mesmo antes de haver vencedores).
+  const rounds = (cfg.sources || []).filter(x => x.round).map(x => ({ season: x.season || null, round: x.round }));
   await writeFile(out, JSON.stringify({ title: cfg.title || '', generatedAt, rounds, results }, null, 1) + '\n');
-  return `Vencedores: ${results.length} (listas ${cfg.sources.map(s => s.round).join(', ')}).`;
+  return `Vencedores: ${results.length} (listas ${cfg.sources.map(s => [s.round, s.season].filter(Boolean).join(' ')).join(', ')}).`;
 }
 
 async function main() {

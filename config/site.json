@@ -45,17 +45,20 @@
     }
   ],
   "rcqLists": {
-    "title": "RCQ · Época 2026/27",
+    "title": "RCQ",
     "sources": [
       {
+        "season": "2026/27",
         "round": "R1",
         "docId": "1JaUjzxvTgKfXvpPAmaeo4SLq45i2eALxsxdMGezIGKU"
       },
       {
+        "season": "2026/27",
         "round": "R2",
         "docId": "1kOJ0reJH5Q_r95OUTlzq2GMvTw119rAwuPUE91VTnvk"
       },
       {
+        "season": "2026/27",
         "round": "R3",
         "docId": "1d3Jd2V9-mDD14qs-JC_QE8JpXpMtio4WBCvKunQEaqQ"
       }

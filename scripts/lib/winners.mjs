@@ -39,13 +39,15 @@ export function splitStore(raw) {
 }
 
 /**
- * Lê a secção «Vencedores» de uma lista. round: «R2», «R3»…
- * Devolve [{ date, store, city, name, deck, players, format, round }].
+ * Lê a secção «Vencedores» de uma lista. round: «R2», «R3»…; season: «2026/27» (senão lê «Season 26/27» do texto).
+ * Devolve [{ date, store, city, name, deck, players, format, round, season }].
  */
-export function parseWinnersText(text, { round = null } = {}) {
+export function parseWinnersText(text, { round = null, season = null } = {}) {
   const all = lines(text);
-  const season = String(text).match(/Season\s+(\d{2})\s*\/\s*(\d{2})/i);
-  const y1 = season ? 2000 + Number(season[1]) : null;
+  const m = String(text).match(/Season\s+(\d{2})\s*\/\s*(\d{2})/i);
+  if (!season && m) season = `20${m[1]}/${m[2]}`;
+  // O ano de início vem da época (config ou texto): «2026/27» → 2026.
+  const y1 = season ? Number(season.slice(0, 4)) : null;
   const start = all.findIndex(l => /^vencedores:?$/i.test(l));
   if (start < 0) return [];
   const results = [];
@@ -76,7 +78,7 @@ export function parseWinnersText(text, { round = null } = {}) {
     // Linha do vencedor: «Nome (Deck)» ou só «Nome».
     if (pending && !/^https?:\/\//i.test(line) && !/:/.test(line)) {
       const w = line.match(/^(.+?)(?:\s*\(([^)]+)\))?\s*$/);
-      results.push({ date, store: pending.store, city: pending.city, name: w[1].trim(), deck: w[2] ? w[2].trim() : null, players: pending.players, format: pending.format, round });
+      results.push({ date, store: pending.store, city: pending.city, name: w[1].trim(), deck: w[2] ? w[2].trim() : null, players: pending.players, format: pending.format, round, season });
       pending = null;
     }
   }
@@ -92,7 +94,7 @@ export async function fetchListTexts(sources, { fetchImpl = fetch } = {}) {
       res = await fetchImpl(docExportUrl(s.docId), { headers: { 'user-agent': 'torneios-mtg-portugal-sync' }, redirect: 'follow' });
     } catch { return { texts: null, error: `lista ${s.round}: erro de rede` }; }
     if (!res.ok) return { texts: null, error: `lista ${s.round}: HTTP ${res.status} (o documento tem de estar partilhado com «qualquer pessoa com o link»)` };
-    texts.push({ round: s.round, text: await res.text() });
+    texts.push({ round: s.round, season: s.season || null, text: await res.text() });
   }
   return { texts, error: null };
 }
@@ -104,7 +106,7 @@ export async function fetchListTexts(sources, { fetchImpl = fetch } = {}) {
 export async function fetchWinners(sources, { fetchImpl = fetch, lists = null } = {}) {
   const { texts, error } = lists || await fetchListTexts(sources, { fetchImpl });
   if (error) return { results: null, error };
-  const results = texts.flatMap(t => parseWinnersText(t.text, { round: t.round }));
+  const results = texts.flatMap(t => parseWinnersText(t.text, { round: t.round, season: t.season }));
   results.sort((a, b) => a.date.localeCompare(b.date));
   return { results, error: null };
 }

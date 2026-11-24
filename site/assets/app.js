@@ -965,34 +965,47 @@ async function init() {
   try {
     const w = await loadJson('data/winners.json');
     winners = w.results || [];
-    winRounds = w.rounds || [];
-    $('#winners-title').textContent = w.title || '';
+    // Rounds das listas: { season, round } (ficheiros antigos: só «R2»).
+    winRounds = (w.rounds || []).map(r => typeof r === 'string' ? { season: null, round: r } : r);
+    winTitle = w.title || 'RCQ';
     renderWinners();
   } catch (err) { console.error(err); }
   dataReady = true;
   if (events.length) applyFiltersFromUrl();
   applyView(viewFromHash());
 }
-/* ---------- Vencedores: escolher a round (Todas / R2 / R3…) ---------- */
-let winRound = '', winRounds = [];
+/* ---------- Vencedores: escolher a época e a round (a R1 de 2026/27 não se mistura com a R1 de 2027/28) ---------- */
+let winSeason = null, winRound = '', winRounds = [], winTitle = 'RCQ';
+const seasonOf = r => r.season || '';
+const roundNum = r => r.replace(/\D/g, '');
 function renderWinners() {
-  const rounds = [...new Set([...winRounds, ...winners.map(r => r.round)].filter(Boolean))].sort();
-  const el = document.getElementById('win-rounds');
-  el.innerHTML = rounds.length > 1 ? ['', ...rounds].map(r => `<button type="button" class="quick" data-round="${esc(r)}" aria-pressed="${r === winRound}">${r ? 'Round ' + esc(r.replace(/\D/g, '')) : 'Todas'}</button>`).join('') : '';
-  const list = winRound ? winners.filter(r => r.round === winRound) : winners;
+  const seasons = [...new Set([...winRounds.map(seasonOf), ...winners.map(seasonOf)])].sort();
+  // Por defeito: a época mais recente que já tem vencedores (senão, a mais recente das listas).
+  if (winSeason === null || !seasons.includes(winSeason)) {
+    const withResults = seasons.filter(se => winners.some(r => seasonOf(r) === se));
+    winSeason = (withResults.length ? withResults : seasons).at(-1) ?? '';
+  }
+  const inSeason = winners.filter(r => seasonOf(r) === winSeason);
+  const rounds = [...new Set([...winRounds.filter(r => seasonOf(r) === winSeason).map(r => r.round), ...inSeason.map(r => r.round)].filter(Boolean))].sort();
+  if (winRound && !rounds.includes(winRound)) winRound = '';
+  $('#winners-title').textContent = winSeason ? `${winTitle} · Época ${winSeason}` : winTitle;
+  $('#win-seasons').innerHTML = seasons.length > 1 ? seasons.map(se => `<button type="button" class="quick" data-season="${esc(se)}" aria-pressed="${se === winSeason}">${se ? 'Época ' + esc(se) : 'Sem época'}</button>`).join('') : '';
+  $('#win-rounds').innerHTML = rounds.length > 1 ? ['', ...rounds].map(r => `<button type="button" class="quick" data-round="${esc(r)}" aria-pressed="${r === winRound}">${r ? 'Round ' + esc(roundNum(r)) : 'Todas'}</button>`).join('') : '';
+  const list = winRound ? inSeason.filter(r => r.round === winRound) : inSeason;
   $('#win-stats').innerHTML = statsHtml(list);
   $('#results').innerHTML = list.map(resultHtml).join('');
 }
-document.getElementById('win-rounds').addEventListener('click', ev => {
-  const b = ev.target.closest('button[data-round]');
+document.getElementById('winners').addEventListener('click', ev => {
+  const b = ev.target.closest('button[data-round], button[data-season]');
   if (!b) return;
-  winRound = b.dataset.round;
+  if (b.dataset.season !== undefined) { winSeason = b.dataset.season; winRound = ''; }
+  else winRound = b.dataset.round;
   renderWinners();
 });
 
 /* ---------- Estatísticas dos RCQs (a partir das listas oficiais de vencedores) ---------- */
 function statsHtml(list) {
-  if (!list.length) return `<p class="stat-empty win-empty">Ainda não há vencedores ${winRound ? 'da Round ' + esc(winRound.replace(/\D/g, '')) : ''} nas listas oficiais.</p>`;
+  if (!list.length) return `<p class="stat-empty win-empty">Ainda não há vencedores ${winRound ? 'da Round ' + esc(roundNum(winRound)) : winSeason ? 'da época ' + esc(winSeason) : ''} nas listas oficiais.</p>`;
   const count = (arr, key) => { const m = new Map(); for (const x of arr) { const k = key(x); if (k) m.set(k, (m.get(k) || 0) + 1); } return [...m].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt')); };
   const withPlayers = list.filter(r => r.players);
   const totalPlayers = withPlayers.reduce((s, r) => s + r.players, 0);
@@ -1012,8 +1025,14 @@ function statsHtml(list) {
     const ps = list.filter(r => r.store === store && r.players).map(r => r.players);
     return [esc(store), n, ps.length ? `· ${Math.round(ps.reduce((a, b) => a + b, 0) / ps.length)} jog.` : ''];
   });
-  const players = count(list, r => r.name);
-  const repeat = players.filter(([, n]) => n > 1);
+  // Quem ganha um RCQ fica apurado para o RC dessa round, por isso numa round não há repetidos.
+  // Só em «Todas» faz sentido: jogadores que ganharam em mais de uma round.
+  const multiRound = new Set(list.map(r => r.round)).size > 1;
+  const byName = new Map();
+  list.forEach(r => { const k = (r.name || '').trim(); if (k) byName.set(k, [...(byName.get(k) || []), r.round]); });
+  const repeat = [...byName].filter(([, rs]) => new Set(rs).size > 1)
+    .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'pt'));
+  const repeatBox = multiRound && repeat.length ? `<section class="stat-box"><h3>Venceram em mais de uma round</h3><ol class="stat-list">${repeat.slice(0, 8).map(([k, rs]) => `<li><span class="stat-name">${esc(k)}</span><span class="stat-rounds">${[...new Set(rs)].sort().map(esc).join(' · ')}</span></li>`).join('')}</ol>${repeat.length > 8 ? `<p class="stat-foot">e mais ${repeat.length - 8}.</p>` : ''}</section>` : '';
 
   return `<div class="win-stats">
     <div class="stat-tiles">
@@ -1025,7 +1044,7 @@ function statsHtml(list) {
     <div class="stat-cols">
       <section class="stat-box"><h3>Arquétipos vencedores${cSmall ? ` <small>${cSmall}</small>` : ''}</h3>${decks.length ? bars(decks.slice(0, 6).map(([k, n]) => [esc(k), n]), decks[0][1]) : '<p class="stat-empty">Sem decks indicados.</p>'}${noDeck ? `<p class="stat-foot">${noDeck} ${noDeck === 1 ? 'RCQ' : 'RCQs'} sem deck indicado na lista.</p>` : ''}</section>
       <section class="stat-box"><h3>Lojas com mais RCQs <small>média de jogadores</small></h3>${bars(stores, stores[0][1])}</section>
-      <section class="stat-box"><h3>Vencedores</h3>${repeat.length ? bars(repeat.slice(0, 6).map(([k, n]) => [esc(k), n]), repeat[0][1], n => `${n} vitórias`) : `<p class="stat-big">${players.length}</p><p class="stat-foot">vencedores diferentes em ${list.length} RCQs — ainda ninguém repetiu.</p>`}</section>
+      ${repeatBox}
     </div>
   </div>`;
 }

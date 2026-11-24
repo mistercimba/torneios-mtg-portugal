@@ -178,7 +178,7 @@ test('vencedores: lê a secção «Vencedores» da lista da Round 2 e ignora os 
   const text = await readFile(new URL('./fixtures/rcq-r2.txt', import.meta.url), 'utf8');
   const r = parseWinnersText(text, { round: 'R2' });
   assert.equal(r.length, 26);
-  assert.deepEqual(r[0], { date: '2026-08-15', store: 'Ventura Games', city: 'Barreiro', name: 'Miguel Valente', deck: 'Dimir Midrange', players: 16, format: 'Standard', round: 'R2' });
+  assert.deepEqual(r[0], { date: '2026-08-15', store: 'Ventura Games', city: 'Barreiro', name: 'Miguel Valente', deck: 'Dimir Midrange', players: 16, format: 'Standard', round: 'R2', season: '2026/27' });
   const sealed = r.find(x => x.name === 'Vitor Bessa');
   assert.deepEqual([sealed.date, sealed.store, sealed.city, sealed.deck, sealed.players, sealed.format], ['2026-08-30', 'Arena Porto', 'Porto', null, 26, 'Sealed The Hobbit']);
   const last = r.at(-1);
@@ -197,6 +197,10 @@ test('vencedores: Round 1 (Abril a Agosto) fica toda no 1.º ano da época', () 
     ['R1', '2026-04-04', 'Ventura Games', 43],
     ['R1', '2026-08-02', 'Arena Porto', 20],
   ]);
+  // A época vem do texto («Season 26/27») ou da configuração; R1 de épocas diferentes não se misturam.
+  assert.equal(parseWinnersText(text, { round: 'R1' })[0].season, '2026/27');
+  const next = parseWinnersText(text.replace('Season 26/27', ''), { round: 'R1', season: '2027/28' });
+  assert.deepEqual(next.map(x => [x.season, x.date]), [['2027/28', '2027-04-04'], ['2027/28', '2027-08-02']]);
 });
 
 test('vencedores: anos da época, lojas sem parênteses e quebras de linha do Google Docs', () => {
@@ -220,7 +224,7 @@ test('vencedores: erros de rede ou documento privado mantêm o ficheiro anterior
   const out = join(dir, 'winners.json');
   const before = { title: 'x', results: Array.from({ length: 10 }, (_, i) => ({ date: `2026-09-${String(i + 1).padStart(2, '0')}`, store: 'Loja', city: 'Porto', name: 'N' + i, deck: null, players: 8 })) };
   await writeFile(out, JSON.stringify(before));
-  const cfg = { title: 'RCQ · Época 2026/27', sources: [{ round: 'R2', docId: 'doc' }] };
+  const cfg = { title: 'RCQ', sources: [{ season: '2026/27', round: 'R2', docId: 'doc' }] };
   const ok = text => async () => ({ ok: true, status: 200, text: async () => text });
   // Documento privado (Google pede sessão) → mantém.
   let msg = await updateWinners(cfg, 'agora', { out, fetchImpl: async () => ({ ok: false, status: 401, text: async () => '' }) });
@@ -238,7 +242,9 @@ test('vencedores: erros de rede ou documento privado mantêm o ficheiro anterior
   msg = await updateWinners(cfg, '2026-11-24T00:00:00Z', { out, fetchImpl: ok(real) });
   assert.match(msg, /Vencedores: 26/);
   const after = JSON.parse(await readFile(out, 'utf8'));
-  assert.equal(after.title, 'RCQ · Época 2026/27');
+  assert.equal(after.title, 'RCQ');
+  assert.deepEqual(after.rounds, [{ season: '2026/27', round: 'R2' }]);
+  assert.ok(after.results.every(r => r.season === '2026/27' && r.round === 'R2'), 'cada resultado com época e round');
   assert.equal(after.results.length, 26);
   assert.ok(after.results.every((r, i, a) => !i || a[i - 1].date <= r.date), 'por ordem de data');
   // fetchWinners devolve erro (sem lançar) se um documento falhar.

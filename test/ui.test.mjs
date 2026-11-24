@@ -983,6 +983,35 @@ test('30. vencedores: estatísticas dos RCQs e escolha da round', { skip }, asyn
   assert.equal(r1.rows, await page.eval(`winners.filter(r => r.round === 'R1').length`), 'Round 1: resultados da R1');
   assert.equal(r1.rows + r2.rows + r3, total, 'as rounds somam o total');
   assert.ok(await page.eval(`[...document.querySelectorAll('.stat-bars li')].length > 0`));
+  // Numa round ninguém repete (quem ganha fica apurado): sem caixa de repetidos.
+  assert.equal(await page.eval(`document.querySelector('.stat-list')`), null, 'numa round não há caixa de repetidos');
+  await page.eval(`[...document.querySelectorAll('#win-rounds .quick')].find(b => b.textContent === 'Todas').click()`);
+  const multi = await page.eval(`(() => { const m = {}; winners.forEach(r => (m[r.name] ??= new Set()).add(r.round)); return Object.values(m).filter(s => s.size > 1).length; })()`);
+  const items = await page.eval(`[...document.querySelectorAll('.stat-list li')].map(li => li.textContent)`);
+  assert.equal(items.length, Math.min(8, multi), 'em «Todas»: quem ganhou em mais de uma round');
+  if (items.length) assert.match(items[0], /R\d · R\d/);
+  assert.deepEqual(page.errors, []);
+  await page.close();
+});
+
+test('31. vencedores: a mesma round de épocas diferentes não se mistura', { skip }, async () => {
+  const page = await open({ width: 1280, hash: '#winners' });
+  await page.waitFor(`document.querySelector('.stat-tile')`);
+  const r1 = await page.eval(`winners.filter(r => r.round === 'R1' && r.season === '2026/27').length`);
+  // Sem outra época: não aparece a escolha da época.
+  assert.equal(await page.eval(`document.querySelectorAll('#win-seasons .quick').length`), 0);
+  await page.eval(`winners.push({ date: '2027-04-17', store: 'Arena Porto', city: 'Porto', name: 'Teste Futuro', deck: 'Deck', players: 20, format: 'Modern', round: 'R1', season: '2027/28' }); winRounds.push({ season: '2027/28', round: 'R1' }, { season: '2027/28', round: 'R2' }); winSeason = null; winRound = ''; renderWinners();`);
+  const st = () => page.eval(`({ seasons: [...document.querySelectorAll('#win-seasons .quick')].map(b => [b.textContent, b.getAttribute('aria-pressed')]), rounds: [...document.querySelectorAll('#win-rounds .quick')].map(b => b.textContent), title: document.querySelector('#winners-title').textContent, rows: document.querySelectorAll('#results .result').length })`);
+  let s = await st();
+  assert.deepEqual(s.seasons, [['Época 2026/27', 'false'], ['Época 2027/28', 'true']], 'abre na época mais recente com vencedores');
+  assert.equal(s.title, 'RCQ · Época 2027/28');
+  assert.deepEqual(s.rounds, ['Todas', 'Round 1', 'Round 2']);
+  assert.equal(s.rows, 1);
+  await page.eval(`[...document.querySelectorAll('#win-seasons .quick')].find(b => b.textContent === 'Época 2026/27').click()`);
+  await page.eval(`[...document.querySelectorAll('#win-rounds .quick')].find(b => b.textContent === 'Round 1').click()`);
+  s = await st();
+  assert.equal(s.title, 'RCQ · Época 2026/27');
+  assert.equal(s.rows, r1, 'Round 1 de 2026/27 sem o resultado de 2027/28');
   assert.deepEqual(page.errors, []);
   await page.close();
 });
