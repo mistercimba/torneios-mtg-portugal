@@ -403,4 +403,6 @@ html:not([data-theme=dark]) .new-pill{background:#188052;color:#fff}
 .updated-ago{color:var(--muted);font-weight:500;white-space:nowrap}
 .count-wrap{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px}.updated-ago{font-size:13px}
 .when-price{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
-.footer .report p{margin:0;font-size:13px;color:var(--secondary)}
+.footer .report{display:flex;flex-wrap:wrap;gap:4px 24px;justify-content:space-between}.footer .report p{margin:0;font-size:13px;color:var(--secondary)}
+.identity{flex-direction:column;align-items:flex-start;gap:1px}.by-community{font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:.01em;line-height:1.1}
+@media(max-width:760px){.by-community{font-size:10.5px}}

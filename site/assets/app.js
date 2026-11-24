@@ -998,15 +998,7 @@ async function loadJson(url) {
 }
 
 /* ---------- Reportar erro / torneio em falta ---------- */
-// Preencher com o Instagram de contacto (sem @) e, se quiser, quem mantém o site. Vazio = a secção não aparece.
-const CONTACT = { instagram: '', maintainer: '' };
-(function showReport() {
-  const ig = socialUrl(CONTACT.instagram, 'https://www.instagram.com/');
-  if (!ig) return;
-  document.getElementById('report-link').href = ig;
-  if (CONTACT.maintainer) document.getElementById('maintainer').textContent = ` Mantido por ${CONTACT.maintainer}.`;
-  document.getElementById('report').hidden = false;
-})();
+// Crédito à comunidade #paredesinforma, Discord (erros e torneios em falta) e Ko-fi: no rodapé do index.html.
 
 async function init() {
   // A ficha das lojas carrega em paralelo e fica pronta antes da agenda aparecer.
