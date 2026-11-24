@@ -39,11 +39,11 @@ jobs:
             echo "::notice::Segredo CALENDAR_ICS_URL ainda não configurado — nada foi publicado."
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
 
@@ -53,7 +53,7 @@ jobs:
       - name: Configurar Pages
         id: pages
         if: steps.check.outputs.configured == 'true'
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       # O segredo só existe neste passo, como variável de ambiente. O GitHub mascara-o nos logs
       # e o script nunca o escreve (mensagens de erro passam por redact()).
@@ -71,7 +71,7 @@ jobs:
           CALENDAR_ICS_URL: ${{ secrets.CALENDAR_ICS_URL }}
         run: node scripts/check-public.mjs site
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         if: steps.check.outputs.configured == 'true'
         with:
           path: site
@@ -88,4 +88,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
