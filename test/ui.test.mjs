@@ -677,3 +677,47 @@ test('22. página da loja: nomes diferentes da mesma loja juntam-se; abre a part
   assert.deepEqual(page.errors, []);
   await page.close();
 });
+
+// ---------- Instalar no telemóvel (app web) ----------
+test('23. app web: manifesto, ícones, service worker e agenda sem rede', { skip }, async () => {
+  const page = await open({ width: 390 });
+  const r = await page.eval(`(async () => {
+    const href = document.querySelector('link[rel="manifest"]').getAttribute('href');
+    const m = await fetch(href).then(r => r.json());
+    const dims = async src => { const b = await fetch(src).then(r => r.ok ? r.blob() : null); if (!b) return null; const i = await createImageBitmap(b); return [i.width, i.height]; };
+    const icons = await Promise.all(m.icons.map(async i => ({ ...i, dims: await dims(i.src) })));
+    const apple = await dims(document.querySelector('link[rel="apple-touch-icon"]').getAttribute('href'));
+    return { name: m.name, short: m.short_name, start: m.start_url, display: m.display, theme: m.theme_color, icons, apple,
+      appleCapable: document.querySelector('meta[name="apple-mobile-web-app-capable"]')?.content };
+  })()`);
+  assert.equal(r.name, 'Torneios MTG Portugal'); assert.equal(r.short, 'Torneios MTG');
+  assert.equal(r.start, './'); assert.equal(r.display, 'standalone'); assert.equal(r.theme, '#11151e');
+  for (const want of [['192x192', 'any'], ['512x512', 'any'], ['512x512', 'maskable']]) {
+    const icon = r.icons.find(i => i.sizes === want[0] && i.purpose === want[1]);
+    assert.ok(icon, `ícone ${want.join(' ')}`);
+    assert.deepEqual(icon.dims, want[0].split('x').map(Number));
+  }
+  assert.deepEqual(r.apple, [180, 180]); assert.equal(r.appleCapable, 'yes');
+  // O Chrome considera o site instalável (dispara «beforeinstallprompt»).
+  await page.waitFor(`installPrompt !== null`, 15000);
+  // Sem o pedido do navegador (ex.: iPhone), o botão abre as instruções.
+  await page.eval(`installPrompt = null; updateInstallLink(); document.getElementById('install-wrap').hidden = false`);
+  await page.eval(`document.getElementById('install-app').click()`);
+  const help = await page.eval(`[document.getElementById('detail-dialog').open, document.querySelectorAll('.install-steps li').length]`);
+  assert.deepEqual(help, [true, 3], JSON.stringify(page.errors));
+  await page.eval(`document.getElementById('close-dialog').click()`);
+  // Service worker activo e a controlar a página.
+  await page.waitFor(`navigator.serviceWorker && navigator.serviceWorker.controller`, 15000);
+  // Sem rede: a página abre na mesma com a última agenda guardada e mostra o aviso.
+  const rows = await page.eval(`document.querySelectorAll('.event-row').length`);
+  await page.cdp('Network.enable');
+  await page.cdp('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+  await page.cdp('Page.reload', { ignoreCache: false });
+  await page.waitFor(`document.readyState === 'complete' && document.querySelectorAll('.event-row').length > 0`, 15000);
+  assert.equal(await page.eval(`document.querySelectorAll('.event-row').length`), rows);
+  assert.ok(await page.eval(`!document.getElementById('offline-note').hidden`), 'aviso de «sem ligação»');
+  await page.cdp('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+  await page.waitFor(`document.getElementById('offline-note').hidden`);
+  await page.eval(`navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister())))`);
+  await page.close();
+});

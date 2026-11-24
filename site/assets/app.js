@@ -640,6 +640,46 @@ document.getElementById('past').addEventListener('click', ev => {
   renderEvents();
 });
 
+/* ---------- Instalar no telemóvel (app web) ---------- */
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+let installPrompt = null;
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(err => console.warn('Service worker:', err.message)));
+}
+window.addEventListener('beforeinstallprompt', ev => { ev.preventDefault(); installPrompt = ev; updateInstallLink(); });
+window.addEventListener('appinstalled', () => { installPrompt = null; updateInstallLink(); });
+function updateInstallLink() {
+  // Aparece quando o navegador permite instalar, ou em telemóveis (com instruções), e nunca dentro da app já instalada.
+  document.getElementById('install-wrap').hidden = isStandalone() || !(installPrompt || matchMedia('(pointer: coarse)').matches);
+}
+function openInstallHelp() {
+  originFocus = document.activeElement;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const steps = ios
+    ? ['Abre este site no <b>Safari</b>.', 'Toca no botão <b>Partilhar</b> (o quadrado com a seta para cima).', 'Escolhe <b>Adicionar ao ecrã principal</b> e confirma.']
+    : ['Abre o menu do navegador (<b>⋮</b> no Chrome).', 'Escolhe <b>Instalar app</b> ou <b>Adicionar ao ecrã principal</b>.', 'Confirma. O ícone fica no ecrã do telemóvel.'];
+  document.getElementById('dialog-body').innerHTML = `<div class="dialog-top"><div><div class="dialog-meta">App web</div><h2 id="modal-title">Instalar no telemóvel</h2><div class="dialog-location">Fica com um ícone no ecrã e abre em ecrã inteiro. Sem rede, mostra a última agenda guardada.</div></div><button type="button" class="dialog-close" id="close-dialog" aria-label="Fechar">×</button></div><ol class="install-steps">${steps.map(t => `<li>${t}</li>`).join('')}</ol>`;
+  document.getElementById('dialog-actions').innerHTML = '';
+  dialog.showModal();
+  document.getElementById('close-dialog').addEventListener('click', () => dialog.close());
+  document.getElementById('close-dialog').focus();
+}
+document.getElementById('install-app').addEventListener('click', async () => {
+  if (installPrompt) {
+    try {
+      await installPrompt.prompt();
+      await installPrompt.userChoice;
+      installPrompt = null; updateInstallLink();
+      return;
+    } catch { /* o navegador recusou: mostra as instruções */ }
+  }
+  openInstallHelp();
+});
+updateInstallLink();
+// Aviso quando não há rede (a agenda vem da cópia guardada).
+const updateOnline = () => { document.getElementById('offline-note').hidden = navigator.onLine !== false; };
+window.addEventListener('online', updateOnline); window.addEventListener('offline', updateOnline); updateOnline();
+
 /* ---------- Arranque ---------- */
 async function loadJson(url) {
   const res = await fetch(url, { cache: 'no-cache' });

@@ -195,10 +195,17 @@ html:not([data-theme="dark"]) .dialog{--muted:#64727e}
 .dialog-actions a:hover{background:var(--hover)}.dialog-actions a.primary{background:var(--green);border-color:var(--green);color:#081b11}
 html:not([data-theme=dark]) .dialog-actions a.primary{color:white}
 .unavailable{font-size:11px;color:var(--muted)}
+.dialog-actions:empty{display:none}
 .add-cal{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-right:auto}
 .dialog-actions .share-btn{font:inherit;font-size:12px;font-weight:650;border:1px solid var(--line);border-radius:6px;padding:9px 13px;background:transparent;color:var(--text);cursor:pointer}
 .dialog-actions .share-btn:hover{background:var(--hover)}
 .share-filters[hidden]{display:none}
+.install-link{border:0;background:none;padding:0;font:inherit;color:var(--accent);font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.install-steps{margin:18px 0 4px;padding-left:22px;font-size:15px;line-height:1.6;color:var(--secondary)}
+.install-steps li{margin-bottom:6px}.install-steps b{color:var(--text)}
+.offline-note{background:#fff3df;color:#5a3b10;border-bottom:1px solid #f0ddba;font-size:13px;padding:9px 18px;text-align:center}
+html[data-theme=dark] .offline-note{background:#3b2d1e;color:#f4c77e;border-color:#624728}
+.offline-note[hidden],.install-wrap[hidden]{display:none}
 /* Página da loja */
 .store-page{padding:28px 0 64px}
 .back-link{display:inline-block;font-size:13px;font-weight:700;color:var(--accent);text-decoration:none;margin-bottom:18px}

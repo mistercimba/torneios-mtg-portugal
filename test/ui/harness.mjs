@@ -28,7 +28,7 @@ export async function fixtureEventsJson() {
   return JSON.stringify({ generatedAt: '2026-11-23T12:00:00.000Z', timeZone: 'Europe/Lisbon', count: events.length, milestones: config.milestones, events: events.map(toPublic) });
 }
 
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png' };
 
 export async function startServer() {
   const eventsJson = await fixtureEventsJson();
@@ -88,6 +88,7 @@ export async function launchBrowser() {
     await s('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile });
     const page = {
       errors,
+      cdp: (m, p) => s(m, p),
       async eval(expr) {
         const r = await s('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true });
         if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);
