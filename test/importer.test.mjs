@@ -200,10 +200,17 @@ test('vencedores: Round 1 (Abril a Agosto) fica toda no 1.º ano da época', () 
   // A época vem do texto («Season 26/27») ou da configuração; R1 de épocas diferentes não se misturam.
   assert.equal(parseWinnersText(text, { round: 'R1' })[0].season, '2026/27');
   const next = parseWinnersText(text.replace('Season 26/27', ''), { round: 'R1', season: '2027/28' });
+  assert.deepEqual(next.map(x => [x.season, x.date]), [['2027/28', '2027-04-04'], ['2027/28', '2027-08-02']]);
   // Janeiro–Março são do 2.º ano da época (WPNQ Round 6: Janeiro a Março de 2024).
   const r6 = parseWinnersText('Vencedores\n6 JANEIRO\nVentura Games (Barreiro) - Standard (29 jogadores)\nMário Paredes (Domain)\n24 MARÇO\nFriendZone Lounge (Aveiro) - Standard (9 jogadores)\nMiguel Moreira (Dimir Midrange)\n', { round: 'R6', season: '2023/24' });
   assert.deepEqual(r6.map(x => x.date), ['2024-01-06', '2024-03-24']);
-  assert.deepEqual(next.map(x => [x.season, x.date]), [['2027/28', '2027-04-04'], ['2027/28', '2027-08-02']]);
+});
+
+test('vencedores: «???» não conta e nomes do mesmo jogador juntam-se pelos aliases', async () => {
+  const text = 'Season 25/26\nVencedores\n9 NOVEMBRO\nPTMERCH (Queluz) - Sealed (? jogadores)\n???\nArena Porto (Porto) - Standard (10 jogadores)\nIkinho (Mono Red)\n';
+  assert.deepEqual(parseWinnersText(text, { round: 'R2' }).map(r => r.name), ['Ikinho']);
+  const { results } = await fetchWinners([], { lists: { texts: [{ round: 'R2', season: '2025/26', text }], error: null }, aliases: { Ikinho: 'Henrique ‘Ikinho’ Santos' } });
+  assert.deepEqual(results.map(r => r.name), ['Henrique ‘Ikinho’ Santos']);
 });
 
 test('vencedores: anos da época, lojas sem parênteses e quebras de linha do Google Docs', () => {

@@ -86,6 +86,8 @@ export function parseWinnersText(text, { round = null, season = null } = {}) {
     // Linha do vencedor: «Nome (Deck)» ou só «Nome».
     if (pending && !/^https?:\/\//i.test(line) && !/:/.test(line)) {
       const w = line.match(/^(.+?)(?:\s*\(([^)]+)\))?\s*$/);
+      // Vencedor por preencher na lista («???»): não conta.
+      if (/^[?\s]+$/.test(w[1])) { pending = null; continue; }
       results.push({ date, store: pending.store, city: pending.city, name: w[1].trim(), deck: w[2] ? w[2].trim() : null, players: pending.players, format: pending.format, round, season });
       pending = null;
     }
@@ -111,10 +113,12 @@ export async function fetchListTexts(sources, { fetchImpl = fetch } = {}) {
  * Junta os vencedores de várias listas. Erros de rede ou de leitura não param a publicação:
  * devolve { results: null, error } e o site mantém o winners.json anterior.
  */
-export async function fetchWinners(sources, { fetchImpl = fetch, lists = null } = {}) {
+export async function fetchWinners(sources, { fetchImpl = fetch, lists = null, aliases = {} } = {}) {
   const { texts, error } = lists || await fetchListTexts(sources, { fetchImpl });
   if (error) return { results: null, error };
-  const results = texts.flatMap(t => parseWinnersText(t.text, { round: t.round, season: t.season }));
+  // Mesmo jogador escrito de formas diferentes nas listas → um só nome (config → rcqLists.aliases).
+  const results = texts.flatMap(t => parseWinnersText(t.text, { round: t.round, season: t.season }))
+    .map(r => (aliases[r.name] ? { ...r, name: aliases[r.name] } : r));
   results.sort((a, b) => a.date.localeCompare(b.date));
   return { results, error: null };
 }
