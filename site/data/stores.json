@@ -1,28 +1,71 @@
 {
-  "_info": "Ficha das lojas: dados estáticos usados por defeito no site (morada, Instagram, Facebook, site). O que estiver no Google Calendar prevalece. «localidade» tem de ser igual à LOCALIDADE do calendário; «aliases» são outros nomes usados no campo LOJA. Instagram/Facebook: só o nome da conta ou o endereço completo.",
+  "_info": "Ficha das lojas: dados estáticos usados por defeito no site (morada, Instagram, Facebook, site, mapa). O que estiver no Google Calendar prevalece. «localidade» tem de ser igual à LOCALIDADE do calendário; «aliases» são outros nomes usados no campo LOJA. Instagram/Facebook: só o nome da conta ou o endereço completo. «mapa» (opcional): link do Google Maps, usado no botão «Ver no mapa» em vez da pesquisa pela morada.",
   "lojas": [
     {
       "nome": "Arena Porto",
       "localidade": "Porto",
       "morada": "Rua de Santa Catarina 801, 4000-454 Porto",
-      "instagram": "",
+      "instagram": "arena.porto",
       "facebook": "",
       "site": "https://www.arenaporto.pt"
     },
     {
+      "nome": "Conflux Games",
+      "aliases": [
+        "Conflux"
+      ],
+      "localidade": "Linda-a-Velha",
+      "morada": "Av. Carolina Michaëlis 4, 2795-047 Linda-a-Velha",
+      "instagram": "conflux.games.events",
+      "facebook": "confluxgamesevents",
+      "site": "https://confluxgames.com"
+    },
+    {
+      "nome": "Critical Hit Gamecenter",
+      "aliases": [
+        "Critical Hit"
+      ],
+      "localidade": "Rio de Mouro",
+      "morada": "",
+      "instagram": "criticalhit_gamecenter",
+      "facebook": "",
+      "site": ""
+    },
+    {
+      "nome": "Drawstep",
+      "localidade": "Braga",
+      "morada": "",
+      "instagram": "drawstep_games",
+      "facebook": "",
+      "site": ""
+    },
+    {
       "nome": "End Turn",
-      "aliases": ["EndTurn"],
+      "aliases": [
+        "EndTurn"
+      ],
       "localidade": "Avintes",
       "morada": "Rua G, n.º 49, Urbanização dos Pinhais Bastos, 4430-679 Avintes, Vila Nova de Gaia",
-      "instagram": "",
+      "instagram": "endturntcg",
       "facebook": "",
+      "site": ""
+    },
+    {
+      "nome": "FriendZone Lounge",
+      "aliases": [
+        "FriendZoneLounge"
+      ],
+      "localidade": "Aveiro",
+      "morada": "Rua da Anadia 69, 3810-208 Aveiro",
+      "instagram": "fzlounge",
+      "facebook": "friendzonelounge",
       "site": ""
     },
     {
       "nome": "Gárgula Gaming",
       "localidade": "Lisboa",
       "morada": "Rua José Galhardo 5, loja 1, 1750-131 Lisboa",
-      "instagram": "",
+      "instagram": "gargulatcg",
       "facebook": "",
       "site": ""
     },
@@ -30,13 +73,16 @@
       "nome": "Lotus Valley",
       "localidade": "Arruda dos Vinhos",
       "morada": "Rua Cândido dos Reis 122, 2630-233 Arruda dos Vinhos",
-      "instagram": "",
+      "instagram": "lotusvalleystore",
       "facebook": "",
       "site": ""
     },
     {
       "nome": "Magus",
-      "aliases": ["Magus Gamestore", "Magus Store"],
+      "aliases": [
+        "Magus Gamestore",
+        "Magus Store"
+      ],
       "localidade": "Vila Nova de Famalicão",
       "morada": "Rua Mário Cesariny, Urb. Quinta da Maia, Loja 2, 4760-010 Vila Nova de Famalicão",
       "instagram": "magus_store",
@@ -45,29 +91,81 @@
     },
     {
       "nome": "Mercadia Games",
-      "aliases": ["Mercadia"],
+      "aliases": [
+        "Mercadia"
+      ],
       "localidade": "Lisboa",
       "morada": "Rua Cláudio Nunes 17A, 1500-174 Lisboa (Benfica)",
-      "instagram": "",
+      "instagram": "mercadia.games2.0",
+      "facebook": "",
+      "site": ""
+    },
+    {
+      "nome": "Mulligan Portimão",
+      "localidade": "Portimão",
+      "morada": "",
+      "instagram": "mulligan.games",
       "facebook": "",
       "site": ""
     },
     {
       "nome": "Mulligan Quarteira",
-      "aliases": ["Mulligan Games"],
+      "aliases": [
+        "Mulligan Games"
+      ],
       "localidade": "Quarteira",
       "morada": "Rua Manuel Pontes Horta, lote 8 R/C, 8125 Quarteira",
-      "instagram": "",
+      "instagram": "mulligan.games",
       "facebook": "",
       "site": ""
+    },
+    {
+      "nome": "PlayHub",
+      "aliases": [
+        "PlayHub Faro"
+      ],
+      "localidade": "Faro",
+      "morada": "",
+      "instagram": "playhubfaro",
+      "facebook": "",
+      "site": "",
+      "mapa": "https://maps.app.goo.gl/oVPNasw6M4YQbtbDA"
     },
     {
       "nome": "Templar Games",
       "localidade": "Tomar",
       "morada": "Rua da Silva Magalhães 52, Tomar",
-      "instagram": "",
+      "instagram": "templar_games",
       "facebook": "",
       "site": ""
+    },
+    {
+      "nome": "Templars Arena",
+      "localidade": "Rio de Mouro",
+      "morada": "Rua Prof. João Batista Machado 30, Bloco D, Loja AB, 2635-631 Rio de Mouro",
+      "instagram": "templarsarena",
+      "facebook": "",
+      "site": ""
+    },
+    {
+      "nome": "Versus Gamecenter",
+      "localidade": "Lisboa",
+      "morada": "Rua Conselheiro Lopo Vaz, Lote C, Loja A, 1800-142 Lisboa (Parque das Nações)",
+      "instagram": "versusgamecenterpt",
+      "facebook": "",
+      "site": "https://versusgamecenter.pt"
+    },
+    {
+      "nome": "Zenith",
+      "aliases": [
+        "Zenith Game Store",
+        "Zenith Gamestore"
+      ],
+      "localidade": "Leiria",
+      "morada": "Av. Marquês de Pombal, Galerias São José, 2410-152 Leiria",
+      "instagram": "zenithgamestoreleiria",
+      "facebook": "",
+      "site": "https://www.zenithgamestore.pt"
     }
   ]
 }

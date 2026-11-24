@@ -560,7 +560,7 @@ function renderStore(key) {
   const place = [ref.localidade || wins[0]?.city, ref.distrito && ref.distrito !== ref.localidade ? ref.distrito : null].filter(Boolean).join(' · ');
   const info = STORE_INFO.get(key);
   const address = info?.morada || list.map(addressOf).filter(Boolean).pop() || list.map(e => e.local).filter(v => v && normalize(v) !== normalize(name) && normalize(v) !== normalize(ref.loja)).pop();
-  const map = address || ref.localidade ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address ? [name, address].join(', ') : [name, ref.localidade].join(', '))}` : null;
+  const map = safeUrl(info?.mapa) || (address || ref.localidade ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address ? [name, address].join(', ') : [name, ref.localidade].join(', '))}` : null);
   const stats = [plural(upcoming.length, 'torneio marcado', 'torneios marcados'), past.length ? plural(past.length, 'torneio anterior', 'torneios anteriores') : null, wins.length ? plural(wins.length, 'vencedor registado', 'vencedores registados') : null].filter(Boolean).join(' · ');
   document.title = `${name} — Torneios MTG Portugal`;
   el.innerHTML = `<div class="store-page">
@@ -722,8 +722,8 @@ function openDetails(id) {
     + (e.emRevisao ? '<div class="dialog-note">Alguns dados deste evento estão a ser confirmados. Consulta o anúncio original antes de te inscreveres.</div>' : '');
 
   const link = safeUrl(e.ligacao);
-  const map = e.scope === 'portugal' && (addr || e.local || e.localidade)
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr ? [e.loja, addr].filter(Boolean).join(', ') : [e.local || e.loja, e.localidade].filter(Boolean).join(', '))}` : null;
+  const map = safeUrl(storeInfo(e)?.mapa) || (e.scope === 'portugal' && (addr || e.local || e.localidade)
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr ? [e.loja, addr].filter(Boolean).join(', ') : [e.local || e.loja, e.localidade].filter(Boolean).join(', '))}` : null);
   const icsName = (e.title || 'evento').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase().slice(0, 60) + '.ics';
   const store = storeKey(e);
   document.getElementById('dialog-actions').innerHTML =
