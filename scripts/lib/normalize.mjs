@@ -220,7 +220,8 @@ export function normalizeEvent(raw) {
   if (!dates) issue('data-invalida', 'Data de início ilegível.', 'erro');
 
   const formatoRaw = single('formato');
-  const formato = clean(formatoRaw);
+  // Pré-releases são sempre Sealed: sem FORMATO no calendário, assume-se Sealed.
+  const formato = clean(formatoRaw) || (type.key === 'prerelease' ? 'Sealed' : null);
   const loja = clean(single('loja'));
   const localidade = clean(single('localidade'));
   const paisRaw = clean(single('pais'));

@@ -75,8 +75,8 @@ test('«Check-in:» dentro dos detalhes originais não substitui CHECKIN', () =>
 test('janela de prerelease e anúncios são datas informativas', () => {
   const p = normalizeEvent({ ...base, start: { date: '2027-05-28' }, end: { date: '2027-05-31' }, description: 'TIPO: Prerelease\n\nFORMATO: A confirmar\n\nNOTAS: Janela geral de prerelease.' });
   assert.equal(p.scope, 'informativo');
-  assert.equal(p.formato, null);
-  assert.equal(p.formatoPendente, true);
+  assert.equal(p.formato, 'Sealed'); // pré-releases são sempre Sealed
+  assert.equal(p.formatoPendente, false);
   assert.equal(normalizeEvent({ ...base, description: 'TIPO: Anúncio' }).scope, 'informativo');
   const store = normalizeEvent({ ...base, description: 'TIPO: Prerelease\nFORMATO: Sealed\nLOJA: Magus\nLOCALIDADE: Braga' });
   assert.equal(store.scope, 'portugal');
@@ -143,6 +143,13 @@ test('épocas: R2 de 2026/27 ≠ R2 de 2027/28; a janela indica o RC para que ap
   assert.deepEqual([b.ronda, b.epoca, b.qualifica], ['R2', '2027/28', null]);
   assert.deepEqual([c.ronda, c.epoca, c.qualifica], ['R3', '2026/27', null]);
   assert.equal(d.qualifica, 'Outro RC');
+});
+
+test('pré-releases sem FORMATO ficam Sealed; com FORMATO mantém-se o do calendário', () => {
+  const a = normalizeEvent({ id: 'p1', summary: 'Prerelease X', start: { date: '2027-01-29' }, description: 'TIPO: Prerelease' });
+  const b = normalizeEvent({ id: 'p2', summary: 'Prerelease Y', start: { date: '2027-01-29' }, description: 'TIPO: Prerelease\nFORMATO: Two-Headed Giant' });
+  assert.equal(a.formato, 'Sealed');
+  assert.equal(b.formato, 'Two-Headed Giant');
 });
 
 test('dados reais (opcional, só local): todos os eventos lidos e todos os tipos reconhecidos', { skip: !existsSync(new URL('./fixtures/private/torneios-mtg-real.ics', import.meta.url)) }, async () => {

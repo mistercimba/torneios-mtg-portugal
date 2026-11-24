@@ -687,6 +687,26 @@ test('21. links partilháveis: filtros e torneio no endereço', { skip }, async 
   await page.close();
 });
 
+test('22b. ficha das lojas: morada, Instagram e site por defeito no detalhe, no mapa e na página da loja', { skip }, async () => {
+  const page = await open({ width: 1280 });
+  // A ficha publicada carrega sem erros; aqui junta-se uma loja da fixture para testar.
+  assert.ok(await page.eval(`STORE_INFO.size > 0`), 'data/stores.json carregado');
+  await page.eval(`loadStoreInfo([{ nome: 'Loja Exemplo Norte', localidade: 'Vila Nova de Famalicão', morada: 'Rua Exemplo 1, 4760-000 Vila Nova de Famalicão', instagram: '@loja_exemplo', site: 'https://exemplo.pt' }])`);
+  await page.eval(`[...document.querySelectorAll('.event-row')].find(r => r.textContent.includes('Loja Exemplo Norte')).click()`);
+  const d = await page.eval(`({ loc: [...document.querySelectorAll('.dialog-location')].map(x => x.textContent), links: [...document.querySelectorAll('#dialog-actions a')].map(a => [a.textContent, a.getAttribute('href')]) })`);
+  assert.ok(d.loc.includes('Rua Exemplo 1, 4760-000 Vila Nova de Famalicão'), JSON.stringify(d.loc));
+  const href = t => d.links.find(([x]) => x.startsWith(t))?.[1];
+  assert.equal(href('Instagram'), 'https://www.instagram.com/loja_exemplo');
+  assert.equal(href('Site da loja'), 'https://exemplo.pt');
+  assert.ok(decodeURIComponent(href('Ver no mapa')).includes('Rua Exemplo 1'));
+  await page.eval(`document.querySelector('#dialog-actions .store-link').click()`);
+  await page.waitFor(`document.querySelector('.store-page h2')`);
+  const st = await page.eval(`({ addr: document.querySelector('.store-address')?.textContent, ig: !!document.querySelector('.store-actions a[href="https://www.instagram.com/loja_exemplo"]') })`);
+  assert.deepEqual(st, { addr: 'Rua Exemplo 1, 4760-000 Vila Nova de Famalicão', ig: true });
+  assert.deepEqual(page.errors, []);
+  await page.close();
+});
+
 test('22. página da loja: nomes diferentes da mesma loja juntam-se; abre a partir do modal e dos vencedores', { skip }, async () => {
   const page = await open({ width: 1280 });
   const same = await page.eval(`[

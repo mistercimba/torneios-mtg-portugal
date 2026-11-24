@@ -1,7 +1,7 @@
 // Service worker do Torneios MTG Portugal: permite instalar o site no telemóvel e abrir a última agenda sem rede.
 // Estratégia «rede primeiro»: com ligação vem sempre a versão mais recente; sem ligação usa a última cópia guardada.
-const CACHE = 'torneios-mtg-v1';
-const SHELL = ['./', 'index.html', 'assets/styles.css', 'assets/app.js', 'manifest.webmanifest', 'assets/icons/icon-192.png', 'data/events.json', 'data/winners.json'];
+const CACHE = 'torneios-mtg-v2';
+const SHELL = ['./', 'index.html', 'assets/styles.css', 'assets/app.js', 'manifest.webmanifest', 'assets/icons/icon-192.png', 'data/events.json', 'data/winners.json', 'data/stores.json'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting()));

@@ -1,0 +1,73 @@
+{
+  "_info": "Ficha das lojas: dados estáticos usados por defeito no site (morada, Instagram, Facebook, site). O que estiver no Google Calendar prevalece. «localidade» tem de ser igual à LOCALIDADE do calendário; «aliases» são outros nomes usados no campo LOJA. Instagram/Facebook: só o nome da conta ou o endereço completo.",
+  "lojas": [
+    {
+      "nome": "Arena Porto",
+      "localidade": "Porto",
+      "morada": "Rua de Santa Catarina 801, 4000-454 Porto",
+      "instagram": "",
+      "facebook": "",
+      "site": "https://www.arenaporto.pt"
+    },
+    {
+      "nome": "End Turn",
+      "aliases": ["EndTurn"],
+      "localidade": "Avintes",
+      "morada": "Rua G, n.º 49, Urbanização dos Pinhais Bastos, 4430-679 Avintes, Vila Nova de Gaia",
+      "instagram": "",
+      "facebook": "",
+      "site": ""
+    },
+    {
+      "nome": "Gárgula Gaming",
+      "localidade": "Lisboa",
+      "morada": "Rua José Galhardo 5, loja 1, 1750-131 Lisboa",
+      "instagram": "",
+      "facebook": "",
+      "site": ""
+    },
+    {
+      "nome": "Lotus Valley",
+      "localidade": "Arruda dos Vinhos",
+      "morada": "Rua Cândido dos Reis 122, 2630-233 Arruda dos Vinhos",
+      "instagram": "",
+      "facebook": "",
+      "site": ""
+    },
+    {
+      "nome": "Magus",
+      "aliases": ["Magus Gamestore", "Magus Store"],
+      "localidade": "Vila Nova de Famalicão",
+      "morada": "Rua Mário Cesariny, Urb. Quinta da Maia, Loja 2, 4760-010 Vila Nova de Famalicão",
+      "instagram": "magus_store",
+      "facebook": "",
+      "site": ""
+    },
+    {
+      "nome": "Mercadia Games",
+      "aliases": ["Mercadia"],
+      "localidade": "Lisboa",
+      "morada": "Rua Cláudio Nunes 17A, 1500-174 Lisboa (Benfica)",
+      "instagram": "",
+      "facebook": "",
+      "site": ""
+    },
+    {
+      "nome": "Mulligan Quarteira",
+      "aliases": ["Mulligan Games"],
+      "localidade": "Quarteira",
+      "morada": "Rua Manuel Pontes Horta, lote 8 R/C, 8125 Quarteira",
+      "instagram": "",
+      "facebook": "",
+      "site": ""
+    },
+    {
+      "nome": "Templar Games",
+      "localidade": "Tomar",
+      "morada": "Rua da Silva Magalhães 52, Tomar",
+      "instagram": "",
+      "facebook": "",
+      "site": ""
+    }
+  ]
+}

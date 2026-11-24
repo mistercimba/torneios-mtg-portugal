@@ -126,7 +126,7 @@ function calendarData(e) {
     start = lisbonToUtc(e.dateStart, e.timeStart);
     end = e.timeEnd && e.timeEnd > e.timeStart ? lisbonToUtc(e.dateStart, e.timeEnd) : new Date(start.getTime() + 4 * 3600000);
   }
-  const local = e.local || e.localidade || '';
+  const local = addressOf(e) || e.local || e.localidade || '';
   const where = e.scope === 'portugal' && e.loja && !local.toLowerCase().includes(e.loja.toLowerCase()) ? [e.loja, local].filter(Boolean).join(', ') : (local || placeLine(e) || '');
   const info = [
     e.tipo + (e.ronda ? ' · ' + e.ronda : '') + (e.fase ? ' · ' + e.fase : ''),
@@ -289,7 +289,7 @@ function renderPanel(key) {
   const root = document.querySelector(`.ms[data-key="${key}"]`);
   const q = normalize($('#search').value.trim());
   const counts = new Map();
-  for (const e of facetPool(key, q)) { if (key !== 'circuit' && isInfo(e)) continue; const t = TOKEN[key](e); counts.set(t, (counts.get(t) || 0) + 1); }
+  for (const e of facetPool(key, q)) { if (key !== 'circuit' && isInfo(e)) continue; /* os números contam torneios, como o contador */ const t = TOKEN[key](e); counts.set(t, (counts.get(t) || 0) + 1); }
   root.querySelector('.ms-list').innerHTML = trees[key].map(n => n.children
     ? optionHtml(key, n, counts, false) + n.children.map(c => optionHtml(key, c, counts, true)).join('')
     : optionHtml(key, n, counts, false)).join('');
@@ -368,7 +368,8 @@ function matches(e, q, skip) {
   if (!showPast && isPastEvent(e)) return false;
   if (!matchesQuery(e, q)) return false;
   if (on('circuit') && !sel.circuit.has(TOKEN.circuit(e))) return false;
-  if (isInfo(e)) return !on('format') && !on('place'); // datas informativas só aparecem sem filtros de formato/local
+  // Datas informativas: sem filtro de local; com filtro de formato só as que têm formato (pré-releases → Limited).
+  if (isInfo(e)) return !on('place') && (!on('format') || (!!e.formato && sel.format.has(TOKEN.format(e))));
   if (on('format') && !sel.format.has(TOKEN.format(e))) return false;
   if (on('place') && !sel.place.has(TOKEN.place(e))) return false;
   return true;
@@ -426,12 +427,6 @@ function milestoneVisible(m) {
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 const COL_HEAD = '<div class="col-head" aria-hidden="true"><span>Tipo</span><span>Evento</span><span>Formato</span></div>';
 
-function renderLegend(list) {
-  if (!$('#type-legend')) return; // legenda retirada no layout compacto (as etiquetas já dizem o tipo)
-  const seen = new Map();
-  for (const e of list) { const k = typeClass(e); if (!seen.has(k)) seen.set(k, typeLabel(e)); }
-  $('#type-legend').innerHTML = [...seen].map(([k, label]) => `<span class="legend-item ${k}" role="listitem">${esc(label)}</span>`).join('');
-}
 
 /** Separa o total em Portugal e internacionais quando há dos dois. */
 function countText(list) {
@@ -496,7 +491,6 @@ function renderEvents() {
   // «Limpar filtros» só aparece quando há algum filtro ou pesquisa activa.
   $('#reset').hidden = !hasFilters() && !$('#search').value.trim();
   for (const key of Object.keys(sel)) renderPanel(key);
-  renderLegend(filtered);
   syncFiltersToUrl();
   if (!filtered.length) {
     $('#month-jump').innerHTML = '<option value="">Ir para mês…</option>';
@@ -532,6 +526,21 @@ function storeKeyFor(name, city) {
   return core ? `${core}-${c}` : null;
 }
 const storeKey = e => (e.scope === 'portugal' ? storeKeyFor(e.loja, e.localidade) : null);
+// Ficha das lojas (data/stores.json): morada e redes sociais por defeito; o calendário prevalece.
+const STORE_INFO = new Map();
+function loadStoreInfo(list) {
+  for (const s of list || []) for (const n of [s.nome, ...(s.aliases || [])]) { const k = storeKeyFor(n, s.localidade); if (k) STORE_INFO.set(k, s); }
+}
+const storeInfo = e => STORE_INFO.get(storeKey(e)) || null;
+const looksLikeAddress = v => /\d/.test(v || '') && /,/.test(v || '');
+/** Morada completa: a do calendário se for uma morada; senão a da ficha da loja. */
+const addressOf = e => (e.scope !== 'portugal' ? null : looksLikeAddress(e.local) ? e.local.replace(/,\s*Portugal\s*$/i, '') : storeInfo(e)?.morada || null);
+const socialUrl = (v, base) => (!v ? null : /^https?:\/\//i.test(v) ? safeUrl(v) : base + encodeURIComponent(v.replace(/^@/, '').replace(/^\/+|\/+$/g, '')));
+function storeLinksHtml(info) {
+  if (!info) return '';
+  return [[socialUrl(info.instagram, 'https://www.instagram.com/'), 'Instagram'], [socialUrl(info.facebook, 'https://www.facebook.com/'), 'Facebook'], [safeUrl(info.site), 'Site da loja']]
+    .filter(([u]) => u).map(([u, t]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${t} ↗</a>`).join('');
+}
 let winners = [];
 
 function renderStore(key) {
@@ -549,14 +558,15 @@ function renderStore(key) {
   const name = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] || wins[0].store;
   const ref = list[list.length - 1] || {};
   const place = [ref.localidade || wins[0]?.city, ref.distrito && ref.distrito !== ref.localidade ? ref.distrito : null].filter(Boolean).join(' · ');
-  const address = list.map(e => e.local).filter(v => v && normalize(v) !== normalize(name) && normalize(v) !== normalize(ref.loja)).pop();
-  const map = address || ref.localidade ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || [name, ref.localidade].join(', '))}` : null;
+  const info = STORE_INFO.get(key);
+  const address = info?.morada || list.map(addressOf).filter(Boolean).pop() || list.map(e => e.local).filter(v => v && normalize(v) !== normalize(name) && normalize(v) !== normalize(ref.loja)).pop();
+  const map = address || ref.localidade ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address ? [name, address].join(', ') : [name, ref.localidade].join(', '))}` : null;
   const stats = [plural(upcoming.length, 'torneio marcado', 'torneios marcados'), past.length ? plural(past.length, 'torneio anterior', 'torneios anteriores') : null, wins.length ? plural(wins.length, 'vencedor registado', 'vencedores registados') : null].filter(Boolean).join(' · ');
   document.title = `${name} — Torneios MTG Portugal`;
   el.innerHTML = `<div class="store-page">
     <a href="#agenda" class="back-link">← Agenda</a>
     <div class="store-head"><div><h2>${esc(name)}</h2><p class="store-place">${esc(place)}${address ? `<span class="store-address">${esc(address)}</span>` : ''}</p><p class="store-stats">${esc(stats)}</p></div>
-    <div class="store-actions">${map ? `<a href="${esc(map)}" target="_blank" rel="noopener">Ver no mapa ↗</a>` : ''}<button type="button" class="share-btn" id="share-store">Partilhar</button></div></div>
+    <div class="store-actions">${map ? `<a href="${esc(map)}" target="_blank" rel="noopener">Ver no mapa ↗</a>` : ''}${storeLinksHtml(info)}<button type="button" class="share-btn" id="share-store">Partilhar</button></div></div>
     <h3 class="store-section">Próximos torneios</h3>
     ${upcoming.length ? `<div class="store-events">${monthsHtml(upcoming, false).html}</div>` : '<p class="store-none">Sem torneios marcados de momento.</p>'}
     ${wins.length ? `<h3 class="store-section">Vencedores</h3><div class="store-results">${[...wins].reverse().map(resultHtml).join('')}</div>` : ''}
@@ -697,7 +707,9 @@ function openDetails(id) {
   const list = (title, items) => (items && items.length ? `<div class="detail-section"><h3>${esc(title)}</h3><ul>${items.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>` : '');
   const sub = [];
   if (name !== e.title) sub.push(e.title);
-  const where = e.scope === 'portugal' ? [placeLine(e), e.local && normalize(e.local) !== normalize(e.loja) ? e.local : null].filter(Boolean).join(' — ') : placeLine(e);
+  const addr = addressOf(e);
+  const where = e.scope === 'portugal' ? (addr ? null : [placeLine(e), e.local && normalize(e.local) !== normalize(e.loja) ? e.local : null].filter(Boolean).join(' — ')) || null : placeLine(e);
+  if (addr) sub.push(addr);
   if (where) sub.push(e.scope === 'internacional' && flagFor(countryOf(e)) ? `${where} ${flagFor(countryOf(e))}` : where);
 
   document.getElementById('dialog-body').innerHTML =
@@ -710,8 +722,8 @@ function openDetails(id) {
     + (e.emRevisao ? '<div class="dialog-note">Alguns dados deste evento estão a ser confirmados. Consulta o anúncio original antes de te inscreveres.</div>' : '');
 
   const link = safeUrl(e.ligacao);
-  const map = e.scope === 'portugal' && (e.local || e.localidade)
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([e.local || e.loja, e.localidade].filter(Boolean).join(', '))}` : null;
+  const map = e.scope === 'portugal' && (addr || e.local || e.localidade)
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr ? [e.loja, addr].filter(Boolean).join(', ') : [e.local || e.loja, e.localidade].filter(Boolean).join(', '))}` : null;
   const icsName = (e.title || 'evento').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase().slice(0, 60) + '.ics';
   const store = storeKey(e);
   document.getElementById('dialog-actions').innerHTML =
@@ -719,6 +731,7 @@ function openDetails(id) {
     + `<button type="button" class="share-btn" id="share-event">Partilhar</button>`
     + (store ? `<a href="#loja-${esc(store)}" class="store-link">Ver a loja</a>` : '')
     + (map ? `<a href="${esc(map)}" target="_blank" rel="noopener">Ver no mapa ↗</a>` : '')
+    + storeLinksHtml(storeInfo(e))
     + (link ? `<a class="primary" href="${esc(link)}" target="_blank" rel="noopener">${isInfo(e) ? 'Mais informação' : 'Inscrição / anúncio'} ↗</a>` : '<span class="unavailable">Ligação para inscrição não indicada</span>');
 
   document.querySelector('#dialog-actions .ics-link').addEventListener('click', ev => {
@@ -898,6 +911,8 @@ async function loadJson(url) {
 }
 
 async function init() {
+  // A ficha das lojas carrega em paralelo e fica pronta antes da agenda aparecer.
+  const storesReady = loadJson('data/stores.json').then(s => loadStoreInfo(s.lojas)).catch(err => console.warn('Ficha das lojas indisponível', err));
   try {
     const data = await loadJson('data/events.json');
     events = data.events || [];
@@ -907,6 +922,7 @@ async function init() {
     const stamp = new Intl.DateTimeFormat('pt-PT', { timeZone: 'Europe/Lisbon', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(updated);
     $('#footnote').innerHTML = `<strong>Fonte:</strong> Google Calendar «Torneios MTG», sincronizado automaticamente. Última actualização: ${esc(stamp)}. Horas em hora de Portugal continental.`;
     $('#updated').textContent = `actualizado ${stamp}`;
+    await storesReady;
     buildFilters();
     renderEvents();
   } catch (err) {
