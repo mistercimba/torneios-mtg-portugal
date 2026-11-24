@@ -46,23 +46,26 @@
 <div class="offline-note" id="offline-note" role="status" hidden>Sem ligação à internet: estás a ver a última agenda guardada neste telemóvel. Pode não estar actualizada.</div>
 <main class="wrapper">
 <section class="view active" id="agenda" aria-label="Agenda">
+<div class="toolbar">
 <div class="quick-types" id="quick-types" role="group" aria-label="Atalhos por tipo de evento"></div>
-<div class="controlbar"><div class="controls">
-<div class="filter"><label for="format">Formato</label><select id="format"><option value="">Todos</option></select></div>
-<div class="filter-stack">
-<div class="filter"><label for="scope">Onde</label><select id="scope"><option value="">Todos</option><option value="portugal">Portugal</option><option value="internacional">Internacional</option></select></div>
-<div class="filter filter-sub" id="district-filter" hidden><label for="district">Distrito</label><select id="district"><option value="">Todos</option></select></div>
-</div>
-<div class="filter-stack">
-<div class="filter"><label for="circuit">Circuito</label><select id="circuit"><option value="">Todos</option></select></div>
-<div class="filter filter-sub" id="round-filter" hidden><label for="round">Round</label><select id="round"><option value="">Todas</option></select></div>
-</div>
-<button class="clear" id="reset" type="button">Limpar filtros</button>
+<div class="filter-actions">
+<button class="clear" id="reset" type="button" hidden>Limpar filtros</button>
 <button class="clear share-filters" id="share-filters" type="button" hidden>Partilhar filtros</button>
-</div><div class="count" id="count" aria-live="polite"></div></div>
-<div class="section-top"><h2>Agenda</h2><div class="section-actions"><button class="clear subscribe-btn" id="subscribe" type="button">Subscrever calendário</button><button class="clear past-toggle" id="past" type="button" aria-pressed="false">Ver eventos passados</button></div></div>
-<nav class="month-links" id="month-links" aria-label="Navegação por mês"></nav>
-<div class="type-legend" id="type-legend" role="list" aria-label="Cores por tipo de evento"></div>
+</div>
+<div class="controls">
+<div class="ms" data-key="format"><button type="button" class="ms-btn" id="format-btn" aria-haspopup="true" aria-expanded="false" aria-controls="format-panel"><span class="ms-label">Formato</span></button><div class="ms-panel" id="format-panel" role="group" aria-label="Formato" hidden><div class="ms-list"></div><div class="ms-foot"><button type="button" class="ms-clear">Limpar</button><button type="button" class="ms-done">Feito</button></div></div></div>
+<div class="ms" data-key="place"><button type="button" class="ms-btn" id="place-btn" aria-haspopup="true" aria-expanded="false" aria-controls="place-panel"><span class="ms-label">Onde</span></button><div class="ms-panel" id="place-panel" role="group" aria-label="Onde" hidden><div class="ms-list"></div><div class="ms-foot"><button type="button" class="ms-clear">Limpar</button><button type="button" class="ms-done">Feito</button></div></div></div>
+<div class="ms" data-key="circuit"><button type="button" class="ms-btn" id="circuit-btn" aria-haspopup="true" aria-expanded="false" aria-controls="circuit-panel"><span class="ms-label">Circuito</span></button><div class="ms-panel" id="circuit-panel" role="group" aria-label="Circuito" hidden><div class="ms-list"></div><div class="ms-foot"><button type="button" class="ms-clear">Limpar</button><button type="button" class="ms-done">Feito</button></div></div></div>
+</div>
+</div>
+<div class="list-meta">
+<div class="count" id="count" aria-live="polite"></div>
+<div class="list-actions">
+<label for="month-jump" class="sr-only">Ir para mês</label><select id="month-jump" class="month-jump"><option value="">Ir para mês…</option></select>
+<button class="clear subscribe-btn" id="subscribe" type="button">Subscrever</button>
+<button class="clear past-toggle" id="past" type="button" aria-pressed="false">Ver <span class="past-word">eventos </span>passados</button>
+</div>
+</div>
 <div id="events"><div class="empty">A carregar a agenda…</div></div>
 <div class="footnote" id="footnote"><strong>Fonte:</strong> Google Calendar «Torneios MTG», sincronizado automaticamente.</div>
 </section>
