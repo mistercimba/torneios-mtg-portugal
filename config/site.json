@@ -1,6 +1,31 @@
 {
   "milestones": [
-    { "circuit": "RCQ", "ronda": "R2", "label": "Round 2 · Standard", "start": "2026-08-15", "end": "2026-11-29" },
-    { "circuit": "RCQ", "ronda": "R3", "label": "Round 3 · Standard", "start": "2026-12-11", "end": "2027-03-07" }
-  ]
+    {
+      "circuit": "RCQ",
+      "ronda": "R2",
+      "label": "Round 2 · Standard",
+      "start": "2026-08-15",
+      "end": "2026-11-29"
+    },
+    {
+      "circuit": "RCQ",
+      "ronda": "R3",
+      "label": "Round 3 · Standard",
+      "start": "2026-12-11",
+      "end": "2027-03-07"
+    }
+  ],
+  "winners": {
+    "title": "RCQ · Época 2026/27",
+    "sources": [
+      {
+        "round": "R2",
+        "docId": "1kOJ0reJH5Q_r95OUTlzq2GMvTw119rAwuPUE91VTnvk"
+      },
+      {
+        "round": "R3",
+        "docId": "1d3Jd2V9-mDD14qs-JC_QE8JpXpMtio4WBCvKunQEaqQ"
+      }
+    ]
+  }
 }

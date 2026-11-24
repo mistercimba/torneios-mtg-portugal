@@ -137,3 +137,73 @@ test('dados reais (opcional, só local): 259 eventos, todos os tipos reconhecido
   assert.equal(norm.filter(e => e.issues.some(i => i.level === 'erro')).length, 0);
   assert.equal(norm.filter(e => e.typeFamily === 'outro').length, 0);
 });
+
+// ---------- Vencedores a partir das listas oficiais (Google Docs) ----------
+import { parseWinnersText, fetchWinners, splitStore, docExportUrl } from '../scripts/lib/winners.mjs';
+import { updateWinners } from '../scripts/build-data.mjs';
+
+test('vencedores: lê a secção «Vencedores» da lista da Round 2 e ignora os anúncios', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const text = await readFile(new URL('./fixtures/rcq-r2.txt', import.meta.url), 'utf8');
+  const r = parseWinnersText(text, { round: 'R2' });
+  assert.equal(r.length, 26);
+  assert.deepEqual(r[0], { date: '2026-08-15', store: 'Ventura Games', city: 'Barreiro', name: 'Miguel Valente', deck: 'Dimir Midrange', players: 16, format: 'Standard', round: 'R2' });
+  const sealed = r.find(x => x.name === 'Vitor Bessa');
+  assert.deepEqual([sealed.date, sealed.store, sealed.city, sealed.deck, sealed.players, sealed.format], ['2026-08-30', 'Arena Porto', 'Porto', null, 26, 'Sealed The Hobbit']);
+  const last = r.at(-1);
+  assert.deepEqual([last.date, last.store, last.city, last.name, last.deck, last.players], ['2026-11-15', 'Mulligan Quarteira', 'Quarteira', 'Tiago Jesus', 'Azorius Momo', null]);
+  assert.equal(r.find(x => x.name === 'Nuno Vale').city, 'Vila Nova de Famalicão', '«V.N. de Famalicão» por extenso');
+  // Torneios anunciados sem vencedor (com preço, check-in, prémios) não entram.
+  assert.ok(!r.some(x => ['2026-11-01', '2026-11-14', '2026-11-22'].includes(x.date)));
+  assert.ok(!r.some(x => /check-in|judge|promo|http/i.test(x.name)));
+  // A lista da Round 3 ainda não tem vencedores.
+  assert.deepEqual(parseWinnersText(await readFile(new URL('./fixtures/rcq-r3.txt', import.meta.url), 'utf8'), { round: 'R3' }), []);
+});
+
+test('vencedores: anos da época, lojas sem parênteses e quebras de linha do Google Docs', () => {
+  const text = '﻿Season 26/27 Round 3 STANDARD\r\n\r\nVencedores\r\n13 DEZEMBRO (Domingo)\r\nArena Porto - Standard (30 jogadores)\r\nAna Silva (Izzet Prowess)\r\n10 JANEIRO (Domingo)\u000bZenith (Leiria) - Sealed Nauctis (12 jogadores)\u000bRui Costa\r\n';
+  const r = parseWinnersText(text, { round: 'R3' });
+  assert.deepEqual(r.map(x => [x.date, x.store, x.city, x.name, x.deck, x.players]), [
+    ['2026-12-13', 'Arena Porto', 'Porto', 'Ana Silva', 'Izzet Prowess', 30],
+    ['2027-01-10', 'Zenith', 'Leiria', 'Rui Costa', null, 12],
+  ]);
+  assert.deepEqual(splitStore('Mulligan Portimão'), { store: 'Mulligan Portimão', city: 'Portimão' });
+  assert.deepEqual(splitStore('Loja Sem Cidade'), { store: 'Loja Sem Cidade', city: null });
+  assert.deepEqual(parseWinnersText('Sem secção de vencedores'), []);
+  assert.equal(docExportUrl('abc'), 'https://docs.google.com/document/d/abc/export?format=txt');
+});
+
+test('vencedores: erros de rede ou documento privado mantêm o ficheiro anterior', async () => {
+  const { mkdtemp, writeFile, readFile } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const dir = await mkdtemp(join(tmpdir(), 'vencedores-'));
+  const out = join(dir, 'winners.json');
+  const before = { title: 'x', results: Array.from({ length: 10 }, (_, i) => ({ date: `2026-09-${String(i + 1).padStart(2, '0')}`, store: 'Loja', city: 'Porto', name: 'N' + i, deck: null, players: 8 })) };
+  await writeFile(out, JSON.stringify(before));
+  const cfg = { title: 'RCQ · Época 2026/27', sources: [{ round: 'R2', docId: 'doc' }] };
+  const ok = text => async () => ({ ok: true, status: 200, text: async () => text });
+  // Documento privado (Google pede sessão) → mantém.
+  let msg = await updateWinners(cfg, 'agora', { out, fetchImpl: async () => ({ ok: false, status: 401, text: async () => '' }) });
+  assert.match(msg, /mantidos os 10 anteriores.*HTTP 401/);
+  // Erro de rede → mantém.
+  msg = await updateWinners(cfg, 'agora', { out, fetchImpl: async () => { throw new Error('offline'); } });
+  assert.match(msg, /mantidos os 10 anteriores.*erro de rede/);
+  // Lista quase vazia (ex.: secção apagada por engano) → mantém.
+  msg = await updateWinners(cfg, 'agora', { out, fetchImpl: ok('Season 26/27\nVencedores\n1 SETEMBRO (Sábado)\nLoja (Porto) - Standard (8 jogadores)\nAlguém (Deck)\n') });
+  assert.match(msg, /mantidos os anteriores/);
+  assert.equal(JSON.parse(await readFile(out, 'utf8')).results.length, 10);
+  // Lista boa → actualiza.
+  const { readFile: rf } = await import('node:fs/promises');
+  const real = await rf(new URL('./fixtures/rcq-r2.txt', import.meta.url), 'utf8');
+  msg = await updateWinners(cfg, '2026-11-24T00:00:00Z', { out, fetchImpl: ok(real) });
+  assert.match(msg, /Vencedores: 26/);
+  const after = JSON.parse(await readFile(out, 'utf8'));
+  assert.equal(after.title, 'RCQ · Época 2026/27');
+  assert.equal(after.results.length, 26);
+  assert.ok(after.results.every((r, i, a) => !i || a[i - 1].date <= r.date), 'por ordem de data');
+  // fetchWinners devolve erro (sem lançar) se um documento falhar.
+  const res = await fetchWinners([{ round: 'R2', docId: 'a' }], { fetchImpl: async () => ({ ok: false, status: 404 }) });
+  assert.equal(res.results, null);
+  assert.match(res.error, /HTTP 404/);
+});

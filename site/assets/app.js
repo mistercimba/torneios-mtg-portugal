@@ -445,9 +445,11 @@ function renderStore(key) {
 function resultHtml(r) {
   const d = asDate(r.date);
   const key = storeKeyFor(r.store, r.city);
-  const meta = [r.store, r.city, r.deck || 'Deck não indicado'].filter(Boolean).map(esc).join(' · ');
+  // A localidade não se repete quando já faz parte do nome da loja («Mulligan Quarteira»).
+  const city = r.city && !normalize(r.store).includes(normalize(r.city)) ? r.city : '';
+  const meta = [r.store, city, r.deck || 'Deck não indicado'].filter(Boolean).map(esc).join(' · ');
   const storeName = key ? `<a href="#loja-${esc(key)}" class="store-name-link">${esc(r.store)}</a>` : esc(r.store);
-  return `<div class="result"><span class="date">${d.getDate()} ${mon3(d).toUpperCase()}<br>${d.getFullYear()}</span><span class="win">${esc(r.name)}</span><span class="store-cell">${storeName}<span class="location">${esc(r.city)}</span></span><span class="deck">${esc(r.deck || 'Não indicado')}</span><span class="num">${r.players == null ? '—' : r.players}<small>jogadores</small></span><span class="result-meta">${meta}</span></div>`;
+  return `<div class="result"><span class="date">${d.getDate()} ${mon3(d).toUpperCase()}<br>${d.getFullYear()}</span><span class="win">${esc(r.name)}</span><span class="store-cell">${storeName}${city ? `<span class="location">${esc(city)}</span>` : ''}</span><span class="deck">${esc(r.deck || 'Não indicado')}</span><span class="num">${r.players == null ? '—' : r.players}<small>jogadores</small></span><span class="result-meta">${meta}</span></div>`;
 }
 
 /* ---------- Endereços partilháveis ---------- */
