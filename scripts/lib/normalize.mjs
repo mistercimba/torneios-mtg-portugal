@@ -310,6 +310,7 @@ export function normalizeEvent(raw) {
   // Aproveitam-se as linhas de prémios (sem cabeçalhos, formato/preço, check-in ou juiz).
   const premiosCampo = list('premios');
   const premios = premiosCampo.length ? premiosCampo : prizeLines(detalhes);
+  if (!premiosCampo.length && premios.length) issue('premios-dos-detalhes', `Sem campo PREMIOS: ${premios.length} linha(s) de prémios tiradas dos detalhes originais (para fixar, copiar para PREMIOS no calendário).`, 'info');
 
   return {
     id: raw.id,
