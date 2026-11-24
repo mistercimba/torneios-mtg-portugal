@@ -242,13 +242,13 @@ function buildFilters() {
   const pool = events.filter(e => !isInfo(e) && (showPast || !isPastEvent(e)));
   // Lista fixa dos formatos habituais (mesmo sem torneios marcados) + formatos novos que apareçam no calendário.
   const formats = [...new Set([...FORMAT_ORDER.map(k => FORMAT_NAME[k]), 'Limited', ...pool.map(filterFormat).filter(Boolean)])].sort(byFormatOrder);
-  fillSelect($('#format'), [{ options: formats.map(f => ({ value: f, text: f })) }]);
+  fillSelect($('#format'), [{ options: formats.map(f => ({ value: f, text: f })) }], 'Formato');
   const districts = [...new Set(pool.filter(e => e.scope === 'portugal').map(e => e.distrito).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt'));
-  fillSelect($('#district'), [{ options: districts.map(d => ({ value: d, text: d })) }]);
+  fillSelect($('#district'), [{ options: districts.map(d => ({ value: d, text: d })) }], 'Distrito');
   const types = byCount(events.filter(e => showPast || !isPastEvent(e)), e => e.tipo);
-  fillSelect($('#circuit'), [{ options: types.map(t => ({ value: 'type:' + t, text: t === 'Campeonato / Evento especial' ? 'Evento especial' : t })) }]);
+  fillSelect($('#circuit'), [{ options: types.map(t => ({ value: 'type:' + t, text: t === 'Campeonato / Evento especial' ? 'Evento especial' : t })) }], 'Circuito');
   const rounds = [...new Set(pool.filter(e => e.typeKey === 'rcq' && e.ronda).map(e => e.ronda))].sort();
-  fillSelect($('#round'), [{ options: rounds.map(r => ({ value: r, text: `Round ${r.replace(/\D/g, '')}` })) }], 'Todas');
+  fillSelect($('#round'), [{ options: rounds.map(r => ({ value: r, text: `Round ${r.replace(/\D/g, '')}` })) }], 'Round');
   setDependentVisibility();
 }
 
@@ -334,6 +334,7 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 const COL_HEAD = '<div class="col-head" aria-hidden="true"><span>Tipo</span><span>Evento</span><span>Formato</span><span>Horário</span><span class="r">Inscrição</span></div>';
 
 function renderLegend(list) {
+  if (!$('#type-legend')) return; // legenda retirada no layout compacto (as etiquetas já dizem o tipo)
   const seen = new Map();
   for (const e of list) { const k = typeClass(e); if (!seen.has(k)) seen.set(k, typeLabel(e)); }
   $('#type-legend').innerHTML = [...seen].map(([k, label]) => `<span class="legend-item ${k}" role="listitem">${esc(label)}</span>`).join('');
@@ -399,15 +400,17 @@ function renderEvents() {
   const filtered = events.filter(e => matches(e, q));
   $('#count').textContent = countText(filtered);
   renderQuick();
+  // «Limpar filtros» só aparece quando há algum filtro ou pesquisa activa.
+  $('#reset').hidden = !['search', 'format', 'scope', 'district', 'circuit', 'round'].some(id => document.getElementById(id).value.trim());
   renderLegend(filtered);
   syncFiltersToUrl();
   if (!filtered.length) {
-    $('#month-links').innerHTML = '';
+    $('#month-jump').innerHTML = '<option value="">Ir para mês…</option>';
     eventsEl.innerHTML = `<div class="empty"><p>Nenhum torneio encontrado com estes filtros.</p><button type="button" class="empty-reset">Limpar filtros</button></div>`;
     return;
   }
   const { months, sortedKeys, html } = monthsHtml(filtered, true);
-  $('#month-links').innerHTML = sortedKeys.map(key => { const g = months.get(key); return `<a href="#m-${key}">${months_[g.date.getMonth()]} ${g.date.getFullYear()}</a>`; }).join('');
+  $('#month-jump').innerHTML = '<option value="">Ir para mês…</option>' + sortedKeys.map(key => { const g = months.get(key); return `<option value="${key}">${months_[g.date.getMonth()]} ${g.date.getFullYear()}</option>`; }).join('');
   eventsEl.innerHTML = html;
 }
 
@@ -665,7 +668,7 @@ document.getElementById('share-filters').addEventListener('click', async ev => {
 document.getElementById('past').addEventListener('click', ev => {
   showPast = !showPast;
   ev.currentTarget.setAttribute('aria-pressed', String(showPast));
-  ev.currentTarget.textContent = showPast ? 'Ocultar eventos passados' : 'Ver eventos passados';
+  ev.currentTarget.innerHTML = `${showPast ? 'Ocultar' : 'Ver'} <span class="past-word">eventos </span>passados`;
   buildFilters();
   renderEvents();
 });
@@ -726,6 +729,12 @@ function openSubscribe() {
   document.getElementById('close-dialog').focus();
 }
 document.getElementById('subscribe').addEventListener('click', openSubscribe);
+document.getElementById('month-jump').addEventListener('change', ev => {
+  const key = ev.target.value;
+  if (!key) return;
+  document.getElementById('m-' + key)?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  ev.target.value = '';
+});
 
 /* ---------- Instalar no telemóvel (app web) ---------- */
 const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;

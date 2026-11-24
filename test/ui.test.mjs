@@ -11,8 +11,8 @@ let browser, server;
 before(async () => { if (skip) return; server = await startServer(); browser = await launchBrowser(); });
 after(async () => { await browser?.close(); await server?.close(); });
 
-async function open({ width = 1280, mobile = width <= 760, theme = 'light', hash = '' } = {}) {
-  const page = await browser.newPage({ width, height: 900, mobile, theme });
+async function open({ width = 1280, height = 900, mobile = width <= 760, theme = 'light', hash = '' } = {}) {
+  const page = await browser.newPage({ width, height, mobile, theme });
   await page.goto(server.url + hash);
   await page.waitFor("document.querySelector('.event-row') && document.querySelector('.result')");
   return page;
@@ -116,12 +116,15 @@ test('5. navegação: #winners responde a mudanças de endereço e ao botão Vol
   assert.equal(await page.eval('location.hash'), '#agenda');
   await page.eval(`history.back()`);
   await page.waitFor(`document.getElementById('winners').classList.contains('active')`);
-  // Ligações de mês continuam na Agenda e levam ao mês.
+  // «Ir para mês…» fica na Agenda e leva ao mês escolhido.
   await page.eval(`document.querySelector('[data-view="agenda"]').click()`);
-  await page.eval(`document.querySelector('.month-links a').click()`);
-  await new Promise(r => setTimeout(r, 200));
+  await page.waitFor(`document.getElementById('agenda').classList.contains('active')`);
+  const target = await page.eval(`(() => { const s = document.getElementById('month-jump'); const v = s.options[s.options.length - 1].value; s.value = v; s.dispatchEvent(new Event('change', { bubbles: true })); return v; })()`);
+  await page.waitFor(`Math.abs(document.getElementById('m-${target}').getBoundingClientRect().top) < 200 || scrollY + innerHeight >= document.documentElement.scrollHeight - 2`, 5000).catch(() => {});
   assert.equal(await view(), 'agenda');
-  assert.ok(await page.eval(`location.hash.startsWith('#m-')`));
+  assert.ok(await page.eval(`Math.abs(document.getElementById('m-${target}').getBoundingClientRect().top) < 200 || scrollY + innerHeight >= document.documentElement.scrollHeight - 2`), 'o mês escolhido fica no topo (ou a página chega ao fim)');
+  assert.ok(await page.eval('scrollY > 0'), 'a página desceu até ao mês');
+  assert.equal(await page.eval(`document.getElementById('month-jump').value`), '', 'a lista volta a «Ir para mês…»');
   // Carregar directamente com #winners.
   const p2 = await open({ width: 390, hash: '#winners' });
   assert.equal(await p2.eval(`document.querySelector('.view.active').id`), 'winners');
@@ -527,7 +530,7 @@ test('18. formatos habituais sempre disponíveis; sem resultados mostra «Limpar
   }
 });
 
-test('19. internacionais mostram o país; legenda só no computador; pré-visualização para partilha', { skip }, async () => {
+test('19. internacionais mostram o país; sem legenda das cores; pré-visualização para partilha', { skip }, async () => {
   const page = await open({ width: 1280 });
   await showAll(page);
   const intl = await page.eval(`[...document.querySelectorAll('.event-row .price-col.intl')].map(p => ({ main: p.firstChild.textContent, small: p.querySelector('small')?.textContent || '' }))`);
@@ -536,7 +539,7 @@ test('19. internacionais mostram o país; legenda só no computador; pré-visual
     assert.ok(!/\d+ dias?/.test(p.main), `sem duração na coluna: ${p.main}`);
     if (p.main !== 'Internacional') assert.equal(p.small, 'Internacional');
   }
-  assert.ok(await page.eval(`getComputedStyle(document.getElementById('type-legend')).display !== 'none'`));
+  assert.equal(await page.eval(`document.getElementById('type-legend')`), null, 'legenda retirada (as etiquetas já dizem o tipo)');
   const meta = await page.eval(`(async () => {
     const m = p => document.querySelector('meta[property="' + p + '"]')?.content;
     const img = m('og:image'); const local = new URL(img).pathname.replace('/torneios-mtg-portugal/', '');
@@ -552,7 +555,6 @@ test('19. internacionais mostram o país; legenda só no computador; pré-visual
   assert.ok(meta.size < 300 * 1024, 'imagem com menos de 300 KB (limite do WhatsApp)');
   assert.equal(meta.card, 'summary_large_image');
   await page.resize(390);
-  assert.equal(await page.eval(`getComputedStyle(document.getElementById('type-legend')).display`), 'none');
   assert.ok((await page.eval('document.documentElement.scrollWidth - innerWidth')) <= 0);
   assert.deepEqual(page.errors, []);
   await page.close();
@@ -769,6 +771,28 @@ test('24. atalhos por tipo, subscrição do calendário, «daqui a N», bandeira
     // Aviso legal.
     assert.match(await page.eval(`document.querySelector('.footer .legal').textContent`), /conteúdo de fã não oficial.*Wizards of the Coast/);
     assert.ok((await page.eval('document.documentElement.scrollWidth - innerWidth')) <= 0, `${w}px: scroll horizontal`);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+  }
+});
+
+
+// ---------- Layout compacto (24/11/2026) ----------
+test('25. layout compacto: o primeiro torneio aparece perto do topo, sem título «Agenda» nem legenda', { skip }, async () => {
+  for (const [w, h, max] of [[1280, 900, 420], [1600, 1000, 420], [390, 844, 470], [320, 640, 520]]) {
+    const page = await open({ width: w, height: h });
+    const r = await page.eval(`(() => {
+      const first = document.querySelector('.event-row').getBoundingClientRect();
+      const labels = [...document.querySelectorAll('.filter label')].map(l => getComputedStyle(l).position);
+      return { top: Math.round(first.top), h2: !!document.querySelector('#agenda .section-top h2'), legend: !!document.getElementById('type-legend'),
+        labelsHidden: labels.every(p => p === 'absolute'), names: ['format', 'scope', 'circuit'].map(id => document.getElementById(id).options[0].text),
+        overflow: document.documentElement.scrollWidth - innerWidth };
+    })()`);
+    assert.ok(r.top <= max, `${w}px: primeiro torneio a ${r.top}px do topo (máx. ${max})`);
+    assert.ok(!r.h2 && !r.legend, 'sem título «Agenda» nem legenda');
+    assert.ok(r.labelsHidden, 'nomes dos filtros só para leitores de ecrã');
+    assert.deepEqual(r.names, ['Formato', 'Onde', 'Circuito']);
+    assert.ok(r.overflow <= 0, `${w}px: scroll horizontal`);
     assert.deepEqual(page.errors, []);
     await page.close();
   }
