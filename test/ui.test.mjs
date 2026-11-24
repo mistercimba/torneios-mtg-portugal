@@ -604,8 +604,8 @@ test('19. internacionais mostram «Cidade, País» e a bandeira; sem legenda das
     const bmp = await createImageBitmap(blob);
     return { img, url: m('og:url'), w: m('og:image:width'), h: m('og:image:height'), status: res.status, size: blob.size, dims: [bmp.width, bmp.height], card: document.querySelector('meta[name="twitter:card"]')?.content };
   })()`);
-  assert.equal(meta.img, 'https://mistercimba.github.io/torneios-mtg-portugal/assets/og-image.png');
-  assert.equal(meta.url, 'https://mistercimba.github.io/torneios-mtg-portugal/');
+  assert.equal(meta.img, 'https://paredesinforma.github.io/assets/og-image.png');
+  assert.equal(meta.url, 'https://paredesinforma.github.io/');
   assert.equal(meta.status, 200);
   assert.deepEqual(meta.dims, [1200, 630]);
   assert.equal(meta.w, '1200'); assert.equal(meta.h, '630');

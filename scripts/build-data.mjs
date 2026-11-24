@@ -218,7 +218,7 @@ async function main() {
   await writeFile(OUT, json);
 
   // Calendários para subscrever (todos, só RCQs, só internacionais), com os mesmos campos públicos.
-  const siteUrl = config.siteUrl || 'https://mistercimba.github.io/torneios-mtg-portugal/';
+  const siteUrl = config.siteUrl || 'https://paredesinforma.github.io/';
   for (const f of FEEDS) {
     const ics = buildFeed(payload.events.filter(f.filter), { name: f.name, siteUrl, generatedAt });
     if (redact(ics) !== ics) throw new Error(`Verificação de segurança falhou: ${f.file} conteria um endereço iCal privado.`);

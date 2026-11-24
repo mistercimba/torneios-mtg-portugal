@@ -1,6 +1,6 @@
 # Torneios MTG Portugal — guia de manutenção
 
-Site: https://mistercimba.github.io/torneios-mtg-portugal/
+Site: https://paredesinforma.github.io/
 Tudo o que aparece no site vem de três sítios: o **Google Calendar «Torneios MTG»**, as **listas oficiais dos RCQs** (Google Docs) e a **ficha das lojas** (`site/data/stores.json`). Não é preciso mexer no código para o dia-a-dia.
 
 ## 1. Acrescentar ou mudar um torneio
@@ -24,7 +24,7 @@ Escreve os vencedores nas listas oficiais «RCQs 26/27 R2/R3 STANDARD» (Google 
 
 ## 3. Publicar o site (manual)
 
-1. GitHub → repositório `mistercimba/torneios-mtg-portugal` → **Actions**.
+1. GitHub → repositório `paredesinforma/paredesinforma.github.io` → **Actions**.
 2. **«Sincronizar calendário e publicar»** → **Run workflow** → **Run workflow**.
 3. Em ~2 minutos fica a verde e o site está actualizado (o rodapé mostra «Última actualização»).
 
