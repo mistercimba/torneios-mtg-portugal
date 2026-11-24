@@ -556,7 +556,9 @@ function loadStoreInfo(list) {
 const storeInfo = e => STORE_INFO.get(storeKey(e)) || null;
 const looksLikeAddress = v => /\d/.test(v || '') && /,/.test(v || '');
 /** Morada completa: a do calendário se for uma morada; senão a da ficha da loja. */
-const addressOf = e => (e.scope !== 'portugal' ? null : looksLikeAddress(e.local) ? e.local.replace(/,\s*Portugal\s*$/i, '') : storeInfo(e)?.morada || null);
+// Sem o nome da loja no início («Arena Porto, R. de Santa Catarina…» → «R. de Santa Catarina…») nem «, Portugal» no fim.
+const cleanAddress = v => v.replace(/,\s*Portugal\s*$/i, '').replace(/^(?!\s*(?:rua|r\.|av\.?|avenida|largo|pra[cç]a|estrada|travessa|tv\.|urb\.?|urbaniza[cç][aã]o|alameda|cal[cç]ada|lugar|bairro)\b)[^,\d]+,\s*(?=.*\d)/i, '');
+const addressOf = e => (e.scope !== 'portugal' ? null : looksLikeAddress(e.local) ? cleanAddress(e.local) : storeInfo(e)?.morada || null);
 const socialUrl = (v, base) => (!v ? null : /^https?:\/\//i.test(v) ? safeUrl(v) : base + encodeURIComponent(v.replace(/^@/, '').replace(/^\/+|\/+$/g, '')));
 function storeLinksHtml(info) {
   if (!info) return '';
