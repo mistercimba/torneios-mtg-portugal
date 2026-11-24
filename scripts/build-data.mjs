@@ -34,7 +34,7 @@ export const PUBLIC_FIELDS = [
   'formato', 'formatFamily', 'ronda', 'rondaDeduzida', 'epoca', 'fase',
   'loja', 'localidade', 'distrito', 'pais', 'local', 'set',
   'preco', 'precoTexto', 'checkin', 'juiz', 'vagas', 'ligacao',
-  'premios', 'notas', 'detalhesOriginais', 'emRevisao', 'qualifica',
+  'premios', 'notas', 'emRevisao', 'qualifica', // detalhesOriginais deixou de ser publicado (repetia os campos)
 ];
 
 const SECRET = process.env.CALENDAR_ICS_URL || '';

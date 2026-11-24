@@ -743,7 +743,6 @@ function openDetails(id) {
     + (details.length ? `<div class="detail-grid">${details.join('')}</div>` : '')
     + list('Prémios', e.premios)
     + list('Notas', e.notas)
-    + list('Informação original do anúncio', e.detalhesOriginais)
     + (e.emRevisao ? '<div class="dialog-note">Alguns dados deste evento estão a ser confirmados. Consulta o anúncio original antes de te inscreveres.</div>' : '');
 
   const link = safeUrl(e.ligacao);
