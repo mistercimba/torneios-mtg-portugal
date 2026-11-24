@@ -978,6 +978,11 @@ async function init() {
 let winSeason = null, winRound = '', winRounds = [], winTitle = 'RCQ';
 const seasonOf = r => r.season || '';
 const roundNum = r => r.replace(/\D/g, '');
+// Nome da round para mostrar: o da lista («WPNQ R5», «Season 1») ou «Round N».
+const roundInfo = r => winRounds.find(x => x.round === r && seasonOf(x) === winSeason) || {};
+const roundLabel = r => roundInfo(r).label || 'Round ' + roundNum(r);
+// Formato construído da round (config → rcqLists.sources[].format): «Standard», «Modern»…
+const roundFormat = r => roundInfo(r).format || '';
 function renderWinners() {
   const seasons = [...new Set([...winRounds.map(seasonOf), ...winners.map(seasonOf)])].sort();
   // Por defeito: a época mais recente que já tem vencedores (senão, a mais recente das listas).
@@ -989,8 +994,8 @@ function renderWinners() {
   const rounds = [...new Set([...winRounds.filter(r => seasonOf(r) === winSeason).map(r => r.round), ...inSeason.map(r => r.round)].filter(Boolean))].sort();
   if (winRound && !rounds.includes(winRound)) winRound = '';
   $('#winners-title').textContent = winSeason ? `${winTitle} · Época ${winSeason}` : winTitle;
-  $('#win-seasons').innerHTML = seasons.length > 1 ? seasons.map(se => `<button type="button" class="quick" data-season="${esc(se)}" aria-pressed="${se === winSeason}">${se ? 'Época ' + esc(se) : 'Sem época'}</button>`).join('') : '';
-  $('#win-rounds').innerHTML = rounds.length > 1 ? ['', ...rounds].map(r => `<button type="button" class="quick" data-round="${esc(r)}" aria-pressed="${r === winRound}">${r ? 'Round ' + esc(roundNum(r)) : 'Todas'}</button>`).join('') : '';
+  $('#win-seasons').innerHTML = seasons.length > 1 ? seasons.map(se => `<button type="button" class="quick" data-season="${esc(se)}" aria-pressed="${se === winSeason}" aria-label="Época ${esc(se)}">${se ? esc(se) : 'Sem época'}</button>`).join('') : '';
+  $('#win-rounds').innerHTML = rounds.length > 1 ? ['', ...rounds].map(r => `<button type="button" class="quick" data-round="${esc(r)}" aria-pressed="${r === winRound}">${r ? esc(roundLabel(r)) + (roundFormat(r) ? ` <small class="round-fmt">${esc(roundFormat(r))}</small>` : '') : 'Todas'}</button>`).join('') : '';
   const list = winRound ? inSeason.filter(r => r.round === winRound) : inSeason;
   $('#win-stats').innerHTML = statsHtml(list);
   $('#results').innerHTML = list.map(resultHtml).join('');
@@ -1005,7 +1010,7 @@ document.getElementById('winners').addEventListener('click', ev => {
 
 /* ---------- Estatísticas dos RCQs (a partir das listas oficiais de vencedores) ---------- */
 function statsHtml(list) {
-  if (!list.length) return `<p class="stat-empty win-empty">Ainda não há vencedores ${winRound ? 'da Round ' + esc(roundNum(winRound)) : winSeason ? 'da época ' + esc(winSeason) : ''} nas listas oficiais.</p>`;
+  if (!list.length) return `<p class="stat-empty win-empty">Ainda não há vencedores ${winRound ? 'da ' + esc(roundLabel(winRound)) : winSeason ? 'da época ' + esc(winSeason) : ''} nas listas oficiais.</p>`;
   const count = (arr, key) => { const m = new Map(); for (const x of arr) { const k = key(x); if (k) m.set(k, (m.get(k) || 0) + 1); } return [...m].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt')); };
   const withPlayers = list.filter(r => r.players);
   const totalPlayers = withPlayers.reduce((s, r) => s + r.players, 0);

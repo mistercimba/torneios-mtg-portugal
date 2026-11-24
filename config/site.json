@@ -48,18 +48,75 @@
     "title": "RCQ",
     "sources": [
       {
+        "season": "2023/24",
+        "round": "R5",
+        "label": "WPNQ R5",
+        "format": "Modern",
+        "docId": "1jJ9_afZZgleCuYyBtZ_rx8VPiRWQ-9aBRnFtepYQHxM"
+      },
+      {
+        "season": "2023/24",
+        "round": "R6",
+        "label": "WPNQ R6",
+        "format": "Standard",
+        "startYear": 2024,
+        "docId": "1Hb_sxXwqL5nClWq3c7CO2ilQC0qrtNueqK7YDcpWcWI"
+      },
+      {
+        "season": "2024/25",
+        "round": "S1",
+        "label": "Season 1",
+        "format": "Pioneer",
+        "docId": "1CfPtdUcbZ2FkoiR9kzEysFKIk8aaxFh1algEg_i6PQA"
+      },
+      {
+        "season": "2024/25",
+        "round": "S2",
+        "label": "Season 2",
+        "format": "Modern",
+        "docId": "1ClpCvWIZGKfV5iwRX9VrTUMaBqP7FOFwVzqWDfSdiLc"
+      },
+      {
+        "season": "2024/25",
+        "round": "S3",
+        "label": "Season 3",
+        "format": "Standard",
+        "docId": "16QzE3yY1bVNSmeSEyxNa6YZqS_Zv19506ICdkRNG75M"
+      },
+      {
+        "season": "2025/26",
+        "round": "R1",
+        "format": "Modern",
+        "docId": "18Eo9t9d87p20YeagMRh4KF8AOOFX7l5vL9E6MbOpkFo"
+      },
+      {
+        "season": "2025/26",
+        "round": "R2",
+        "format": "Standard",
+        "docId": "1l6-KmQF8ZfHIAiPc8KpNUIAK6aRmTV8aJPG6Hjzrejw"
+      },
+      {
+        "season": "2025/26",
+        "round": "R3",
+        "format": "Standard",
+        "docId": "1UN2g92eOEUtuLpRWbhF4sRnHCwRE-442ONfZWS-0WTI"
+      },
+      {
         "season": "2026/27",
         "round": "R1",
+        "format": "Modern",
         "docId": "1JaUjzxvTgKfXvpPAmaeo4SLq45i2eALxsxdMGezIGKU"
       },
       {
         "season": "2026/27",
         "round": "R2",
+        "format": "Standard",
         "docId": "1kOJ0reJH5Q_r95OUTlzq2GMvTw119rAwuPUE91VTnvk"
       },
       {
         "season": "2026/27",
         "round": "R3",
+        "format": "Standard",
         "docId": "1d3Jd2V9-mDD14qs-JC_QE8JpXpMtio4WBCvKunQEaqQ"
       }
     ]

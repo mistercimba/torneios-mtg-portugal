@@ -377,3 +377,5 @@ html:not([data-theme=dark]) .new-pill{background:#188052;color:#fff}
 @media(max-width:760px){.stat-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.stat-cols{grid-auto-flow:row;grid-auto-columns:auto;grid-template-columns:1fr}.stat-tile b{font-size:21px}}
 .win-rounds{margin:0 0 12px}.win-rounds:empty{display:none}
 .win-empty{margin:0 0 24px;font-size:13px}
+.round-fmt{font-size:11px;font-weight:600;opacity:.7;margin-left:3px}
+@media(max-width:760px){.win-rounds{flex-wrap:wrap;overflow:visible}.win-rounds .quick:has(.round-fmt){display:inline-flex;flex-direction:column;align-items:center;line-height:1.15;padding-top:5px;padding-bottom:5px}.win-rounds .round-fmt{margin:1px 0 0;font-size:10.5px}}

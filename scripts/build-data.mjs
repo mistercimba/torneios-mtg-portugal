@@ -192,9 +192,9 @@ export async function updateWinners(cfg, generatedAt, { fetchImpl = fetch, out =
   if (error) return `Vencedores: mantidos os ${previous.length} anteriores (${error}).`;
   if (previous.length >= 6 && results.length < previous.length * 0.5) return `Vencedores: a lista devolveu ${results.length} (antes ${previous.length}); mantidos os anteriores.`;
   // «rounds»: época + round de cada lista oficial, para o site mostrar a escolha (mesmo antes de haver vencedores).
-  const rounds = (cfg.sources || []).filter(x => x.round).map(x => ({ season: x.season || null, round: x.round }));
+  const rounds = (cfg.sources || []).filter(x => x.round).map(x => ({ season: x.season || null, round: x.round, ...(x.label ? { label: x.label } : {}), ...(x.format ? { format: x.format } : {}) }));
   await writeFile(out, JSON.stringify({ title: cfg.title || '', generatedAt, rounds, results }, null, 1) + '\n');
-  return `Vencedores: ${results.length} (listas ${cfg.sources.map(s => [s.round, s.season].filter(Boolean).join(' ')).join(', ')}).`;
+  return `Vencedores: ${results.length} (listas ${cfg.sources.map(s => [s.label || s.round, s.season].filter(Boolean).join(' ')).join(', ')}).`;
 }
 
 async function main() {
@@ -235,7 +235,7 @@ async function main() {
     let check = null;
     if (!lists.error) {
       const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon' }).format(new Date());
-      check = compareWithCalendar(lists.texts.flatMap(t => parseAnnouncements(t.text, { round: t.round })), events, today);
+      check = compareWithCalendar(lists.texts.flatMap(t => parseAnnouncements(t.text, { round: t.round, season: t.season, startYear: t.startYear })), events, today);
       console.log(`Listas RCQ: ${check.checked} anunciados · ${check.ok} iguais · ${check.problems.length} diferenças.`);
     }
     rcqSection = '\n' + rcqCheckMarkdown(check);

@@ -25,7 +25,11 @@ function lines(text) {
 }
 
 /** «Ventura Games (Barreiro)» → loja + localidade; sem parênteses, tenta a localidade no fim do nome («Arena Porto»). */
-const expandCity = c => c.replace(/^V\.\s*N\.\s*/i, 'Vila Nova ').replace(/\s+/g, ' ').trim();
+// «V. N. de Famalicão», «V. N de Famalicão», «Vila Nova Famalicão», «Famalicão» → «Vila Nova de Famalicão».
+const expandCity = c => {
+  const x = c.replace(/^V\.\s*N\.?\s*/i, 'Vila Nova ').replace(/\s+/g, ' ').trim();
+  return /^(vila nova (de )?)?famalic[aã]o$/i.test(x) ? 'Vila Nova de Famalicão' : x;
+};
 
 export function splitStore(raw) {
   const m = raw.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
@@ -42,12 +46,13 @@ export function splitStore(raw) {
  * Lê a secção «Vencedores» de uma lista. round: «R2», «R3»…; season: «2026/27» (senão lê «Season 26/27» do texto).
  * Devolve [{ date, store, city, name, deck, players, format, round, season }].
  */
-export function parseWinnersText(text, { round = null, season = null } = {}) {
+export function parseWinnersText(text, { round = null, season = null, startYear = null } = {}) {
   const all = lines(text);
   const m = String(text).match(/Season\s+(\d{2})\s*\/\s*(\d{2})/i);
   if (!season && m) season = `20${m[1]}/${m[2]}`;
   // O ano de início vem da época (config ou texto): «2026/27» → 2026.
-  const y1 = season ? Number(season.slice(0, 4)) : null;
+  // startYear: listas antigas que começam já no 2.º ano da época (ex.: WPNQ Round 6, Janeiro de 2024).
+  const y1 = startYear || (season ? Number(season.slice(0, 4)) : null);
   const start = all.findIndex(l => /^vencedores:?$/i.test(l));
   if (start < 0) return [];
   const results = [];
@@ -94,7 +99,7 @@ export async function fetchListTexts(sources, { fetchImpl = fetch } = {}) {
       res = await fetchImpl(docExportUrl(s.docId), { headers: { 'user-agent': 'torneios-mtg-portugal-sync' }, redirect: 'follow' });
     } catch { return { texts: null, error: `lista ${s.round}: erro de rede` }; }
     if (!res.ok) return { texts: null, error: `lista ${s.round}: HTTP ${res.status} (o documento tem de estar partilhado com «qualquer pessoa com o link»)` };
-    texts.push({ round: s.round, season: s.season || null, text: await res.text() });
+    texts.push({ round: s.round, season: s.season || null, startYear: s.startYear || null, text: await res.text() });
   }
   return { texts, error: null };
 }
@@ -106,7 +111,7 @@ export async function fetchListTexts(sources, { fetchImpl = fetch } = {}) {
 export async function fetchWinners(sources, { fetchImpl = fetch, lists = null } = {}) {
   const { texts, error } = lists || await fetchListTexts(sources, { fetchImpl });
   if (error) return { results: null, error };
-  const results = texts.flatMap(t => parseWinnersText(t.text, { round: t.round, season: t.season }));
+  const results = texts.flatMap(t => parseWinnersText(t.text, { round: t.round, season: t.season, startYear: t.startYear }));
   results.sort((a, b) => a.date.localeCompare(b.date));
   return { results, error: null };
 }

@@ -24,10 +24,12 @@ export function storeKeyFor(name, city) {
 }
 
 /** Torneios anunciados numa lista (com preço). Devolve [{ date, store, city, format, price, checkin, judge, vagas, link, round }]. */
-export function parseAnnouncements(text, { round = null } = {}) {
+export function parseAnnouncements(text, { round = null, season = null, startYear = null } = {}) {
   const lines = clean(text);
-  const season = String(text).match(/Season\s+(\d{2})\s*\/\s*(\d{2})/i);
-  const y1 = season ? 2000 + Number(season[1]) : null, y2 = season ? 2000 + Number(season[2]) : null;
+  const m = String(text).match(/Season\s+(\d{2})\s*\/\s*(\d{2})/i);
+  if (!season && m) season = `20${m[1]}/${m[2]}`;
+  // Mesmo critério dos vencedores: a época começa no 1.º ano e passa ao seguinte quando o mês volta para trás.
+  let year = startYear || (season ? Number(season.slice(0, 4)) : null), lastMonth = 0;
   const out = [];
   let date = null, cur = null;
   for (const line of lines) {
@@ -35,7 +37,9 @@ export function parseAnnouncements(text, { round = null } = {}) {
     const d = line.match(/^(\d{1,2})\s+([A-Za-zÇçÃãÉéÍíÓóÚúÂâÊêÔô]+)\b(?:\s*\(.*\))?\s*$/);
     if (d && MONTHS.includes(plain(d[2]))) {
       const month = MONTHS.indexOf(plain(d[2])) + 1;
-      date = y1 ? `${month >= 7 ? y1 : y2}-${String(month).padStart(2, '0')}-${String(Number(d[1])).padStart(2, '0')}` : null;
+      if (year && month < lastMonth) year += 1;
+      lastMonth = month;
+      date = year ? `${year}-${String(month).padStart(2, '0')}-${String(Number(d[1])).padStart(2, '0')}` : null;
       cur = null;
       continue;
     }
