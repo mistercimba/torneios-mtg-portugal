@@ -470,7 +470,7 @@ test('15. filtros: escolha múltipla, distritos dentro de Portugal, rounds dentr
     assert.ok(circ[rcq].parent && circ[rcq + 1].child && circ[rcq + 1].label.startsWith('Round'), JSON.stringify(circ));
     await pick(page, 'circuit', 'Round 3 · 2026/27');
     assert.ok((await rows()).length && (await rows()).every(r => r.pill.includes('R3')));
-    assert.equal(await msLabel(page, 'circuit'), 'Round 3 · 2026/27');
+    assert.equal(await msLabel(page, 'circuit'), 'R3 2026/27');
     // Combinações: RCQ em Portugal num distrito; números das outras listas reflectem os filtros.
     await pick(page, 'place', d);
     const fmtSum = (await msOptions(page, 'format')).reduce((s, o) => s + o.count, 0);
@@ -651,7 +651,7 @@ test('21. links partilháveis: filtros e torneio no endereço', { skip }, async 
   await page2.close();
   // Links antigos (uma só escolha por lista) continuam a funcionar: RCQ só com o Round 3; Portugal inteiro.
   const old = await open({ width: 1280, hash: '?onde=portugal&circuito=RCQ&round=R3' });
-  assert.deepEqual(await labels(old), ['Formato', 'Portugal', 'Round 3 · 2026/27']);
+  assert.deepEqual(await labels(old), ['Formato', 'Portugal', 'R3 2026/27']);
   assert.ok(await old.eval(`[...document.querySelectorAll('.event-row .type-pill')].every(x => x.textContent.includes('R3'))`));
   const oldP = new URLSearchParams(await old.eval('location.search'));
   assert.deepEqual([oldP.get('onde'), oldP.get('circuito'), oldP.get('round')], ['portugal', null, 'R3 2026/27']);
@@ -880,3 +880,51 @@ test('25. layout compacto: o primeiro torneio aparece perto do topo, sem título
     await page.close();
   }
 });
+
+
+// ---------- Correcções do teste independente (24/11/2026) ----------
+test('26. Voltar depois de «Ver a loja» regressa ao torneio; cartão de hoje com eventos a decorrer; pesquisa por país e época', { skip }, async () => {
+  const page = await open({ width: 390 });
+  // Voltar: agenda → torneio → loja → Voltar = agenda com o torneio aberto.
+  const id = await page.eval(`[...document.querySelectorAll('.event-row')].find(r => r.textContent.includes('Loja Exemplo Norte')).dataset.id`);
+  await page.eval(`document.querySelector('.event-row[data-id="${id}"]').click()`);
+  await page.eval(`document.querySelector('#dialog-actions .store-link').click()`);
+  await page.waitFor(`document.body.dataset.view === 'store'`);
+  await page.eval(`history.back()`);
+  await page.waitFor(`document.body.dataset.view === 'agenda' && document.getElementById('detail-dialog').open`);
+  assert.equal(await page.eval(`new URLSearchParams(location.search).get('t')`), id);
+  await page.eval(`document.getElementById('close-dialog').click()`);
+  // Evento de vários dias já começado: o cartão de hoje existe e tem «A decorrer».
+  await page.eval(`(() => { today = '2027-03-06'; buildFilters(); renderEvents(); })()`);
+  const first = await page.eval(`(() => { const c = document.querySelector('.day-card[data-date="2027-03-06"]'); return c ? { cont: c.querySelectorAll('.cont-row').length, rel: c.querySelector('.day-rel')?.textContent || '' } : null; })()`);
+  assert.ok(first && first.cont >= 1, `cartão de hoje com «A decorrer»: ${JSON.stringify(first)}`);
+  await page.eval(`(() => { today = '2026-11-23'; buildFilters(); renderEvents(); })()`);
+  // Pesquisa pelo país (também quando vem da localização) e pela época.
+  const search = q => page.eval(`(() => { const s = document.getElementById('search'); s.value = ${JSON.stringify(q)}; s.dispatchEvent(new Event('input')); return document.querySelectorAll('.event-row').length; })()`);
+  assert.ok(await search('espanha') >= 1, 'pesquisa por país');
+  assert.ok(await search('2026/27') >= 1, 'pesquisa pela época');
+  await search('');
+  assert.deepEqual(page.errors, []);
+  await page.close();
+});
+
+test('27. ecrãs baixos: «Limpar/Feito» das listas sempre visíveis; vencedores no telemóvel com link para a loja; .ics válido', { skip }, async () => {
+  for (const [w, h] of [[320, 568], [740, 360]]) {
+    const page = await open({ width: w, height: h, mobile: true });
+    for (const key of ['format', 'place', 'circuit']) {
+      const r = await page.eval(`(() => { const root = document.querySelector('.ms[data-key="${key}"]'); root.querySelector('.ms-btn').click(); const f = root.querySelector('.ms-foot').getBoundingClientRect(); const out = { bottom: Math.round(f.bottom), vh: innerHeight }; root.querySelector('.ms-done').click(); return out; })()`);
+      assert.ok(r.bottom <= r.vh, `${w}×${h} ${key}: rodapé fora do ecrã ${JSON.stringify(r)}`);
+    }
+    assert.deepEqual(page.errors, []);
+    await page.close();
+  }
+  const page = await open({ width: 390, hash: '#winners' });
+  assert.ok(await page.eval(`[...document.querySelectorAll('.result .result-meta a.store-name-link')].some(a => a.offsetParent !== null)`), 'link para a loja visível no telemóvel');
+  // .ics: «;» e «,» escapados e linhas com no máximo 75 octetos.
+  const ics = await page.eval(`(() => { const e = { ...events.find(x => x.scope === 'portugal' && !isInfo(x)), title: 'Teste; com ponto e vírgula, vírgula e acentos çãéíóú '.repeat(3) }; return icsFile(e); })()`);
+  assert.ok(ics.includes('Teste\\; com ponto e vírgula\\, vírgula'), 'escapes do .ics');
+  const enc = new TextEncoder();
+  for (const line of ics.split('\r\n')) assert.ok(enc.encode(line).length <= 75, `linha com mais de 75 octetos: ${line}`);
+  await page.close();
+});
+

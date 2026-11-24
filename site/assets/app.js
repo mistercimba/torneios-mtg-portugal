@@ -126,7 +126,7 @@ function calendarData(e) {
     start = lisbonToUtc(e.dateStart, e.timeStart);
     end = e.timeEnd && e.timeEnd > e.timeStart ? lisbonToUtc(e.dateStart, e.timeEnd) : new Date(start.getTime() + 4 * 3600000);
   }
-  const local = addressOf(e) || e.local || e.localidade || '';
+  const local = e.scope === 'portugal' ? addressOf(e) || e.local || e.localidade || '' : placeLine(e) || e.local || '';
   const where = e.scope === 'portugal' && e.loja && !local.toLowerCase().includes(e.loja.toLowerCase()) ? [e.loja, local].filter(Boolean).join(', ') : (local || placeLine(e) || '');
   const info = [
     e.tipo + (e.ronda ? ' · ' + e.ronda : '') + (e.fase ? ' · ' + e.fase : ''),
@@ -134,7 +134,7 @@ function calendarData(e) {
     e.checkin ? 'Check-in: ' + e.checkin : null,
     e.scope === 'portugal' ? 'Inscrição: ' + (e.preco != null ? (e.preco === 0 ? 'Grátis' : euro(e.preco)) : (e.precoTexto || 'a confirmar')) : null,
     safeUrl(e.ligacao) ? 'Inscrição / anúncio: ' + e.ligacao : null,
-    'Torneios MTG Portugal: ' + location.href.split('#')[0],
+    'Torneios MTG Portugal: ' + eventUrl(e.id),
   ].filter(Boolean).join('\n');
   return { title: e.title, timed, start, end, where, info };
 }
@@ -148,8 +148,10 @@ function googleCalendarUrl(e) {
 
 function icsFile(e) {
   const c = calendarData(e);
-  const txt = v => String(v).replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
-  const fold = line => { const out = []; let rest = line; while (rest.length > 74) { out.push(rest.slice(0, 74)); rest = ' ' + rest.slice(74); } out.push(rest); return out.join('\r\n'); };
+  const txt = v => String(v).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+  // Linhas de no máximo 75 octetos (RFC 5545), contando os acentos em UTF-8.
+  const enc = new TextEncoder();
+  const fold = line => { const out = []; let cur = '', size = 0; for (const ch of line) { const n = enc.encode(ch).length; if (size + n > 75) { out.push(cur); cur = ' '; size = 1; } cur += ch; size += n; } out.push(cur); return out.join('\r\n'); };
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Torneios MTG Portugal//PT', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
     `UID:${e.id}@torneios-mtg-portugal`, `DTSTAMP:${icsStamp(new Date())}`,
     ...(c.timed ? [`DTSTART:${icsStamp(c.start)}`, `DTEND:${icsStamp(c.end)}`] : [`DTSTART;VALUE=DATE:${icsDate(e.dateStart)}`, `DTEND;VALUE=DATE:${icsDate(nextDay(e.dateEnd))}`]),
@@ -303,7 +305,10 @@ function renderPanel(key) {
   }
   const btn = root.querySelector('.ms-btn');
   btn.classList.toggle('active', names.length > 0);
-  btn.querySelector('.ms-label').textContent = !names.length ? PLACEHOLDER[key] : names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`;
+  // Nome curto no botão (rounds: «R3 2026/27»); o «+N» fica fora do corte para nunca desaparecer.
+  const short = names.map(n => n.replace(/^Round (\d+) · /, 'R$1 '));
+  btn.querySelector('.ms-label').innerHTML = !names.length ? esc(PLACEHOLDER[key]) : `<span class="ms-main">${esc(short[0])}</span>${names.length > 1 ? ` <span class="ms-more">+${names.length - 1}</span>` : ''}`;
+  btn.title = names.length ? names.join(', ') : '';
   btn.setAttribute('aria-label', names.length ? `${PLACEHOLDER[key]}: ${names.join(', ')}` : PLACEHOLDER[key]);
 }
 
@@ -323,9 +328,24 @@ function openPanel(root, focusFirst) {
   root.classList.add('open');
   root.querySelector('.ms-panel').hidden = false;
   root.querySelector('.ms-btn').setAttribute('aria-expanded', 'true');
+  fitPanel(root);
   const first = root.querySelector('.ms-list input');
   if (first && focusFirst) first.focus({ preventScroll: true });
 }
+/** A lista nunca passa do fundo do ecrã: «Limpar/Feito» ficam sempre visíveis (ecrãs baixos, telemóvel deitado). */
+function fitPanel(root) {
+  const list = root.querySelector('.ms-list'), foot = root.querySelector('.ms-foot');
+  const avail = () => innerHeight - list.getBoundingClientRect().top - foot.offsetHeight - 12;
+  list.style.maxHeight = '';
+  if (avail() < 180) {
+    // Sobe a página o necessário (sem esconder o botão debaixo do cabeçalho fixo).
+    const header = document.querySelector('.site-header')?.getBoundingClientRect().bottom || 0;
+    const room = root.querySelector('.ms-btn').getBoundingClientRect().top - header - 8;
+    window.scrollBy({ top: Math.max(0, Math.min(180 - avail(), room)), behavior: 'instant' });
+  }
+  list.style.maxHeight = Math.max(120, Math.min(360, avail())) + 'px';
+}
+window.addEventListener('resize', () => { if (openMs) fitPanel(openMs); });
 document.querySelectorAll('.ms').forEach(root => {
   const key = root.dataset.key;
   // Com o rato o foco fica no botão; com o teclado (detail 0) passa para a primeira opção.
@@ -361,7 +381,7 @@ let today = todayLisbon();
 const isPastEvent = e => e.dateEnd < today;
 
 function matchesQuery(e, q) {
-  return !q || [e.title, e.loja, e.localidade, e.distrito, e.formato, e.set, e.tipo, e.ronda, e.fase, e.local, e.pais].some(v => normalize(v).includes(q));
+  return !q || [e.title, e.loja, e.localidade, e.distrito, e.formato, e.set, e.tipo, e.ronda, e.epoca, roundText(e), e.fase, e.local, e.pais, countryOf(e), e.qualifica].some(v => normalize(v).includes(q));
 }
 function matches(e, q, skip) {
   const on = k => k !== skip && sel[k].size;
@@ -454,6 +474,8 @@ function monthsHtml(filtered, withMilestones) {
     if (isInfo(e)) day.info.push(e);
     else { day.events.push(e); months.get(e.dateStart.slice(0, 7)).total++; }
   }
+  // Eventos de vários dias já começados: há sempre um cartão de hoje com «A decorrer».
+  if (!showPast) for (const e of filtered) if (e.dateStart < today && e.dateEnd >= today) dayFor(today);
   if (withMilestones) for (const m of milestones) {
     if (!milestoneVisible(m)) continue;
     for (const kind of ['start', 'end']) {
@@ -548,6 +570,7 @@ function renderStore(key) {
   const list = events.filter(e => storeKey(e) === key);
   const wins = winners.filter(w => storeKeyFor(w.store, w.city) === key);
   if (!list.length && !wins.length) {
+    document.title = 'Loja não encontrada — Torneios MTG Portugal';
     el.innerHTML = `<div class="store-page"><a href="#agenda" class="back-link">← Agenda</a><div class="empty"><p>Não encontrámos esta loja.</p></div></div>`;
     return;
   }
@@ -583,8 +606,8 @@ function resultHtml(r) {
   const key = storeKeyFor(r.store, r.city);
   // A localidade não se repete quando já faz parte do nome da loja («Mulligan Quarteira»).
   const city = r.city && !normalize(r.store).includes(normalize(r.city)) ? r.city : '';
-  const meta = [r.store, city, r.deck || 'Deck não indicado'].filter(Boolean).map(esc).join(' · ');
   const storeName = key ? `<a href="#loja-${esc(key)}" class="store-name-link">${esc(r.store)}</a>` : esc(r.store);
+  const meta = [storeName, city && esc(city), esc(r.deck || 'Deck não indicado')].filter(Boolean).join(' · ');
   return `<div class="result"><span class="date">${d.getDate()} ${mon3(d).toUpperCase()}<br>${d.getFullYear()}</span><span class="win">${esc(r.name)}</span><span class="store-cell">${storeName}${city ? `<span class="location">${esc(city)}</span>` : ''}</span><span class="deck">${esc(r.deck || 'Não indicado')}</span><span class="num">${r.players == null ? '—' : r.players}<small>jogadores</small></span><span class="result-meta">${meta}</span></div>`;
 }
 
@@ -684,7 +707,7 @@ function openDetails(id) {
 
   // A etiqueta do tipo usa a cor do tipo (como na agenda); as restantes mantêm o estilo da v10.3.
   const tabs = [
-    `<span class="dialog-tab dialog-type ${typeClass(e)}">${esc(e.tipo + (e.fase ? ' · ' + e.fase : ''))}</span>`,
+    `<span class="dialog-tab dialog-type ${typeClass(e)}">${esc(typeName(e.tipo) + (e.fase ? ' · ' + e.fase : ''))}</span>`,
     ...[e.formato ? `${e.formato}${e.set ? ' · ' + e.set : ''}` : null,
       roundText(e) || null, e.vagas ? `${e.vagas} vagas` : null,
       e.scope === 'internacional' ? 'Internacional' : null,
@@ -732,7 +755,7 @@ function openDetails(id) {
     + (store ? `<a href="#loja-${esc(store)}" class="store-link">Ver a loja</a>` : '')
     + (map ? `<a href="${esc(map)}" target="_blank" rel="noopener">Ver no mapa ↗</a>` : '')
     + storeLinksHtml(storeInfo(e))
-    + (link ? `<a class="primary" href="${esc(link)}" target="_blank" rel="noopener">${isInfo(e) ? 'Mais informação' : 'Inscrição / anúncio'} ↗</a>` : '<span class="unavailable">Ligação para inscrição não indicada</span>');
+    + (link ? `<a class="primary" href="${esc(link)}" target="_blank" rel="noopener">${isInfo(e) ? 'Mais informação' : 'Inscrição / anúncio'} ↗</a>` : (isInfo(e) ? '' : '<span class="unavailable">Ligação para inscrição não indicada</span>'));
 
   document.querySelector('#dialog-actions .ics-link').addEventListener('click', ev => {
     ev.preventDefault();
@@ -780,7 +803,14 @@ function setView(view) {
   location.hash = view; // dispara hashchange → applyView
 }
 
-window.addEventListener('hashchange', () => { if (dialog.open) dialog.close(); applyView(viewFromHash()); });
+window.addEventListener('hashchange', () => { if (dialog.open && viewFromHash() !== 'agenda') dialog.close(); applyView(viewFromHash()); });
+// Voltar/Avançar entre entradas com query diferente (ex.: loja → torneio aberto) não dispara «hashchange».
+window.addEventListener('popstate', () => {
+  const view = viewFromHash();
+  if (view !== currentView) { if (dialog.open) dialog.close(); applyView(view); }
+  const t = new URLSearchParams(location.search).get('t');
+  if (view === 'agenda' && t && !dialog.open && events.some(e => e.id === t)) openDetails(t);
+});
 document.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.view)));
 document.getElementById('home').addEventListener('click', e => { e.preventDefault(); setView('agenda'); });
 applyView(viewFromHash());

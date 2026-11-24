@@ -16,7 +16,7 @@ export function lisbonToUtc(date, time) {
   return new Date(guess - (asLisbon - guess));
 }
 
-const txt = v => String(v).replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+const txt = v => String(v).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
 // Dobra linhas com mais de 75 octetos (RFC 5545), sem partir caracteres UTF-8.
 function fold(line) {
   const out = [];
