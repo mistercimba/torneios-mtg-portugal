@@ -87,6 +87,8 @@ export function applyRoundWindows(events, milestones) {
     const m = same.find(w => w.start <= e.dateStart && e.dateStart <= w.end)
       || same.filter(w => w.start <= e.dateStart).sort((a, b) => b.start.localeCompare(a.start))[0];
     if (m) e.epoca = m.season;
+    // RCQs de uma round apuram para o RC indicado na janela (o campo QUALIFICA do calendário prevalece).
+    if (m && m.qualifica && !e.qualifica) e.qualifica = m.qualifica;
   }
   return events;
 }

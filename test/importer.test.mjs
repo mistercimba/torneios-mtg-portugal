@@ -130,6 +130,21 @@ test('RCQ sem RONDA recebe a round pela janela oficial; fora das janelas fica va
   assert.equal(explicit.ronda, 'R2'); // valor do calendário prevalece
 });
 
+test('épocas: R2 de 2026/27 ≠ R2 de 2027/28; a janela indica o RC para que apura (QUALIFICA do calendário prevalece)', async () => {
+  const { applyRoundWindows } = await import('../scripts/build-data.mjs');
+  const windows = [
+    { circuit: 'RCQ', ronda: 'R2', season: '2026/27', start: '2026-08-15', end: '2026-11-29', qualifica: 'Regional Championship Bilbao' },
+    { circuit: 'RCQ', ronda: 'R3', season: '2026/27', start: '2026-12-11', end: '2027-03-07' },
+    { circuit: 'RCQ', ronda: 'R2', season: '2027/28', start: '2027-07-03', end: '2027-09-26' },
+  ];
+  const mk = (date, extra = '') => normalizeEvent({ id: date + extra, summary: 'RCQ', start: { date }, description: 'TIPO: RCQ\nRONDA: A confirmar' + extra });
+  const [a, b, c, d] = applyRoundWindows([mk('2026-10-03'), mk('2027-08-14'), mk('2027-01-09'), mk('2026-11-01', '\nQUALIFICA: Outro RC')], windows);
+  assert.deepEqual([a.ronda, a.epoca, a.qualifica], ['R2', '2026/27', 'Regional Championship Bilbao']);
+  assert.deepEqual([b.ronda, b.epoca, b.qualifica], ['R2', '2027/28', null]);
+  assert.deepEqual([c.ronda, c.epoca, c.qualifica], ['R3', '2026/27', null]);
+  assert.equal(d.qualifica, 'Outro RC');
+});
+
 test('dados reais (opcional, só local): todos os eventos lidos e todos os tipos reconhecidos', { skip: !existsSync(new URL('./fixtures/private/torneios-mtg-real.ics', import.meta.url)) }, async () => {
   const { events } = parseIcs(await readFile(new URL('./fixtures/private/torneios-mtg-real.ics', import.meta.url), 'utf8'));
   const norm = events.map(normalizeEvent);

@@ -3,11 +3,21 @@
   "milestones": [
     {
       "circuit": "RCQ",
+      "ronda": "R1",
+      "season": "2026/27",
+      "label": "Round 1 2026/27 · Modern",
+      "start": "2026-04-04",
+      "end": "2026-08-02",
+      "qualifica": "Regional Championship Ghent"
+    },
+    {
+      "circuit": "RCQ",
       "ronda": "R2",
       "season": "2026/27",
       "label": "Round 2 2026/27 · Standard",
       "start": "2026-08-15",
-      "end": "2026-11-29"
+      "end": "2026-11-29",
+      "qualifica": "Regional Championship Bilbao"
     },
     {
       "circuit": "RCQ",
