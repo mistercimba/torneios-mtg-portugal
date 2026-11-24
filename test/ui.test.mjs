@@ -27,6 +27,27 @@ const MOBILE_WIDTHS = [320, 340, 360, 375, 390, 393, 412, 414, 430];
 const countTotal = t => { const m = t.match(/^(\d+) em Portugal · (\d+) internaciona(?:l|is)$/); if (m) return +m[1] + +m[2]; const n = t.match(/^(\d+) torneios?$/); return n ? +n[1] : NaN; };
 const COUNT_RE = /^(\d+ torneios?|\d+ em Portugal · \d+ internaciona(l|is))$/;
 
+// ---------- Listas com escolha múltipla (Formato, Onde, Circuito) ----------
+const msRoot = key => `document.querySelector('.ms[data-key=${JSON.stringify(key)}]')`;
+const optLabel = 'o => o.querySelector(".ms-text").lastChild.textContent.trim()';
+/** Marca/desmarca uma opção (abre a lista, clica, fecha com «Feito») e devolve o contador. */
+const pick = (page, key, label) => page.eval(`(() => {
+  const root = ${msRoot(key)};
+  if (root.querySelector('.ms-panel').hidden) root.querySelector('.ms-btn').click();
+  const opts = [...root.querySelectorAll('.ms-opt')];
+  const opt = opts.find(o => (${optLabel})(o) === ${JSON.stringify(label)});
+  if (!opt) throw new Error('opção ' + ${JSON.stringify(label)} + ' não existe: ' + opts.map(${optLabel}).join(' | '));
+  opt.querySelector('input').click();
+  root.querySelector('.ms-done').click();
+  return document.getElementById('count').textContent;
+})()`);
+/** Opções de uma lista: nome, se é grupo/subopção, número e estado (on/off/some). */
+const msOptions = (page, key) => page.eval(`[...${msRoot(key)}.querySelectorAll('.ms-opt')].map(o => { const i = o.querySelector('input');
+  return { label: (${optLabel})(o), parent: o.classList.contains('parent'), child: o.classList.contains('child'), count: +o.querySelector('.ms-count').textContent,
+    state: i.indeterminate ? 'some' : i.checked ? 'on' : 'off' }; })`);
+const msLabel = (page, key) => page.eval(`${msRoot(key)}.querySelector('.ms-label').textContent`);
+const resetFilters = page => page.eval(`document.getElementById('reset').click()`);
+
 test('1. cabeçalho: logótipo nunca se sobrepõe à navegação (320–430 px e desktop)', { skip }, async () => {
   for (const [theme, font] of [['light', null], ['dark', null], ['light', 'DejaVu Sans'], ['dark', 'Arial']]) {
     const page = await open({ width: 320, theme });
@@ -134,11 +155,13 @@ test('5. navegação: #winners responde a mudanças de endereço e ao botão Vol
 
 test('6. contador: nunca «0 torneios» quando há datas informativas visíveis', { skip }, async () => {
   const page = await open({ width: 1280 });
-  const set = v => page.eval(`(() => { const s = document.getElementById('circuit'); s.value = ${JSON.stringify(v)}; s.dispatchEvent(new Event('input')); return [document.getElementById('count').textContent, document.querySelectorAll('.info-row').length, document.querySelectorAll('.event-row').length]; })()`);
-  const [txt, info, rows] = await set('type:Anúncio');
+  const state = () => page.eval(`[document.getElementById('count').textContent, document.querySelectorAll('.info-row').length, document.querySelectorAll('.event-row').length]`);
+  await pick(page, 'circuit', 'Anúncio');
+  const [txt, info, rows] = await state();
   assert.equal(rows, 0); assert.equal(info, 1);
   assert.equal(txt, '1 data informativa');
-  const [txtAll] = await set('');
+  await pick(page, 'circuit', 'Anúncio');
+  const [txtAll] = await state();
   assert.match(txtAll, COUNT_RE);
   await page.eval(`(() => { const s = document.getElementById('search'); s.value = 'zzzz'; s.dispatchEvent(new Event('input')); })()`);
   assert.equal(await page.eval(`document.getElementById('count').textContent`), '0 torneios');
@@ -277,7 +300,7 @@ test('10. eventos de vários dias: intervalo no primeiro dia e «A decorrer · D
     await page.eval(`document.getElementById('close-dialog').click()`);
     assert.ok(await page.eval(`document.activeElement.classList.contains('cont-row')`), 'o foco volta à linha que abriu o modal');
     // Filtros aplicam-se também às continuações.
-    await page.eval(`(() => { const s = document.getElementById('circuit'); s.value = 'type:Spotlight'; s.dispatchEvent(new Event('input')); })()`);
+    await pick(page, 'circuit', 'Spotlight');
     assert.ok(!(await page.eval(`document.getElementById('events').innerText`)).includes('Regional Championship Exemplo'));
     assert.deepEqual(page.errors, []);
     await page.close();
@@ -374,7 +397,7 @@ test('14. pesquisa, filtros, passados, modal e mudanças de largura sem erros na
   assert.equal(await set('search', 'paupergeddon'), '1 torneio');
   assert.equal(await page.eval(`document.querySelectorAll('.day-card').length`), 1);
   await set('search', '');
-  assert.match(await set('scope', 'internacional'), COUNT_RE);
+  assert.match(await pick(page, 'place', 'Internacional'), COUNT_RE);
   assert.equal(await page.eval(`document.querySelectorAll('.info-row').length`), 0, 'datas informativas escondidas com filtro de local');
   assert.ok(await page.eval(`[...document.querySelectorAll('.event-row')].every(r => r.querySelector('.price-col').textContent.includes('Internacional'))`));
   await page.eval(`document.getElementById('reset').click()`);
@@ -394,74 +417,105 @@ test('14. pesquisa, filtros, passados, modal e mudanças de largura sem erros na
   await page.close();
 });
 
-test('15. filtros: Distrito só com Portugal, Round só com RCQ, formatos por ordem lógica', { skip }, async () => {
+test('15. filtros: escolha múltipla, distritos dentro de Portugal, rounds dentro de RCQ, formatos por ordem lógica', { skip }, async () => {
   for (const w of [1280, 390, 320]) {
     const page = await open({ width: w });
     await showAll(page);
-    const st = () => page.eval(`({ district: !document.getElementById('district-filter').hidden, round: !document.getElementById('round-filter').hidden,
-      dv: document.getElementById('district').value, rv: document.getElementById('round').value, count: document.getElementById('count').textContent,
-      overflow: document.documentElement.scrollWidth - innerWidth,
-      optgroups: document.querySelectorAll('.controls optgroup').length })`);
-    const set = (id, v) => page.eval(`(() => { const s = document.getElementById(${JSON.stringify(id)}); s.value = ${JSON.stringify(v)}; s.dispatchEvent(new Event('input', { bubbles: true })); })()`);
-    let s = await st();
-    assert.ok(!s.district && !s.round, `${w}px: filtros dependentes escondidos ao início`);
-    assert.equal(s.optgroups, 0, 'sem subsecções nas listas');
-    // Formatos por ordem lógica (construído → Commander → limitado → combinações).
-    const formats = await page.eval(`[...document.getElementById('format').options].slice(1).map(o => o.value)`);
-    const idx = f => formats.indexOf(f);
-    assert.ok(!formats.includes('cEDH'), `cEDH junta-se a Commander: ${formats}`);
-    if (await page.eval(`[...document.querySelectorAll('.format-col')].some(f => /cedh/i.test(f.textContent))`)) assert.ok(formats.includes('Commander'), `torneios cEDH aparecem em Commander: ${formats}`);
-    for (const [a, b] of [['Standard', 'Modern'], ['Modern', 'Legacy'], ['Legacy', 'Pauper'], ['Pauper', 'Commander']]) if (idx(a) >= 0 && idx(b) >= 0) assert.ok(idx(a) < idx(b), `${a} antes de ${b}: ${formats}`);
-    assert.equal(formats.at(-1), 'Limited', `Limited no fim: ${formats}`);
-    assert.ok(!formats.some(f => /sealed|draft|\+/i.test(f)), `limitados agrupados e sem combinações: ${formats}`);
-    // Limited junta Sealed, Draft, etc.
-    await set('format', 'Limited');
-    assert.ok(await page.eval(`[...document.querySelectorAll('.event-row')].length > 0 && [...document.querySelectorAll('.event-row .format-col')].every(f => /sealed|draft|limited/i.test(f.textContent))`), 'Limited mostra só torneios limitados');
-    await set('format', '');
-    // Distrito aparece logo a seguir a «Onde» e Round logo a seguir a «Circuito», na mesma fila (ordem de leitura),
-    // empurrando as listas seguintes; sem espaços vazios à esquerda.
-    await set('scope', 'portugal'); await set('circuit', 'type:RCQ');
-    const order = await page.eval(`(() => {
-      const ids = ['format', 'scope', 'district', 'circuit', 'round'];
-      const r = ids.map(id => { const b = document.getElementById(id).getBoundingClientRect(); return { id, top: Math.round(b.top), left: Math.round(b.left), right: Math.round(b.right) }; });
-      const rows = [...new Set(r.map(x => x.top))].sort((a, b) => a - b);
-      const reading = [...r].sort((a, b) => a.top - b.top || a.left - b.left).map(x => x.id);
-      const firstLeft = Math.min(...r.map(x => x.left));
-      const rowStarts = rows.map(t => Math.min(...r.filter(x => x.top === t).map(x => x.left)));
-      return { reading, rowStarts, firstLeft, r };
-    })()`);
-    assert.deepEqual(order.reading, ['format', 'scope', 'district', 'circuit', 'round'], `${w}px: ordem de leitura ${JSON.stringify(order.r)}`);
-    for (const left of order.rowStarts) assert.equal(left, order.firstLeft, `${w}px: cada fila começa à esquerda, sem espaços vazios ${JSON.stringify(order.r)}`);
-    if (w > 760) assert.equal(new Set(order.r.map(x => x.top)).size, 1, `${w}px: no computador ficam todas na mesma fila`);
-    await page.eval(`document.getElementById('reset').click()`);
-    // Portugal → Distrito aparece e filtra; Internacional → Distrito desaparece e limpa.
-    await set('scope', 'portugal');
-    s = await st(); assert.ok(s.district, `${w}px: Distrito deve aparecer com Portugal`);
-    const district = await page.eval(`document.getElementById('district').options[1].value`);
-    await set('district', district);
-    assert.ok(await page.eval(`[...document.querySelectorAll('.event-row')].length > 0 && [...document.querySelectorAll('.event-row')].every(r => r.querySelector('.subline')?.textContent.includes(${JSON.stringify(district)}) || true)`));
-    const withDistrict = (await st()).count;
-    await set('scope', 'internacional');
-    s = await st(); assert.ok(!s.district && s.dv === '', `${w}px: Distrito escondido e limpo com Internacional`);
-    assert.notEqual(s.count, withDistrict);
-    assert.equal(await page.eval(`document.querySelectorAll('.info-row').length`), 0);
-    // RCQ → Round aparece; outro circuito → Round desaparece e limpa.
-    await set('scope', '');
-    await set('circuit', 'type:RCQ');
-    s = await st(); assert.ok(s.round, `${w}px: Round deve aparecer com RCQ`);
-    await set('round', 'R3');
-    assert.ok(await page.eval(`[...document.querySelectorAll('.event-row')].every(r => r.querySelector('.type-pill').textContent.includes('R3'))`));
-    assert.ok(s.overflow <= 0, `${w}px: scroll horizontal`);
-    await set('circuit', 'type:LPP');
-    s = await st(); assert.ok(!s.round && s.rv === '', `${w}px: Round escondido e limpo fora de RCQ`);
-    // Limpar filtros esconde tudo.
-    await set('scope', 'portugal'); await set('circuit', 'type:RCQ');
-    await page.eval(`document.getElementById('reset').click()`);
-    s = await st(); assert.ok(!s.district && !s.round, `${w}px: limpar filtros esconde os dependentes`);
-    assert.match(s.count, COUNT_RE);
+    const rows = () => page.eval(`[...document.querySelectorAll('.event-row')].map(r => ({ fmt: r.querySelector('.format-col')?.textContent || '', pill: r.querySelector('.type-pill').textContent, intl: !!r.querySelector('.price-col.intl'), text: r.textContent }))`);
+    // Sempre 3 listas, na mesma fila, com o nome dentro do botão.
+    const layout = await page.eval(`(() => { const b = [...document.querySelectorAll('.ms-btn')].map(x => x.getBoundingClientRect()); return { n: b.length, tops: [...new Set(b.map(x => Math.round(x.top)))].length, names: [...document.querySelectorAll('.ms-label')].map(l => l.textContent) }; })()`);
+    assert.deepEqual(layout, { n: 3, tops: 1, names: ['Formato', 'Onde', 'Circuito'] }, `${w}px`);
+    // Formatos por ordem lógica (construído → Commander → Limited), sem subopções.
+    const formats = await msOptions(page, 'format');
+    const names = formats.map(f => f.label), idx = f => names.indexOf(f);
+    assert.ok(formats.every(f => !f.parent && !f.child));
+    assert.ok(!names.includes('cEDH'), `cEDH junta-se a Commander: ${names}`);
+    for (const [a, b] of [['Standard', 'Modern'], ['Modern', 'Legacy'], ['Legacy', 'Pauper'], ['Pauper', 'Commander']]) assert.ok(idx(a) < idx(b), `${a} antes de ${b}: ${names}`);
+    assert.equal(names.at(-1), 'Limited');
+    assert.ok(!names.some(f => /sealed|draft|\+/i.test(f)), `limitados agrupados e sem combinações: ${names}`);
+    // Limited junta Sealed, Draft, etc.; escolha múltipla soma os formatos; o número ao lado bate certo.
+    const limited = formats.find(f => f.label === 'Limited').count;
+    assert.equal(countTotal(await pick(page, 'format', 'Limited')), limited);
+    assert.ok((await rows()).length && (await rows()).every(r => /sealed|draft|limited/i.test(r.fmt)), 'Limited mostra só torneios limitados');
+    const std = (await msOptions(page, 'format')).find(f => f.label === 'Standard').count;
+    assert.equal(countTotal(await pick(page, 'format', 'Standard')), limited + std, 'Limited + Standard');
+    assert.equal(await msLabel(page, 'format'), 'Standard +1');
+    await resetFilters(page);
+    assert.equal(await msLabel(page, 'format'), 'Formato');
+    // Onde: Portugal → distritos; Internacional → países. Um distrito deixa Portugal «parcial».
+    let place = await msOptions(page, 'place');
+    assert.equal(place[0].label, 'Portugal'); assert.ok(place[0].parent);
+    const districts = place.slice(1, place.findIndex((o, i) => i > 0 && o.parent)).map(o => o.label);
+    assert.ok(districts.length >= 2 && place.slice(1, 1 + districts.length).every(o => o.child), JSON.stringify(place));
+    assert.ok(place.some(o => o.parent && o.label === 'Internacional'));
+    const d = districts.find(x => place.find(o => o.label === x).count > 0);
+    await pick(page, 'place', d);
+    place = await msOptions(page, 'place');
+    assert.equal(place[0].state, 'some'); assert.equal(place.find(o => o.label === d).state, 'on');
+    assert.equal(await msLabel(page, 'place'), d);
+    assert.ok((await rows()).every(r => !r.intl), 'só Portugal');
+    assert.equal(await page.eval(`document.querySelectorAll('.info-row').length`), 0, 'sem datas informativas com filtro de local');
+    await pick(page, 'place', 'Portugal'); // completa o grupo
+    place = await msOptions(page, 'place');
+    assert.ok(place.filter(o => o.child && districts.includes(o.label)).every(o => o.state === 'on') && place[0].state === 'on');
+    assert.equal(await msLabel(page, 'place'), 'Portugal');
+    await pick(page, 'place', 'Internacional');
+    assert.equal(await msLabel(page, 'place'), 'Portugal +1');
+    await pick(page, 'place', 'Portugal'); // desmarca o grupo inteiro
+    assert.equal(await msLabel(page, 'place'), 'Internacional');
+    assert.ok((await rows()).every(r => r.intl));
+    await resetFilters(page);
+    // Circuito: RCQ com os rounds por baixo.
+    const circ = await msOptions(page, 'circuit');
+    const rcq = circ.findIndex(o => o.label === 'RCQ');
+    assert.ok(circ[rcq].parent && circ[rcq + 1].child && circ[rcq + 1].label.startsWith('Round'), JSON.stringify(circ));
+    await pick(page, 'circuit', 'Round 3');
+    assert.ok((await rows()).length && (await rows()).every(r => r.pill.includes('R3')));
+    assert.equal(await msLabel(page, 'circuit'), 'Round 3');
+    // Combinações: RCQ em Portugal num distrito; números das outras listas reflectem os filtros.
+    await pick(page, 'place', d);
+    const fmtSum = (await msOptions(page, 'format')).reduce((s, o) => s + o.count, 0);
+    assert.equal(fmtSum, countTotal(await page.eval(`document.getElementById('count').textContent`)), 'números do Formato = torneios visíveis');
+    await resetFilters(page);
+    assert.match(await page.eval(`document.getElementById('count').textContent`), COUNT_RE);
+    // Painéis dentro do ecrã, sem scroll horizontal.
+    for (const key of ['format', 'place', 'circuit']) {
+      const r = await page.eval(`(() => { const root = ${msRoot(key)}; root.querySelector('.ms-btn').click(); const b = root.querySelector('.ms-panel').getBoundingClientRect();
+        const out = { left: b.left, right: b.right, vw: innerWidth, overflow: document.documentElement.scrollWidth - innerWidth }; root.querySelector('.ms-done').click(); return out; })()`);
+      assert.ok(r.left >= 0 && r.right <= r.vw && r.overflow <= 0, `${w}px ${key}: painel fora do ecrã ${JSON.stringify(r)}`);
+    }
     assert.deepEqual(page.errors, []);
     await page.close();
   }
+});
+
+test('15b. listas: teclado (setas, espaço, Esc), fechar ao tocar fora e acessibilidade', { skip }, async () => {
+  const page = await open({ width: 1280 });
+  const key = (k, target = 'document.activeElement') => page.eval(`${target}.dispatchEvent(new KeyboardEvent('keydown', { key: ${JSON.stringify(k)}, bubbles: true }))`);
+  const btn = `${msRoot('format')}.querySelector('.ms-btn')`;
+  // Abrir com o teclado (click sem rato) põe o foco na primeira opção.
+  await page.eval(`${btn}.focus(); ${btn}.click()`);
+  let st = await page.eval(`({ open: !${msRoot('format')}.querySelector('.ms-panel').hidden, expanded: ${btn}.getAttribute('aria-expanded'), focus: document.activeElement.id })`);
+  assert.ok(st.open); assert.equal(st.expanded, 'true'); assert.match(st.focus, /^format-opt-/);
+  await key('ArrowDown');
+  const second = await page.eval(`document.activeElement.closest('.ms-opt').querySelector('.ms-text').textContent`);
+  assert.equal(second, 'Pioneer');
+  await page.eval(`document.activeElement.click()`); // espaço numa caixa de escolha = click
+  assert.equal(await msLabel(page, 'format'), 'Pioneer');
+  assert.match(await page.eval(`document.activeElement.id`), /Pioneer/, 'o foco fica na opção depois de marcar');
+  await key('Escape');
+  st = await page.eval(`({ open: !${msRoot('format')}.querySelector('.ms-panel').hidden, expanded: ${btn}.getAttribute('aria-expanded'), focusBtn: document.activeElement === ${btn}, label: ${btn}.getAttribute('aria-label') })`);
+  assert.deepEqual(st, { open: false, expanded: 'false', focusBtn: true, label: 'Formato: Pioneer' });
+  // Tocar fora fecha; abrir outra lista fecha a anterior.
+  await page.eval(`${btn}.click()`);
+  await page.eval(`${msRoot('place')}.querySelector('.ms-btn').click()`);
+  assert.deepEqual(await page.eval(`[...document.querySelectorAll('.ms-panel')].map(p => !p.hidden)`), [false, true, false]);
+  await page.eval(`document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))`);
+  assert.deepEqual(await page.eval(`[...document.querySelectorAll('.ms-panel')].map(p => !p.hidden)`), [false, false, false]);
+  // Todas as opções têm caixa de escolha com nome; Esc com o painel fechado não faz nada de estranho.
+  assert.ok(await page.eval(`[...document.querySelectorAll('.ms-opt')].every(l => l.control && l.control.type === 'checkbox' && l.textContent.trim())`));
+  assert.deepEqual(page.errors, []);
+  await page.close();
 });
 
 // ---------- Melhorias rápidas (23/11/2026) ----------
@@ -513,17 +567,18 @@ test('17. adicionar ao calendário: Google Calendar e ficheiro .ics com horas de
 test('18. formatos habituais sempre disponíveis; sem resultados mostra «Limpar filtros»', { skip }, async () => {
   for (const w of [1280, 375]) {
     const page = await open({ width: w });
-    const formats = await page.eval(`[...document.getElementById('format').options].slice(1).map(o => o.value)`);
+    const formats = (await msOptions(page, 'format')).map(o => o.label);
     const base = ['Standard', 'Pioneer', 'Modern', 'Legacy', 'Vintage', 'Pauper', 'Premodern', 'Commander', 'Limited'];
     for (const f of base) assert.ok(formats.includes(f), `${f} na lista: ${formats}`);
     assert.deepEqual(formats.filter(f => base.includes(f)), base, 'ordem lógica');
     assert.equal(formats.at(-1), 'Limited');
     const before = await page.eval(`document.getElementById('count').textContent`);
-    await page.eval(`(() => { const s = document.getElementById('format'); s.value = 'Vintage'; s.dispatchEvent(new Event('input', { bubbles: true })); })()`);
-    assert.equal(await page.eval(`document.getElementById('count').textContent`), '0 torneios');
+    assert.equal((await msOptions(page, 'format')).find(o => o.label === 'Vintage').count, 0, 'Vintage sem torneios na fixture');
+    assert.ok(await page.eval(`${msRoot('format')}.querySelector('#format-opt-Vintage').closest('.ms-opt').classList.contains('zero')`), 'opções sem torneios a cinzento');
+    assert.equal(await pick(page, 'format', 'Vintage'), '0 torneios');
     assert.ok(await page.eval(`!!document.querySelector('#events .empty .empty-reset')`), 'botão Limpar filtros no estado vazio');
     await page.eval(`document.querySelector('#events .empty-reset').click()`);
-    assert.equal(await page.eval(`document.getElementById('format').value`), '');
+    assert.equal(await msLabel(page, 'format'), 'Formato');
     assert.equal(await page.eval(`document.getElementById('count').textContent`), before);
     assert.deepEqual(page.errors, []);
     await page.close();
@@ -570,29 +625,38 @@ test('20. contador separa Portugal e internacionais', { skip }, async () => {
   })()`);
   assert.ok(r.pt > 0 && r.intl > 0, 'a fixture tem torneios dos dois');
   assert.equal(r.count, `${r.pt} em Portugal · ${r.intl} ${r.intl === 1 ? 'internacional' : 'internacionais'}`);
-  const set = (id, v) => page.eval(`(() => { const s = document.getElementById(${JSON.stringify(id)}); s.value = ${JSON.stringify(v)}; s.dispatchEvent(new Event('input', { bubbles: true })); return document.getElementById('count').textContent; })()`);
-  assert.equal(await set('scope', 'portugal'), `${r.pt} ${r.pt === 1 ? 'torneio' : 'torneios'}`);
-  assert.equal(await set('scope', 'internacional'), `${r.intl} ${r.intl === 1 ? 'torneio' : 'torneios'}`);
+  assert.equal(await pick(page, 'place', 'Portugal'), `${r.pt} ${r.pt === 1 ? 'torneio' : 'torneios'}`);
+  await pick(page, 'place', 'Portugal');
+  assert.equal(await pick(page, 'place', 'Internacional'), `${r.intl} ${r.intl === 1 ? 'torneio' : 'torneios'}`);
   assert.deepEqual(page.errors, []);
   await page.close();
 });
 
 test('21. links partilháveis: filtros e torneio no endereço', { skip }, async () => {
   const page = await open({ width: 1280 });
-  const set = (id, v) => page.eval(`(() => { const s = document.getElementById(${JSON.stringify(id)}); s.value = ${JSON.stringify(v)}; s.dispatchEvent(new Event('input', { bubbles: true })); })()`);
   assert.ok(await page.eval(`document.getElementById('share-filters').hidden`), 'sem filtros, sem botão de partilha');
-  await set('scope', 'portugal');
-  const district = await page.eval(`document.getElementById('district').options[1].value`);
-  await set('district', district); await set('circuit', 'type:RCQ');
+  await pick(page, 'circuit', 'RCQ');
+  const district = (await msOptions(page, 'place')).find(o => o.child && o.count > 0).label;
+  await pick(page, 'place', district);
+  const fmt = (await msOptions(page, 'format')).find(o => o.count > 0 && o.label !== 'Limited').label;
+  await pick(page, 'format', fmt); await pick(page, 'format', 'Limited');
   const st = await page.eval(`({ search: location.search, count: document.getElementById('count').textContent, shown: !document.getElementById('share-filters').hidden })`);
   const p = new URLSearchParams(st.search);
-  assert.equal(p.get('onde'), 'portugal'); assert.equal(p.get('distrito'), district); assert.equal(p.get('circuito'), 'RCQ');
+  assert.equal(p.get('onde'), null); assert.equal(p.get('distrito'), district); assert.equal(p.get('circuito'), 'RCQ'); assert.equal(p.get('formato'), `${fmt},Limited`);
   assert.ok(st.shown, 'botão «Partilhar filtros» com filtros activos');
-  // Abrir o mesmo endereço noutra página repõe os filtros (e as listas dependentes).
+  // Abrir o mesmo endereço noutra página repõe as escolhas.
+  const labels = pg => Promise.all(['format', 'place', 'circuit'].map(k => msLabel(pg, k)));
+  const want = await labels(page);
   const page2 = await open({ width: 390, hash: st.search });
-  const st2 = await page2.eval(`({ scope: document.getElementById('scope').value, district: document.getElementById('district').value, distShown: !document.getElementById('district-filter').hidden, circuit: document.getElementById('circuit').value, roundShown: !document.getElementById('round-filter').hidden, count: document.getElementById('count').textContent })`);
-  assert.deepEqual(st2, { scope: 'portugal', district, distShown: true, circuit: 'type:RCQ', roundShown: true, count: st.count });
+  assert.deepEqual([...await labels(page2), await page2.eval(`document.getElementById('count').textContent`)], [...want, st.count]);
   await page2.close();
+  // Links antigos (uma só escolha por lista) continuam a funcionar: RCQ só com o Round 3; Portugal inteiro.
+  const old = await open({ width: 1280, hash: '?onde=portugal&circuito=RCQ&round=R3' });
+  assert.deepEqual(await labels(old), ['Formato', 'Portugal', 'Round 3']);
+  assert.ok(await old.eval(`[...document.querySelectorAll('.event-row .type-pill')].every(x => x.textContent.includes('R3'))`));
+  const oldP = new URLSearchParams(await old.eval('location.search'));
+  assert.deepEqual([oldP.get('onde'), oldP.get('circuito'), oldP.get('round')], ['portugal', null, 'R3']);
+  await old.close();
   // Torneio: ?t=<id> enquanto o modal está aberto; desaparece ao fechar.
   await page.eval(`document.getElementById('reset').click()`);
   assert.equal(await page.eval('location.search'), '');
@@ -614,9 +678,10 @@ test('21. links partilháveis: filtros e torneio no endereço', { skip }, async 
   assert.ok(await page3.eval(`document.getElementById('detail-dialog').open`));
   assert.ok(await page3.eval(`document.querySelector('#detail-dialog [data-id], #dialog-body') && true`));
   await page3.close();
-  const page4 = await open({ width: 1280, hash: '?t=naoexiste&formato=Nada' });
+  const page4 = await open({ width: 1280, hash: '?t=naoexiste&formato=Nada&onde=Marte' });
   assert.ok(!(await page4.eval(`document.getElementById('detail-dialog').open`)));
-  assert.equal(await page4.eval(`document.getElementById('format').value`), '');
+  assert.equal(await msLabel(page4, 'format'), 'Formato');
+  assert.equal(await msLabel(page4, 'place'), 'Onde');
   assert.deepEqual(page4.errors, []);
   await page4.close();
   assert.deepEqual(page.errors, []);
@@ -734,17 +799,18 @@ test('24. atalhos por tipo, subscrição do calendário, «daqui a N», bandeira
     assert.equal(chips[0][1], 'true');
     const click = label => page.eval(`[...document.querySelectorAll('#quick-types .quick')].find(b => b.textContent === ${JSON.stringify(label)}).click()`);
     await click('RCQ');
-    let st = await page.eval(`({ c: document.getElementById('circuit').value, sc: document.getElementById('scope').value, round: !document.getElementById('round-filter').hidden, pressed: document.querySelector('#quick-types [aria-pressed="true"]').textContent, rows: [...document.querySelectorAll('.event-row .type-pill')].every(p => p.textContent.startsWith('RCQ')) })`);
-    assert.deepEqual(st, { c: 'type:RCQ', sc: '', round: true, pressed: 'RCQ', rows: true });
+    const st0 = async () => ({ c: await msLabel(page, 'circuit'), sc: await msLabel(page, 'place'), pressed: await page.eval(`[...document.querySelectorAll('#quick-types [aria-pressed="true"]')].map(b => b.textContent).join()`) });
+    let st = { ...await st0(), rows: await page.eval(`[...document.querySelectorAll('.event-row .type-pill')].every(p => p.textContent.startsWith('RCQ'))`) };
+    assert.deepEqual(st, { c: 'RCQ', sc: 'Onde', pressed: 'RCQ', rows: true });
+    assert.ok((await msOptions(page, 'circuit')).filter(o => o.child).every(o => o.state === 'on'), 'RCQ marca todos os rounds');
     await click('Internacionais');
-    st = await page.eval(`({ c: document.getElementById('circuit').value, sc: document.getElementById('scope').value, pressed: document.querySelector('#quick-types [aria-pressed="true"]').textContent })`);
-    assert.deepEqual(st, { c: '', sc: 'internacional', pressed: 'Internacionais' });
+    assert.deepEqual(await st0(), { c: 'Circuito', sc: 'Internacional', pressed: 'Internacionais' });
     // Bandeira e «Qualifica para» no Spotlight de exemplo (Cidade Exemplo, Espanha).
     const spot = await page.eval(`(() => { const r = [...document.querySelectorAll('.event-row')].find(x => x.textContent.includes('Spotlight Exemplo')); return { price: r.querySelector('.price-col').textContent, q: r.querySelector('.qualifies')?.textContent, vis: r.querySelector('.qualifies') && getComputedStyle(r.querySelector('.qualifies')).display !== 'none' }; })()`);
     assert.ok(spot.price.startsWith('🇪🇸 Espanha'), spot.price);
     assert.equal(spot.q, 'Qualifica para Pro Tour Exemplo'); assert.ok(spot.vis);
     await click('Todos');
-    assert.equal(await page.eval(`document.getElementById('circuit').value + document.getElementById('scope').value`), '');
+    assert.deepEqual(await st0(), { c: 'Circuito', sc: 'Onde', pressed: 'Todos' });
     // Contagem decrescente nos dias futuros sem «Hoje/Amanhã/Este fim de semana».
     const cd = await page.eval(`[...document.querySelectorAll('.day-card')].map(c => ({ date: c.dataset.date, rel: !!c.querySelector('.day-rel'), cd: c.querySelector('.day-countdown')?.textContent || null }))`);
     for (const c of cd) {
@@ -783,14 +849,12 @@ test('25. layout compacto: o primeiro torneio aparece perto do topo, sem título
     const page = await open({ width: w, height: h });
     const r = await page.eval(`(() => {
       const first = document.querySelector('.event-row').getBoundingClientRect();
-      const labels = [...document.querySelectorAll('.filter label')].map(l => getComputedStyle(l).position);
       return { top: Math.round(first.top), h2: !!document.querySelector('#agenda .section-top h2'), legend: !!document.getElementById('type-legend'),
-        labelsHidden: labels.every(p => p === 'absolute'), names: ['format', 'scope', 'circuit'].map(id => document.getElementById(id).options[0].text),
+        names: [...document.querySelectorAll('.ms-label')].map(l => l.textContent),
         overflow: document.documentElement.scrollWidth - innerWidth };
     })()`);
     assert.ok(r.top <= max, `${w}px: primeiro torneio a ${r.top}px do topo (máx. ${max})`);
     assert.ok(!r.h2 && !r.legend, 'sem título «Agenda» nem legenda');
-    assert.ok(r.labelsHidden, 'nomes dos filtros só para leitores de ecrã');
     assert.deepEqual(r.names, ['Formato', 'Onde', 'Circuito']);
     assert.ok(r.overflow <= 0, `${w}px: scroll horizontal`);
     assert.deepEqual(page.errors, []);

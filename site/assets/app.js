@@ -259,7 +259,7 @@ function buildFilters() {
     group('pt', 'Portugal', pt.map(d => leaf('pt:' + d, d || 'Outros locais'))),
     group('intl', 'Internacional', intl.map(c => leaf('intl:' + c, c || 'Vários locais', { flag: flagFor(c) }))),
   ].filter(g => g.children.length);
-  const types = byCount(events.filter(e => !isInfo(e) && (showPast || !isPastEvent(e))), e => e.tipo);
+  const types = byCount(events.filter(e => showPast || !isPastEvent(e)), e => e.tipo);
   const rounds = [...new Set(pool.filter(e => e.typeKey === 'rcq').map(e => e.ronda || ''))].sort((a, b) => (!a) - (!b) || a.localeCompare(b));
   trees.circuit = types.map(t => (t === 'RCQ' && rounds.length > 1)
     ? group('rcq', 'RCQ', rounds.map(r => leaf('RCQ:' + r, r ? `Round ${r.replace(/\D/g, '')}` : 'Sem round')))
@@ -269,11 +269,8 @@ function buildFilters() {
   for (const key of Object.keys(sel)) renderPanel(key);
 }
 
-/** Torneios que passam em todos os filtros menos `skip` (para os números ao lado de cada opção). */
-function facetPool(skip, q) {
-  return events.filter(e => !isInfo(e) && (showPast || !isPastEvent(e)) && matchesQuery(e, q)
-    && Object.keys(sel).every(k => k === skip || !sel[k].size || sel[k].has(TOKEN[k](e))));
-}
+/** Eventos que passam em todos os filtros menos `skip` (para os números ao lado de cada opção). */
+const facetPool = (skip, q) => events.filter(e => matches(e, q, skip));
 const nodeState = (key, n) => { const c = n.values.filter(v => sel[key].has(v)).length; return c === 0 ? 'off' : c === n.values.length ? 'on' : 'some'; };
 
 function optionHtml(key, n, counts, child) {
@@ -289,7 +286,7 @@ function renderPanel(key) {
   const root = document.querySelector(`.ms[data-key="${key}"]`);
   const q = normalize($('#search').value.trim());
   const counts = new Map();
-  for (const e of facetPool(key, q)) { const t = TOKEN[key](e); counts.set(t, (counts.get(t) || 0) + 1); }
+  for (const e of facetPool(key, q)) { if (key !== 'circuit' && isInfo(e)) continue; const t = TOKEN[key](e); counts.set(t, (counts.get(t) || 0) + 1); }
   root.querySelector('.ms-list').innerHTML = trees[key].map(n => n.children
     ? optionHtml(key, n, counts, false) + n.children.map(c => optionHtml(key, c, counts, true)).join('')
     : optionHtml(key, n, counts, false)).join('');
@@ -363,13 +360,14 @@ const isPastEvent = e => e.dateEnd < today;
 function matchesQuery(e, q) {
   return !q || [e.title, e.loja, e.localidade, e.distrito, e.formato, e.set, e.tipo, e.ronda, e.fase, e.local, e.pais].some(v => normalize(v).includes(q));
 }
-function matches(e, q) {
+function matches(e, q, skip) {
+  const on = k => k !== skip && sel[k].size;
   if (!showPast && isPastEvent(e)) return false;
   if (!matchesQuery(e, q)) return false;
-  if (sel.circuit.size && !sel.circuit.has(TOKEN.circuit(e))) return false;
-  if (isInfo(e)) return !sel.format.size && !sel.place.size; // datas informativas só aparecem sem filtros de formato/local
-  if (sel.format.size && !sel.format.has(TOKEN.format(e))) return false;
-  if (sel.place.size && !sel.place.has(TOKEN.place(e))) return false;
+  if (on('circuit') && !sel.circuit.has(TOKEN.circuit(e))) return false;
+  if (isInfo(e)) return !on('format') && !on('place'); // datas informativas só aparecem sem filtros de formato/local
+  if (on('format') && !sel.format.has(TOKEN.format(e))) return false;
+  if (on('place') && !sel.place.has(TOKEN.place(e))) return false;
   return true;
 }
 
@@ -644,7 +642,7 @@ function applyFiltersFromUrl() {
   if (p.get('q')) document.getElementById('search').value = p.get('q');
   const add = (key, node) => { if (node) node.values.forEach(v => sel[key].add(v)); };
   for (const f of listParam(p.get('formato'))) add('format', findNode('format', n => normalize(n.label) === normalize(f)));
-  for (const o of listParam(p.get('onde'))) add('place', trees.place.find(n => n.id === (normalize(o) === 'portugal' ? 'pt' : 'intl')));
+  for (const o of listParam(p.get('onde'))) add('place', trees.place.find(n => n.id === ({ portugal: 'pt', internacional: 'intl' })[normalize(o)]));
   for (const d of listParam(p.get('distrito'))) add('place', findNode('place', n => !n.children && normalize(n.values[0]) === normalize('pt:' + d)));
   for (const c of listParam(p.get('pais'))) add('place', findNode('place', n => !n.children && normalize(n.values[0]) === normalize('intl:' + c)));
   const rounds = listParam(p.get('round'));
