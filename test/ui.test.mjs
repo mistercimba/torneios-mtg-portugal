@@ -867,7 +867,8 @@ test('24. atalhos por tipo, subscrição do calendário, «daqui a N», bandeira
 
 // ---------- Layout compacto (24/11/2026) ----------
 test('25. layout compacto: o primeiro torneio aparece perto do topo, sem título «Agenda» nem legenda', { skip }, async () => {
-  for (const [w, h, max] of [[1280, 900, 420], [1600, 1000, 420], [390, 844, 470], [320, 640, 520]]) {
+  // 390 px: +30 px desde o lote 1 (botões de 40 px e «actualizado há X», que com fontes largas passa para 2.ª linha).
+  for (const [w, h, max] of [[1280, 900, 420], [1600, 1000, 420], [390, 844, 500], [320, 640, 540]]) {
     const page = await open({ width: w, height: h });
     const r = await page.eval(`(() => {
       const first = document.querySelector('.event-row').getBoundingClientRect();
