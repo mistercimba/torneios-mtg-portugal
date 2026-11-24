@@ -13,6 +13,7 @@ const FIELD_ALIASES = {
   SET: 'set', PRECO: 'preco', 'PREÇO': 'preco', CHECKIN: 'checkin', 'CHECK-IN': 'checkin',
   JUIZ: 'juiz', 'JUÍZ': 'juiz', VAGAS: 'vagas', LIGACAO: 'ligacao', 'LIGAÇÃO': 'ligacao',
   PREMIOS: 'premios', 'PRÉMIOS': 'premios', NOTAS: 'notas',
+  QUALIFICA: 'qualifica', 'QUALIFICA PARA': 'qualifica',
   'DETALHES ORIGINAIS': 'detalhes', REVER: 'rever', SITE: 'site',
 };
 const FIELD_RE = new RegExp(
@@ -316,6 +317,7 @@ export function normalizeEvent(raw) {
     pais: paisRaw || (scope === 'portugal' ? 'Portugal' : null),
     local: (raw.location || '').trim() || null,
     set: clean(single('set')),
+    qualifica: clean(single('qualifica')),
     preco: preco.value,
     precoTexto: preco.text,
     checkin: checkin.text,

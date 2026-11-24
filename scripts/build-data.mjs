@@ -21,6 +21,7 @@ import { parseIcs } from './lib/ics.mjs';
 import { normalizeEvent, flagDuplicates } from './lib/normalize.mjs';
 import { fetchWinners, fetchListTexts } from './lib/winners.mjs';
 import { parseAnnouncements, compareWithCalendar, rcqCheckMarkdown } from './lib/rcq-check.mjs';
+import { FEEDS, buildFeed } from './lib/feeds.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = resolve(ROOT, 'site/data/events.json');
@@ -33,7 +34,7 @@ export const PUBLIC_FIELDS = [
   'formato', 'formatFamily', 'ronda', 'rondaDeduzida', 'fase',
   'loja', 'localidade', 'distrito', 'pais', 'local', 'set',
   'preco', 'precoTexto', 'checkin', 'juiz', 'vagas', 'ligacao',
-  'premios', 'notas', 'detalhesOriginais', 'emRevisao',
+  'premios', 'notas', 'detalhesOriginais', 'emRevisao', 'qualifica',
 ];
 
 const SECRET = process.env.CALENDAR_ICS_URL || '';
@@ -200,6 +201,14 @@ async function main() {
 
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, json);
+
+  // Calendários para subscrever (todos, só RCQs, só internacionais), com os mesmos campos públicos.
+  const siteUrl = config.siteUrl || 'https://mistercimba.github.io/torneios-mtg-portugal/';
+  for (const f of FEEDS) {
+    const ics = buildFeed(payload.events.filter(f.filter), { name: f.name, siteUrl, generatedAt });
+    if (redact(ics) !== ics) throw new Error(`Verificação de segurança falhou: ${f.file} conteria um endereço iCal privado.`);
+    await writeFile(resolve(ROOT, 'site', f.file), ics);
+  }
 
   // Listas oficiais dos RCQs (só na sincronização real): vencedores + verificação contra o calendário.
   // Um erro aqui nunca impede a publicação.

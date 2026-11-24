@@ -373,7 +373,7 @@ test('14. pesquisa, filtros, passados, modal e mudanças de largura sem erros na
   await set('search', '');
   assert.match(await set('scope', 'internacional'), COUNT_RE);
   assert.equal(await page.eval(`document.querySelectorAll('.info-row').length`), 0, 'datas informativas escondidas com filtro de local');
-  assert.ok(await page.eval(`[...document.querySelectorAll('.event-row')].every(r => r.querySelector('.price-col small').textContent === 'Internacional')`));
+  assert.ok(await page.eval(`[...document.querySelectorAll('.event-row')].every(r => r.querySelector('.price-col').textContent.includes('Internacional'))`));
   await page.eval(`document.getElementById('reset').click()`);
   for (const sel of ['.event-row', '.info-row']) {
     await page.eval(`document.querySelector(${JSON.stringify(sel)}).click()`);
@@ -720,4 +720,56 @@ test('23. app web: manifesto, ícones, service worker e agenda sem rede', { skip
   await page.waitFor(`document.getElementById('offline-note').hidden`);
   await page.eval(`navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister())))`);
   await page.close();
+});
+
+// ---------- Ideias do mtgupdate: atalhos, subscrição, contagem decrescente, bandeiras, aviso legal ----------
+test('24. atalhos por tipo, subscrição do calendário, «daqui a N», bandeira, «Qualifica para» e aviso legal', { skip }, async () => {
+  for (const w of [1280, 360]) {
+    const page = await open({ width: w });
+    // Atalhos.
+    const chips = await page.eval(`[...document.querySelectorAll('#quick-types .quick')].map(b => [b.textContent, b.getAttribute('aria-pressed')])`);
+    assert.deepEqual(chips.map(c => c[0]), ['Todos', 'RCQ', 'LPP', 'Internacionais']);
+    assert.equal(chips[0][1], 'true');
+    const click = label => page.eval(`[...document.querySelectorAll('#quick-types .quick')].find(b => b.textContent === ${JSON.stringify(label)}).click()`);
+    await click('RCQ');
+    let st = await page.eval(`({ c: document.getElementById('circuit').value, sc: document.getElementById('scope').value, round: !document.getElementById('round-filter').hidden, pressed: document.querySelector('#quick-types [aria-pressed="true"]').textContent, rows: [...document.querySelectorAll('.event-row .type-pill')].every(p => p.textContent.startsWith('RCQ')) })`);
+    assert.deepEqual(st, { c: 'type:RCQ', sc: '', round: true, pressed: 'RCQ', rows: true });
+    await click('Internacionais');
+    st = await page.eval(`({ c: document.getElementById('circuit').value, sc: document.getElementById('scope').value, pressed: document.querySelector('#quick-types [aria-pressed="true"]').textContent })`);
+    assert.deepEqual(st, { c: '', sc: 'internacional', pressed: 'Internacionais' });
+    // Bandeira e «Qualifica para» no Spotlight de exemplo (Cidade Exemplo, Espanha).
+    const spot = await page.eval(`(() => { const r = [...document.querySelectorAll('.event-row')].find(x => x.textContent.includes('Spotlight Exemplo')); return { price: r.querySelector('.price-col').textContent, q: r.querySelector('.qualifies')?.textContent, vis: r.querySelector('.qualifies') && getComputedStyle(r.querySelector('.qualifies')).display !== 'none' }; })()`);
+    assert.ok(spot.price.startsWith('🇪🇸 Espanha'), spot.price);
+    assert.equal(spot.q, 'Qualifica para Pro Tour Exemplo'); assert.ok(spot.vis);
+    await click('Todos');
+    assert.equal(await page.eval(`document.getElementById('circuit').value + document.getElementById('scope').value`), '');
+    // Contagem decrescente nos dias futuros sem «Hoje/Amanhã/Este fim de semana».
+    const cd = await page.eval(`[...document.querySelectorAll('.day-card')].map(c => ({ date: c.dataset.date, rel: !!c.querySelector('.day-rel'), cd: c.querySelector('.day-countdown')?.textContent || null }))`);
+    for (const c of cd) {
+      const diff = Math.round((new Date(c.date + 'T12:00:00') - new Date('2026-11-23T12:00:00')) / 86400000);
+      if (c.rel || diff < 2) { assert.equal(c.cd, null, c.date); continue; }
+      const expected = diff < 14 ? `daqui a ${diff} dias` : diff < 60 ? `daqui a ${Math.round(diff / 7)} semanas` : (m => (m === 1 ? 'daqui a 1 mês' : `daqui a ${m} meses`))(Math.round(diff / 30.4));
+      assert.equal(c.cd, expected, c.date);
+    }
+    // Subscrição.
+    await page.eval(`document.getElementById('subscribe').click()`);
+    const feeds = await page.eval(`[...document.querySelectorAll('.feed')].map(f => ({ title: f.querySelector('h3').textContent, links: [...f.querySelectorAll('a')].map(a => a.getAttribute('href')), copy: f.querySelector('.feed-copy').dataset.url }))`);
+    assert.deepEqual(feeds.map(f => f.title), ['Todos os torneios', 'Só RCQs', 'Só internacionais']);
+    for (const [i, file] of ['calendar.ics', 'calendar-rcq.ics', 'calendar-internacional.ics'].entries()) {
+      assert.ok(feeds[i].links[0].startsWith('webcal://') && feeds[i].links[0].endsWith('/' + file), feeds[i].links[0]);
+      const g = new URL(feeds[i].links[1]);
+      assert.equal(g.hostname, 'calendar.google.com'); assert.equal(g.searchParams.get('cid'), feeds[i].links[0]);
+      assert.ok(feeds[i].copy.startsWith('http') && feeds[i].copy.endsWith('/' + file));
+    }
+    await page.eval(`Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async t => { window.__copied = t; } } })`);
+    await page.eval(`document.querySelector('.feed-copy').click()`);
+    await new Promise(r => setTimeout(r, 100));
+    assert.ok((await page.eval('window.__copied')).endsWith('/calendar.ics'));
+    await page.eval(`document.getElementById('close-dialog').click()`);
+    // Aviso legal.
+    assert.match(await page.eval(`document.querySelector('.footer .legal').textContent`), /conteúdo de fã não oficial.*Wizards of the Coast/);
+    assert.ok((await page.eval('document.documentElement.scrollWidth - innerWidth')) <= 0, `${w}px: scroll horizontal`);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+  }
 });

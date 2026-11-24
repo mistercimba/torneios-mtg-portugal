@@ -68,6 +68,32 @@ function relativeDay(date) {
   return null;
 }
 
+/** «daqui a 5 dias», «daqui a 3 semanas», «daqui a 4 meses» (só para dias futuros sem «Hoje/Amanhã/Fim de semana»). */
+function countdown(date) {
+  const diff = daysBetween(today, date);
+  if (diff < 2) return null;
+  if (diff < 14) return `daqui a ${diff} dias`;
+  if (diff < 60) { const w = Math.round(diff / 7); return `daqui a ${w} semanas`; }
+  const m = Math.round(diff / 30.4);
+  return m === 1 ? 'daqui a 1 mês' : `daqui a ${m} meses`;
+}
+
+/* ---------- Países e bandeiras (eventos internacionais) ---------- */
+const COUNTRY_CODES = {
+  portugal: 'PT', espanha: 'ES', spain: 'ES', franca: 'FR', france: 'FR', italia: 'IT', italy: 'IT', alemanha: 'DE', germany: 'DE',
+  'reino unido': 'GB', inglaterra: 'GB', 'united kingdom': 'GB', uk: 'GB', irlanda: 'IE', 'paises baixos': 'NL', holanda: 'NL', netherlands: 'NL',
+  belgica: 'BE', belgium: 'BE', suica: 'CH', austria: 'AT', polonia: 'PL', poland: 'PL', 'republica checa': 'CZ', chequia: 'CZ',
+  croacia: 'HR', croatia: 'HR', grecia: 'GR', suecia: 'SE', dinamarca: 'DK', noruega: 'NO', finlandia: 'FI', hungria: 'HU', romenia: 'RO', turquia: 'TR',
+  'estados unidos': 'US', eua: 'US', usa: 'US', 'united states': 'US', canada: 'CA', mexico: 'MX', brasil: 'BR', brazil: 'BR', argentina: 'AR', chile: 'CL',
+  japao: 'JP', japan: 'JP', china: 'CN', taiwan: 'TW', 'taipe chines': 'TW', 'coreia do sul': 'KR', tailandia: 'TH', thailand: 'TH', singapura: 'SG', singapore: 'SG',
+  australia: 'AU', 'nova zelandia': 'NZ',
+};
+const countryOf = e => (e.pais && e.pais !== 'Portugal' ? e.pais : (e.local || '').includes(',') ? e.local.split(',').pop().trim() : '');
+function flagFor(country) {
+  const code = COUNTRY_CODES[normalize(country).trim()];
+  return code ? String.fromCodePoint(...[...code].map(c => 0x1f1e6 + c.charCodeAt(0) - 65)) : '';
+}
+
 /* ---------- Adicionar ao calendário (Google Calendar ou ficheiro .ics) ---------- */
 // Converte data + hora de Lisboa para UTC (as horas do events.json estão em hora de Lisboa).
 function lisbonToUtc(date, time) {
@@ -88,7 +114,8 @@ function calendarData(e) {
     start = lisbonToUtc(e.dateStart, e.timeStart);
     end = e.timeEnd && e.timeEnd > e.timeStart ? lisbonToUtc(e.dateStart, e.timeEnd) : new Date(start.getTime() + 4 * 3600000);
   }
-  const where = e.scope === 'portugal' ? [e.loja, e.local || e.localidade].filter(Boolean).join(', ') : (e.local || placeLine(e) || '');
+  const local = e.local || e.localidade || '';
+  const where = e.scope === 'portugal' && e.loja && !local.toLowerCase().includes(e.loja.toLowerCase()) ? [e.loja, local].filter(Boolean).join(', ') : (local || placeLine(e) || '');
   const info = [
     e.tipo + (e.ronda ? ' · ' + e.ronda : '') + (e.fase ? ' · ' + e.fase : ''),
     e.formato ? 'Formato: ' + e.formato + (e.set ? ' · ' + e.set : '') : null,
@@ -248,8 +275,9 @@ const formatText = e => (e.formato ? `${e.formato}${e.set ? ' · ' + e.set : ''}
 function priceHtml(e) {
   if (e.scope === 'internacional') {
     // País (última parte da localização); a duração já está na etiqueta das datas.
-    const country = (e.pais && e.pais !== 'Portugal' ? e.pais : (e.local || '').split(',').pop().trim()) || '';
-    return `<span class="price-col intl">${esc(country || 'Internacional')}${country ? '<small>Internacional</small>' : ''}</span>`;
+    const country = countryOf(e);
+    const flag = flagFor(country);
+    return `<span class="price-col intl">${flag ? `<span class="flag" aria-hidden="true">${flag}</span> ` : ''}${esc(country || 'Internacional')}${country ? '<small>Internacional</small>' : ''}</span>`;
   }
   if (e.preco != null) return `<span class="price-col">${esc(e.preco === 0 ? 'Grátis' : euro(e.preco))}<small>Inscrição</small></span>`;
   return `<span class="price-col unknown">${esc(e.precoTexto || 'A confirmar')}<small>Inscrição</small></span>`;
@@ -271,7 +299,7 @@ function rowHtml(e) {
   const meta = [`<b>${esc(fmt || 'Formato a confirmar')}</b>`, place && esc(place), !multi && time && esc(time)].filter(Boolean).join('  ·  ');
   return `<button type="button" class="event-row ${typeClass(e)}" data-id="${esc(e.id)}" aria-label="Detalhes de ${esc(displayName(e))}, ${esc(formatDate(e.dateStart))}">`
     + `<span class="event-type">${typePillHtml(e)}${range}</span>`
-    + `<span class="event-main"><span class="store">${esc(displayName(e))}</span>${place ? `<span class="subline">${esc(place)}</span>` : ''}<span class="meta-m">${meta}</span></span>`
+    + `<span class="event-main"><span class="store">${esc(displayName(e))}</span>${place ? `<span class="subline">${esc(place)}</span>` : ''}<span class="meta-m">${meta}</span>${e.qualifica ? `<span class="qualifies">Qualifica para ${esc(e.qualifica)}</span>` : ''}</span>`
     + `<span class="format-col${fmt ? '' : ' pending'}">${esc(fmt || 'Formato a confirmar')}</span>`
     + `<span class="event-time">${esc(time)}</span>`
     + priceHtml(e) + `</button>`;
@@ -356,7 +384,7 @@ function monthsHtml(filtered, withMilestones) {
         : day.info.length ? plural(day.info.length, 'data informativa', 'datas informativas') : '';
       const rel = relativeDay(date);
       const label = `${rel ? rel + ', ' : ''}${longWeek[dt.getDay()]}, ${dt.getDate()} de ${months_[dt.getMonth()]} de ${dt.getFullYear()}`;
-      return `<article class="day-card" data-date="${date}" aria-label="${esc(label)}"><div class="day-head"><span class="day-num" aria-hidden="true">${dt.getDate()}</span><span class="day-names"><span class="day-wd">${longWeek[dt.getDay()]}${rel ? ` <span class="day-rel">${rel}</span>` : ''}</span><span class="day-mon">${months_[dt.getMonth()]} ${dt.getFullYear()}</span></span>${count ? `<span class="day-count">${count}</span>` : ''}</div>`
+      return `<article class="day-card" data-date="${date}" aria-label="${esc(label)}"><div class="day-head"><span class="day-num" aria-hidden="true">${dt.getDate()}</span><span class="day-names"><span class="day-wd">${longWeek[dt.getDay()]}${rel ? ` <span class="day-rel">${rel}</span>` : ''}</span><span class="day-mon">${months_[dt.getMonth()]} ${dt.getFullYear()}${!rel && countdown(date) ? ` · <span class="day-countdown">${countdown(date)}</span>` : ''}</span></span>${count ? `<span class="day-count">${count}</span>` : ''}</div>`
         + day.before.join('') + day.events.map(rowHtml).join('') + day.info.map(infoHtml).join('')
         + cont.map(e => contHtml(e, date)).join('') + day.after.join('') + `</article>`;
     }).join('');
@@ -370,6 +398,7 @@ function renderEvents() {
   const q = normalize($('#search').value.trim());
   const filtered = events.filter(e => matches(e, q));
   $('#count').textContent = countText(filtered);
+  renderQuick();
   renderLegend(filtered);
   syncFiltersToUrl();
   if (!filtered.length) {
@@ -545,12 +574,13 @@ function openDetails(id) {
   if (e.ronda) add('Ronda', e.rondaDeduzida ? `${e.ronda} (pela data)` : e.ronda);
   if (e.fase) add('Fase', e.fase);
   if (e.vagas) add('Vagas', String(e.vagas));
+  if (e.qualifica) add('Qualifica para', e.qualifica);
 
   const list = (title, items) => (items && items.length ? `<div class="detail-section"><h3>${esc(title)}</h3><ul>${items.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>` : '');
   const sub = [];
   if (name !== e.title) sub.push(e.title);
   const where = e.scope === 'portugal' ? [placeLine(e), e.local && normalize(e.local) !== normalize(e.loja) ? e.local : null].filter(Boolean).join(' — ') : placeLine(e);
-  if (where) sub.push(where);
+  if (where) sub.push(e.scope === 'internacional' && flagFor(countryOf(e)) ? `${flagFor(countryOf(e))} ${where}` : where);
 
   document.getElementById('dialog-body').innerHTML =
     `<div class="dialog-top"><div><div class="dialog-meta">${esc(dateMeta)}</div><h2 id="modal-title">${esc(name)}</h2>${sub.map(s => `<div class="dialog-location">${esc(s)}</div>`).join('')}</div><button type="button" class="dialog-close" id="close-dialog" aria-label="Fechar detalhes">×</button></div>`
@@ -639,6 +669,63 @@ document.getElementById('past').addEventListener('click', ev => {
   buildFilters();
   renderEvents();
 });
+
+/* ---------- Atalhos por tipo (botões rápidos) ---------- */
+const QUICK = [
+  { label: 'Todos', circuit: '', scope: '' },
+  { label: 'RCQ', circuit: 'type:RCQ', scope: '' },
+  { label: 'LPP', circuit: 'type:LPP', scope: '' },
+  { label: 'Internacionais', circuit: '', scope: 'internacional' },
+];
+function renderQuick() {
+  const el = document.getElementById('quick-types');
+  const circuits = [...document.getElementById('circuit').options].map(o => o.value);
+  const c = document.getElementById('circuit').value, sc = document.getElementById('scope').value;
+  el.innerHTML = QUICK.filter(q => !q.circuit || circuits.includes(q.circuit)).map(q => {
+    const on = c === q.circuit && sc === q.scope;
+    return `<button type="button" class="quick ${q.circuit ? typeClass({ typeKey: q.circuit.slice(5).toLowerCase() }) : ''}" data-circuit="${q.circuit}" data-scope="${q.scope}" aria-pressed="${on}">${q.label}</button>`;
+  }).join('');
+}
+document.getElementById('quick-types').addEventListener('click', ev => {
+  const b = ev.target.closest('button.quick');
+  if (!b) return;
+  document.getElementById('circuit').value = b.dataset.circuit;
+  document.getElementById('scope').value = b.dataset.scope;
+  document.getElementById('round').value = '';
+  document.getElementById('district').value = '';
+  setDependentVisibility();
+  renderEvents();
+});
+
+/* ---------- Subscrever o calendário (webcal) ---------- */
+const FEEDS = [
+  { file: 'calendar.ics', title: 'Todos os torneios', desc: 'Torneios em Portugal, internacionais e datas importantes.', filter: () => true },
+  { file: 'calendar-rcq.ics', title: 'Só RCQs', desc: 'Regional Championship Qualifiers em Portugal.', filter: e => e.typeKey === 'rcq' },
+  { file: 'calendar-internacional.ics', title: 'Só internacionais', desc: 'Spotlights, Regional Championships, Pro Tours e Worlds.', filter: e => e.scope === 'internacional' },
+];
+function openSubscribe() {
+  originFocus = document.activeElement;
+  const base = new URL('.', location.href);
+  const upcoming = events.filter(e => !isPastEvent(e));
+  const items = FEEDS.map(f => {
+    const https = new URL(f.file, base).href, webcal = https.replace(/^https?:/, 'webcal:');
+    const google = 'https://calendar.google.com/calendar/r?cid=' + encodeURIComponent(webcal);
+    const n = upcoming.filter(f.filter).length;
+    return `<div class="feed"><div class="feed-head"><h3>${f.title}</h3><span class="feed-count">${plural(n, 'evento marcado', 'eventos marcados')}</span></div><p>${f.desc}</p>
+      <div class="feed-actions"><a href="${esc(webcal)}">Apple / Outlook</a><a href="${esc(google)}" target="_blank" rel="noopener">Google Calendar</a><button type="button" class="share-btn feed-copy" data-url="${esc(https)}">Copiar link</button></div></div>`;
+  }).join('');
+  document.getElementById('dialog-body').innerHTML = `<div class="dialog-top"><div><div class="dialog-meta">Calendário</div><h2 id="modal-title">Subscrever no teu calendário</h2><div class="dialog-location">Os torneios aparecem no calendário do telemóvel ou do computador e actualizam-se sozinhos quando a agenda muda (o calendário verifica de poucas em poucas horas).</div></div><button type="button" class="dialog-close" id="close-dialog" aria-label="Fechar">×</button></div><div class="feeds">${items}</div>`;
+  document.getElementById('dialog-actions').innerHTML = '';
+  dialog.showModal();
+  document.getElementById('close-dialog').addEventListener('click', () => dialog.close());
+  document.querySelectorAll('.feed-copy').forEach(b => b.addEventListener('click', async ev => {
+    const btn = ev.currentTarget;
+    try { await navigator.clipboard.writeText(btn.dataset.url); btn.textContent = 'Link copiado ✓'; } catch { window.prompt('Copia este link:', btn.dataset.url); }
+    setTimeout(() => { btn.textContent = 'Copiar link'; }, 2000);
+  }));
+  document.getElementById('close-dialog').focus();
+}
+document.getElementById('subscribe').addEventListener('click', openSubscribe);
 
 /* ---------- Instalar no telemóvel (app web) ---------- */
 const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;

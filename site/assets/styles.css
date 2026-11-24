@@ -200,6 +200,31 @@ html:not([data-theme=dark]) .dialog-actions a.primary{color:white}
 .dialog-actions .share-btn{font:inherit;font-size:12px;font-weight:650;border:1px solid var(--line);border-radius:6px;padding:9px 13px;background:transparent;color:var(--text);cursor:pointer}
 .dialog-actions .share-btn:hover{background:var(--hover)}
 .share-filters[hidden]{display:none}
+/* Atalhos por tipo */
+.quick-types{display:flex;gap:8px;flex-wrap:wrap;margin:26px 0 -6px}
+.quick-types:empty{display:none}
+.quick{border:1px solid var(--line);background:var(--paper);color:var(--secondary);border-radius:999px;padding:7px 14px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.quick.t-rcq:before,.quick.t-lpp:before{content:"";width:8px;height:8px;border-radius:50%;background:var(--t-ac)}
+.quick:hover{background:var(--hover)}
+.quick[aria-pressed="true"]{background:var(--text);border-color:var(--text);color:var(--paper)}
+.quick[aria-pressed="true"]:before{background:var(--paper)}
+/* Subscrever */
+.section-actions{display:flex;gap:18px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.feeds{display:grid;gap:12px;margin-top:18px}
+.feed{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--paper)}
+.feed-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.feed h3{margin:0;font-size:16px;font-weight:800}
+.feed-count{font-size:12px;color:var(--muted);font-weight:600}
+.feed p{margin:4px 0 10px;font-size:13px;color:var(--secondary)}
+.feed-actions{display:flex;gap:8px;flex-wrap:wrap}
+.feed-actions a,.feed-actions .share-btn{font:inherit;font-size:12px;font-weight:700;text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:8px 12px;color:var(--text);background:transparent;cursor:pointer}
+.feed-actions a:hover,.feed-actions .share-btn:hover{background:var(--hover)}
+/* Contagem decrescente, qualificação, bandeira, aviso legal */
+.day-countdown{white-space:nowrap}
+.qualifies{display:block;margin-top:4px;font-size:12px;font-weight:700;color:var(--t-fg)}
+.flag{font-size:1.05em}
+.footer .legal{margin-top:14px;display:block}
+.legal p{margin:0;font-size:11px;line-height:1.5;color:var(--muted);max-width:820px}
 .install-link{border:0;background:none;padding:0;font:inherit;color:var(--accent);font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .install-steps{margin:18px 0 4px;padding-left:22px;font-size:15px;line-height:1.6;color:var(--secondary)}
 .install-steps li{margin-bottom:6px}.install-steps b{color:var(--text)}
@@ -254,6 +279,11 @@ html[data-theme=dark] .offline-note{background:#3b2d1e;color:#f4c77e;border-colo
  .month-links{gap:15px}
  /* No telemóvel as etiquetas já dizem o tipo: a legenda das cores fica só no computador. */
  .type-legend{display:none}
+ .quick-types{margin:18px 0 -4px;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+ .quick-types::-webkit-scrollbar{display:none}
+ .quick{flex:none;padding:7px 12px}
+ .section-top{flex-wrap:wrap;row-gap:6px}
+ .section-actions{gap:16px;width:100%;justify-content:flex-start}
  /* Cartões em telemóvel: tipo e preço na primeira linha, nome em destaque, formato · local · horário por baixo. */
  .month-block{scroll-margin-top:110px}
  .month-title{padding:28px 4px 2px}

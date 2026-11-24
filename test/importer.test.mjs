@@ -265,3 +265,37 @@ test('listas RCQ: a chave da loja é a mesma do site (app.js)', async () => {
   assert.equal(storeKeyFor('Arena Porto', 'Porto'), 'arena-porto');
   assert.notEqual(storeKeyFor('Templar Games', 'Tomar'), storeKeyFor('Templars Arena Gamecenter', 'Rio de Mouro'));
 });
+
+// ---------- Calendários para subscrever ----------
+import { buildFeed, FEEDS, lisbonToUtc } from '../scripts/lib/feeds.mjs';
+
+test('calendários para subscrever: eventos públicos, horas de Lisboa, linhas dobradas e filtros', () => {
+  const base = { allDay: false, timeEnd: null, set: null, ronda: null, fase: null, checkin: null, preco: null, precoTexto: null, ligacao: null, qualifica: null, local: null, loja: null, localidade: null };
+  const ev = [
+    { ...base, id: 'a1', title: 'RCQ Standard - Loja Ção', tipo: 'RCQ', typeKey: 'rcq', scope: 'portugal', dateStart: '2027-07-10', dateEnd: '2027-07-10', timeStart: '10:00', timeEnd: '18:00', formato: 'Standard', ronda: 'R3', loja: 'Loja Ção', localidade: 'Tomar', local: 'Loja Ção, Rua Muito Comprida de Exemplo com Acentuação Portuguesa 123, 2300-000 Tomar, Portugal', preco: 22, checkin: '09:30–10:00' },
+    { ...base, id: 'b2', title: 'Spotlight: Nauctis', tipo: 'Spotlight', typeKey: 'spotlight', scope: 'internacional', dateStart: '2027-03-13', dateEnd: '2027-03-14', allDay: true, timeStart: null, formato: 'Sealed', local: 'Zagrebe, Croácia', qualifica: 'Pro Tour Las Vegas' },
+  ];
+  const ics = buildFeed(ev, { name: 'Teste', siteUrl: 'https://exemplo.pt/', generatedAt: '2026-11-24T10:00:00Z' });
+  assert.ok(ics.startsWith('BEGIN:VCALENDAR\r\n') && ics.endsWith('END:VCALENDAR\r\n'));
+  assert.equal(ics.match(/BEGIN:VEVENT/g).length, 2);
+  for (const line of ics.split('\r\n')) assert.ok(Buffer.byteLength(line) <= 75, `linha com ${Buffer.byteLength(line)} octetos`);
+  const unfolded = ics.replace(/\r\n /g, '');
+  assert.match(unfolded, /DTSTART:20270710T090000Z\r\nDTEND:20270710T170000Z/, 'Verão: UTC+1');
+  assert.match(unfolded, /DTSTART;VALUE=DATE:20270313\r\nDTEND;VALUE=DATE:20270315/, 'vários dias: fim exclusivo');
+  assert.match(unfolded, /LOCATION:Loja Ção\\, Rua Muito Comprida/, 'sem repetir o nome da loja');
+  assert.match(unfolded, /Qualifica para: Pro Tour Las Vegas/);
+  assert.match(unfolded, /URL:https:\/\/exemplo.pt\/\?t=a1/);
+  assert.match(unfolded, /X-WR-CALNAME:Teste/);
+  assert.equal(lisbonToUtc('2026-11-28', '10:00').toISOString(), '2026-11-28T10:00:00.000Z');
+  assert.deepEqual(FEEDS.map(f => [f.file, ev.filter(f.filter).length]), [['calendar.ics', 2], ['calendar-rcq.ics', 1], ['calendar-internacional.ics', 1]]);
+});
+
+test('QUALIFICA: campo lido do calendário e público', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { parseIcs } = await import('../scripts/lib/ics.mjs');
+  const { buildEvents, toPublic, PUBLIC_FIELDS } = await import('../scripts/build-data.mjs');
+  const { events: raw } = parseIcs(await readFile(new URL('./fixtures/exemplo.ics', import.meta.url), 'utf8'));
+  const spot = buildEvents(raw, []).events.map(toPublic).find(e => e.typeKey === 'spotlight');
+  assert.equal(spot.qualifica, 'Pro Tour Exemplo');
+  assert.ok(PUBLIC_FIELDS.includes('qualifica'));
+});

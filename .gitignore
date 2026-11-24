@@ -6,3 +6,4 @@ node_modules/
 test/fixtures/private/
 # Gerado pelo GitHub Actions a cada sincronização.
 site/data/events.json
+site/calendar*.ics

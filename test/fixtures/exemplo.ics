@@ -133,9 +133,10 @@ BEGIN:VEVENT
 DTSTART;VALUE=DATE:20270312
 DTEND;VALUE=DATE:20270315
 UID:ex09@google.com
-DESCRIPTION:<p>TIPO: Spotlight</p><p>FORMATO: Standard</p><p>LIGACAO: https
+DESCRIPTION:<p>TIPO: Spotlight</p><p>FORMATO: Standard</p><p>QUALIFICA: Pro
+  Tour Exemplo</p><p>LIGACAO: https
  ://exemplo.org/spotlight</p>
-LOCATION:Cidade Exemplo
+LOCATION:Cidade Exemplo\, Espanha
 STATUS:CONFIRMED
 CLASS:PUBLIC
 SUMMARY:Spotlight Exemplo - Cidade Exemplo\, Espanha
