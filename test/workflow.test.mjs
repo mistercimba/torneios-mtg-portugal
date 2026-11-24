@@ -20,9 +20,10 @@ test('actions em versões compatíveis com Node 24 (nada fica em Node 20)', () =
   }
 });
 
-test('agendamento a cada 30 minutos e execução manual mantidos', () => {
-  assert.match(wf, /schedule:\s*\n\s*- cron: '7,37 \* \* \* \*'/);
+test('publicação manual e em cada push para o main; sem agendamento (decisão de 24/11/2026)', () => {
   assert.match(wf, /workflow_dispatch:/);
+  assert.match(wf, /push:\s*\n\s*branches: \[main\]/);
+  assert.ok(!/^\s*schedule:/m.test(wf), 'o workflow não deve ter agendamento');
 });
 
 test('segredo só nos passos de leitura e verificação; permissões mínimas', () => {

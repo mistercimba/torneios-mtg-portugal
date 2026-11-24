@@ -1,8 +1,8 @@
 name: Sincronizar calendário e publicar
 
+# Publicação manual (Actions → Run workflow) e em cada push para o main. Sem agendamento:
+# decisão do Mário (24/11/2026) — publica-se à mão depois de mudar o calendário ou as listas.
 on:
-  schedule:
-    - cron: '17,47 * * * *'   # a cada 30 minutos
   workflow_dispatch:
     inputs:
       force:
