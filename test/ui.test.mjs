@@ -604,6 +604,8 @@ test('21. links partilháveis: filtros e torneio no endereço', { skip }, async 
   assert.equal(new URL(shared.copied).searchParams.get('t'), id);
   assert.equal(shared.label, 'Link copiado ✓');
   await page.eval(`document.getElementById('close-dialog').click()`);
+  // O evento «close» do diálogo é assíncrono: espera que o endereço volte ao normal.
+  await page.waitFor(`location.search === ''`);
   assert.equal(await page.eval('location.search'), '');
   // Link directo para o torneio abre o modal; um id que não existe é ignorado.
   const page3 = await open({ width: 1280, hash: '?t=' + id });
