@@ -196,6 +196,29 @@ html:not([data-theme="dark"]) .dialog{--muted:#64727e}
 html:not([data-theme=dark]) .dialog-actions a.primary{color:white}
 .unavailable{font-size:11px;color:var(--muted)}
 .add-cal{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-right:auto}
+.dialog-actions .share-btn{font:inherit;font-size:12px;font-weight:650;border:1px solid var(--line);border-radius:6px;padding:9px 13px;background:transparent;color:var(--text);cursor:pointer}
+.dialog-actions .share-btn:hover{background:var(--hover)}
+.share-filters[hidden]{display:none}
+/* Página da loja */
+.store-page{padding:28px 0 64px}
+.back-link{display:inline-block;font-size:13px;font-weight:700;color:var(--accent);text-decoration:none;margin-bottom:18px}
+.back-link:hover{text-decoration:underline}
+.store-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;padding-bottom:20px;border-bottom:1px solid var(--line)}
+.store-head h2{margin:0;font-size:40px;font-weight:800;letter-spacing:-.04em;line-height:1.05}
+.store-place{margin:8px 0 0;font-size:15px;color:var(--secondary);font-weight:600}
+.store-address{display:block;margin-top:3px;font-size:13px;color:var(--muted);font-weight:500}
+.store-stats{margin:10px 0 0;font-size:13px;color:var(--muted)}
+.store-actions{display:flex;gap:10px;flex-wrap:wrap}
+.store-actions a,.store-actions .share-btn{font:inherit;font-size:13px;font-weight:650;text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:10px 14px;color:var(--text);background:var(--paper);cursor:pointer}
+.store-actions a:hover,.store-actions .share-btn:hover{background:var(--hover)}
+.store-section{margin:34px 0 4px;font-size:22px;font-weight:800;letter-spacing:-.03em}
+.store-none{color:var(--muted);font-size:15px;margin:12px 0 0}
+.store-events .month-title{padding-top:18px}.store-events .month-title h3{font-size:28px}
+.store-results{margin-top:8px;border-top:1px solid var(--strong-line)}
+.store-past{margin-top:34px;border-top:1px solid var(--line);padding-top:16px}
+.store-past summary{cursor:pointer;font-size:16px;font-weight:750;color:var(--secondary)}
+.store-name-link{color:inherit;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.store-name-link:hover{color:var(--accent)}
 .add-cal-label{font-size:11px;font-weight:650;color:var(--muted)}
 @media(max-width:1040px){
  .wrapper{max-width:970px}
@@ -261,6 +284,7 @@ html:not([data-theme=dark]) .dialog-actions a.primary{color:white}
  .dialog-body{padding:24px 20px 20px}.dialog-actions{padding:15px 20px}
  .add-cal{flex-basis:100%;margin-right:0;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:2px}
  .add-cal-label{flex-basis:100%}
+ .store-head h2{font-size:30px}.store-section{font-size:20px}.store-events .month-title h3{font-size:24px}
 }
 @media(max-width:430px){
  .nav{gap:8px}.nav button:not(.theme-toggle){font-size:11px}.nav button.theme-toggle{height:32px;width:32px}

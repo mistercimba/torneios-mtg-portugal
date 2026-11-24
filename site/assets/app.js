@@ -311,19 +311,18 @@ function renderLegend(list) {
   $('#type-legend').innerHTML = [...seen].map(([k, label]) => `<span class="legend-item ${k}" role="listitem">${esc(label)}</span>`).join('');
 }
 
-function renderEvents() {
-  const q = normalize($('#search').value.trim());
-  const filtered = events.filter(e => matches(e, q));
-  const tournaments = filtered.filter(e => !isInfo(e)).length;
-  const infoDates = filtered.length - tournaments;
-  // Só torneios contam como «torneios»; se apenas houver datas informativas, diz-se isso.
-  $('#count').textContent = tournaments || !infoDates ? plural(tournaments, 'torneio', 'torneios') : plural(infoDates, 'data informativa', 'datas informativas');
-  renderLegend(filtered);
-  if (!filtered.length) {
-    $('#month-links').innerHTML = '';
-    eventsEl.innerHTML = `<div class="empty"><p>Nenhum torneio encontrado com estes filtros.</p><button type="button" class="empty-reset">Limpar filtros</button></div>`;
-    return;
-  }
+/** Separa o total em Portugal e internacionais quando há dos dois. */
+function countText(list) {
+  const tournaments = list.filter(e => !isInfo(e));
+  const info = list.length - tournaments.length;
+  if (!tournaments.length && info) return plural(info, 'data informativa', 'datas informativas');
+  const pt = tournaments.filter(e => e.scope === 'portugal').length, intl = tournaments.length - pt;
+  if (pt && intl) return `${pt} em Portugal · ${intl} ${intl === 1 ? 'internacional' : 'internacionais'}`;
+  return plural(tournaments.length, 'torneio', 'torneios');
+}
+
+/** Cartões por dia, agrupados por mês. withMilestones: marcos das rounds (só na agenda principal). */
+function monthsHtml(filtered, withMilestones) {
   // Mês → dias (cada evento aparece uma só vez, no dia em que começa) com torneios, datas informativas e marcos.
   const months = new Map();
   const dayFor = date => {
@@ -338,7 +337,7 @@ function renderEvents() {
     if (isInfo(e)) day.info.push(e);
     else { day.events.push(e); months.get(e.dateStart.slice(0, 7)).total++; }
   }
-  for (const m of milestones) {
+  if (withMilestones) for (const m of milestones) {
     if (!milestoneVisible(m)) continue;
     for (const kind of ['start', 'end']) {
       const date = kind === 'start' ? m.start : m.end;
@@ -348,9 +347,7 @@ function renderEvents() {
   }
   const multiDay = filtered.filter(e => e.dateStart !== e.dateEnd);
   const sortedKeys = [...months.keys()].sort();
-  $('#month-links').innerHTML = sortedKeys.map(key => { const g = months.get(key); return `<a href="#m-${key}">${months_[g.date.getMonth()]} ${g.date.getFullYear()}</a>`; }).join('');
-
-  eventsEl.innerHTML = sortedKeys.map(key => {
+  const html = sortedKeys.map(key => {
     const g = months.get(key);
     const cards = [...g.days.keys()].sort().map(date => {
       const day = g.days.get(date), dt = asDate(date);
@@ -364,14 +361,156 @@ function renderEvents() {
         + cont.map(e => contHtml(e, date)).join('') + day.after.join('') + `</article>`;
     }).join('');
     const total = g.total ? plural(g.total, 'torneio', 'torneios') : '';
-    return `<section class="month-block" id="m-${key}" aria-label="${months_[g.date.getMonth()]} ${g.date.getFullYear()}"><div class="month-title"><h3>${months_[g.date.getMonth()]}</h3><span class="year">${g.date.getFullYear()}</span><span class="total">${total}</span></div>${COL_HEAD}${cards}</section>`;
+    return `<section class="month-block"${withMilestones ? ` id="m-${key}"` : ''} aria-label="${months_[g.date.getMonth()]} ${g.date.getFullYear()}"><div class="month-title"><h3>${months_[g.date.getMonth()]}</h3><span class="year">${g.date.getFullYear()}</span><span class="total">${total}</span></div>${COL_HEAD}${cards}</section>`;
   }).join('');
+  return { months, sortedKeys, html };
+}
+
+function renderEvents() {
+  const q = normalize($('#search').value.trim());
+  const filtered = events.filter(e => matches(e, q));
+  $('#count').textContent = countText(filtered);
+  renderLegend(filtered);
+  syncFiltersToUrl();
+  if (!filtered.length) {
+    $('#month-links').innerHTML = '';
+    eventsEl.innerHTML = `<div class="empty"><p>Nenhum torneio encontrado com estes filtros.</p><button type="button" class="empty-reset">Limpar filtros</button></div>`;
+    return;
+  }
+  const { months, sortedKeys, html } = monthsHtml(filtered, true);
+  $('#month-links').innerHTML = sortedKeys.map(key => { const g = months.get(key); return `<a href="#m-${key}">${months_[g.date.getMonth()]} ${g.date.getFullYear()}</a>`; }).join('');
+  eventsEl.innerHTML = html;
 }
 
 eventsEl.addEventListener('click', ev => {
   const el = ev.target.closest('[data-id]');
   if (el) openDetails(el.dataset.id);
 });
+document.getElementById('store').addEventListener('click', ev => {
+  const el = ev.target.closest('[data-id]');
+  if (el) openDetails(el.dataset.id);
+});
+
+/* ---------- Lojas ---------- */
+// A mesma loja aparece escrita de formas diferentes («End Turn»/«EndTurn», «Magus»/«Magus Gamestore»,
+// «Mulligan Games»/«Mulligan Quarteira»). A chave junta o nome sem palavras genéricas nem a cidade + a localidade.
+const STORE_STOPWORDS = /\b(games?|gamestore|gamecenter|gaming|store|loja|de|jogos)\b/g;
+const CITY_ALIAS = { benfica: 'lisboa' };
+const slug = v => normalize(v).replace(/[^a-z0-9]+/g, '');
+function storeKeyFor(name, city) {
+  if (!name || !city) return null;
+  const c = CITY_ALIAS[slug(city)] || slug(city);
+  let n = normalize(name).replace(/['’]/g, '').replace(STORE_STOPWORDS, ' ');
+  n = n.replace(new RegExp('\\b' + normalize(city).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'g'), ' ');
+  const core = n.replace(/[^a-z0-9]+/g, '');
+  return core ? `${core}-${c}` : null;
+}
+const storeKey = e => (e.scope === 'portugal' ? storeKeyFor(e.loja, e.localidade) : null);
+let winners = [];
+
+function renderStore(key) {
+  const el = document.getElementById('store');
+  const list = events.filter(e => storeKey(e) === key);
+  const wins = winners.filter(w => storeKeyFor(w.store, w.city) === key);
+  if (!list.length && !wins.length) {
+    el.innerHTML = `<div class="store-page"><a href="#agenda" class="back-link">← Agenda</a><div class="empty"><p>Não encontrámos esta loja.</p></div></div>`;
+    return;
+  }
+  // Nome mais usado (de preferência nos próximos torneios), localidade e morada.
+  const upcoming = list.filter(e => !isPastEvent(e)), past = list.filter(isPastEvent).reverse();
+  const counts = new Map();
+  for (const e of (upcoming.length ? upcoming : list)) counts.set(e.loja, (counts.get(e.loja) || 0) + 1);
+  const name = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] || wins[0].store;
+  const ref = list[list.length - 1] || {};
+  const place = [ref.localidade || wins[0]?.city, ref.distrito && ref.distrito !== ref.localidade ? ref.distrito : null].filter(Boolean).join(' · ');
+  const address = list.map(e => e.local).filter(v => v && normalize(v) !== normalize(name) && normalize(v) !== normalize(ref.loja)).pop();
+  const map = address || ref.localidade ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || [name, ref.localidade].join(', '))}` : null;
+  const stats = [plural(upcoming.length, 'torneio marcado', 'torneios marcados'), past.length ? plural(past.length, 'torneio anterior', 'torneios anteriores') : null, wins.length ? plural(wins.length, 'vencedor registado', 'vencedores registados') : null].filter(Boolean).join(' · ');
+  document.title = `${name} — Torneios MTG Portugal`;
+  el.innerHTML = `<div class="store-page">
+    <a href="#agenda" class="back-link">← Agenda</a>
+    <div class="store-head"><div><h2>${esc(name)}</h2><p class="store-place">${esc(place)}${address ? `<span class="store-address">${esc(address)}</span>` : ''}</p><p class="store-stats">${esc(stats)}</p></div>
+    <div class="store-actions">${map ? `<a href="${esc(map)}" target="_blank" rel="noopener">Ver no mapa ↗</a>` : ''}<button type="button" class="share-btn" id="share-store">Partilhar</button></div></div>
+    <h3 class="store-section">Próximos torneios</h3>
+    ${upcoming.length ? `<div class="store-events">${monthsHtml(upcoming, false).html}</div>` : '<p class="store-none">Sem torneios marcados de momento.</p>'}
+    ${wins.length ? `<h3 class="store-section">Vencedores</h3><div class="store-results">${[...wins].reverse().map(resultHtml).join('')}</div>` : ''}
+    ${past.length ? `<details class="store-past"><summary>Torneios anteriores (${past.length})</summary><div class="store-events">${monthsHtml(past, false).html}</div></details>` : ''}
+  </div>`;
+  el.querySelector('#share-store').addEventListener('click', async ev => {
+    const btn = ev.currentTarget, msg = await shareLink(location.origin + location.pathname + '#loja-' + key, name);
+    if (msg) { btn.textContent = msg; setTimeout(() => { btn.textContent = 'Partilhar'; }, 2000); }
+  });
+}
+
+function resultHtml(r) {
+  const d = asDate(r.date);
+  const key = storeKeyFor(r.store, r.city);
+  const meta = [r.store, r.city, r.deck || 'Deck não indicado'].filter(Boolean).map(esc).join(' · ');
+  const storeName = key ? `<a href="#loja-${esc(key)}" class="store-name-link">${esc(r.store)}</a>` : esc(r.store);
+  return `<div class="result"><span class="date">${d.getDate()} ${mon3(d).toUpperCase()}<br>${d.getFullYear()}</span><span class="win">${esc(r.name)}</span><span class="store-cell">${storeName}<span class="location">${esc(r.city)}</span></span><span class="deck">${esc(r.deck || 'Não indicado')}</span><span class="num">${r.players == null ? '—' : r.players}<small>jogadores</small></span><span class="result-meta">${meta}</span></div>`;
+}
+
+/* ---------- Endereços partilháveis ---------- */
+// Filtros no endereço (?formato=Standard&onde=portugal&distrito=Lisboa&circuito=RCQ&round=R3&q=...&passados=1)
+// e torneio aberto (?t=<id>). A vista (Agenda, Vencedores, loja) continua no #.
+const URL_KEYS = { search: 'q', format: 'formato', scope: 'onde', district: 'distrito', circuit: 'circuito', round: 'round' };
+let urlReady = false;
+
+function currentParams() {
+  const p = new URLSearchParams();
+  for (const [id, key] of Object.entries(URL_KEYS)) {
+    let v = document.getElementById(id).value.trim();
+    if (id === 'circuit' && v) v = v.slice(5);
+    if (v) p.set(key, v);
+  }
+  if (showPast) p.set('passados', '1');
+  return p;
+}
+
+function writeUrl(params) {
+  const q = params.toString();
+  history.replaceState(history.state, '', location.pathname + (q ? '?' + q : '') + location.hash);
+}
+
+function syncFiltersToUrl() {
+  if (!urlReady) return;
+  const p = currentParams();
+  const t = new URLSearchParams(location.search).get('t');
+  if (t && dialog.open) p.set('t', t);
+  writeUrl(p);
+  document.getElementById('share-filters').hidden = ![...p.keys()].some(k => k !== 't' && k !== 'passados');
+}
+
+function applyFiltersFromUrl() {
+  const p = new URLSearchParams(location.search);
+  if (p.get('passados') === '1' && !showPast) document.getElementById('past').click();
+  const setIf = (id, v) => { const el = document.getElementById(id); if (v != null && [...el.options].some(o => o.value === v)) el.value = v; };
+  if (p.get('q')) document.getElementById('search').value = p.get('q');
+  setIf('format', p.get('formato'));
+  setIf('scope', p.get('onde'));
+  setDependentVisibility();
+  setIf('district', p.get('distrito'));
+  setIf('circuit', p.get('circuito') ? 'type:' + p.get('circuito') : null);
+  setDependentVisibility();
+  setIf('round', p.get('round'));
+  setDependentVisibility();
+  urlReady = true;
+  renderEvents();
+  const t = p.get('t');
+  if (t && events.some(e => e.id === t)) openDetails(t);
+}
+
+const eventUrl = id => { const p = currentParams(); p.set('t', id); return location.origin + location.pathname + '?' + p.toString(); };
+
+/** Partilha (menu do telemóvel) ou copia o link; devolve o texto a mostrar no botão. */
+async function shareLink(url, title) {
+  try {
+    if (navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ title, url }); return null; }
+  } catch (err) { if (err && err.name === 'AbortError') return null; }
+  try { await navigator.clipboard.writeText(url); return 'Link copiado ✓'; } catch { /* sem acesso à área de transferência */ }
+  window.prompt('Copia este link:', url);
+  return null;
+}
 
 /* ---------- Detalhes ---------- */
 const dialog = document.getElementById('detail-dialog');
@@ -424,8 +563,11 @@ function openDetails(id) {
   const map = e.scope === 'portugal' && (e.local || e.localidade)
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([e.local || e.loja, e.localidade].filter(Boolean).join(', '))}` : null;
   const icsName = (e.title || 'evento').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase().slice(0, 60) + '.ics';
+  const store = storeKey(e);
   document.getElementById('dialog-actions').innerHTML =
     `<span class="add-cal"><span class="add-cal-label">Adicionar ao calendário:</span><a href="${esc(googleCalendarUrl(e))}" target="_blank" rel="noopener">Google Calendar</a><a href="#" class="ics-link" data-name="${esc(icsName)}">Apple / Outlook (.ics)</a></span>`
+    + `<button type="button" class="share-btn" id="share-event">Partilhar</button>`
+    + (store ? `<a href="#loja-${esc(store)}" class="store-link">Ver a loja</a>` : '')
     + (map ? `<a href="${esc(map)}" target="_blank" rel="noopener">Ver no mapa ↗</a>` : '')
     + (link ? `<a class="primary" href="${esc(link)}" target="_blank" rel="noopener">${isInfo(e) ? 'Mais informação' : 'Inscrição / anúncio'} ↗</a>` : '<span class="unavailable">Ligação para inscrição não indicada</span>');
 
@@ -436,22 +578,30 @@ function openDetails(id) {
     a.href = url; a.download = ev.currentTarget.dataset.name; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   });
+  document.getElementById('share-event').addEventListener('click', async ev => {
+    const btn = ev.currentTarget, msg = await shareLink(eventUrl(e.id), e.title);
+    if (msg) { btn.textContent = msg; setTimeout(() => { btn.textContent = 'Partilhar'; }, 2000); }
+  });
+  if (urlReady) { const p = currentParams(); p.set('t', e.id); writeUrl(p); }
   dialog.showModal();
   document.getElementById('close-dialog').addEventListener('click', () => dialog.close());
   document.getElementById('close-dialog').focus();
 }
-dialog.addEventListener('close', () => { originFocus?.focus(); });
+dialog.addEventListener('close', () => { if (urlReady) writeUrl(currentParams()); originFocus?.focus(); });
 dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
 
 /* ---------- Vistas ---------- */
 /* ---------- Vistas (Agenda / Vencedores), ligadas ao endereço ---------- */
 // #winners → Vencedores; qualquer outro endereço (#agenda, #m-2026-11, vazio) → Agenda.
 // Mudar de vista cria uma entrada no histórico, por isso o botão Voltar funciona.
-const viewFromHash = () => (location.hash === '#winners' ? 'winners' : 'agenda');
+const viewFromHash = () => (location.hash === '#winners' ? 'winners' : location.hash.startsWith('#loja-') ? 'store' : 'agenda');
+let dataReady = false;
 let currentView = null;
 
 function applyView(view) {
-  const changed = view !== currentView;
+  if (view === 'store' && dataReady) renderStore(location.hash.slice(6));
+  if (view !== 'store') document.title = 'Torneios MTG Portugal — Agenda de torneios de Magic';
+  const changed = view !== currentView || view === 'store';
   currentView = view;
   document.body.dataset.view = view;
   document.querySelectorAll('.view').forEach(e => e.classList.toggle('active', e.id === view));
@@ -467,7 +617,7 @@ function setView(view) {
   location.hash = view; // dispara hashchange → applyView
 }
 
-window.addEventListener('hashchange', () => applyView(viewFromHash()));
+window.addEventListener('hashchange', () => { if (dialog.open) dialog.close(); applyView(viewFromHash()); });
 document.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.view)));
 document.getElementById('home').addEventListener('click', e => { e.preventDefault(); setView('agenda'); });
 applyView(viewFromHash());
@@ -476,6 +626,10 @@ const FILTERS = ['search', 'format', 'scope', 'district', 'circuit', 'round'];
 eventsEl.addEventListener('click', ev => { if (ev.target.closest('.empty-reset')) document.getElementById('reset').click(); });
 for (const id of FILTERS) document.getElementById(id).addEventListener('input', () => { setDependentVisibility(); renderEvents(); });
 document.getElementById('reset').addEventListener('click', () => { for (const id of FILTERS) document.getElementById(id).value = ''; setDependentVisibility(); renderEvents(); });
+document.getElementById('share-filters').addEventListener('click', async ev => {
+  const btn = ev.currentTarget, msg = await shareLink(location.origin + location.pathname + '?' + currentParams().toString(), 'Torneios MTG Portugal');
+  if (msg) { btn.textContent = msg; setTimeout(() => { btn.textContent = 'Partilhar filtros'; }, 2000); }
+});
 document.getElementById('past').addEventListener('click', ev => {
   showPast = !showPast;
   ev.currentTarget.setAttribute('aria-pressed', String(showPast));
@@ -509,12 +663,12 @@ async function init() {
   }
   try {
     const w = await loadJson('data/winners.json');
+    winners = w.results || [];
     $('#winners-title').textContent = w.title || '';
-    $('#results').innerHTML = (w.results || []).map(r => {
-      const d = asDate(r.date);
-      const meta = [r.store, r.city, r.deck || 'Deck não indicado'].filter(Boolean).map(esc).join(' · ');
-      return `<div class="result"><span class="date">${d.getDate()} ${mon3(d).toUpperCase()}<br>${d.getFullYear()}</span><span class="win">${esc(r.name)}</span><span class="store-cell">${esc(r.store)}<span class="location">${esc(r.city)}</span></span><span class="deck">${esc(r.deck || 'Não indicado')}</span><span class="num">${r.players == null ? '—' : r.players}<small>jogadores</small></span><span class="result-meta">${meta}</span></div>`;
-    }).join('');
+    $('#results').innerHTML = winners.map(resultHtml).join('');
   } catch (err) { console.error(err); }
+  dataReady = true;
+  if (events.length) applyFiltersFromUrl();
+  applyView(viewFromHash());
 }
 init();

@@ -22,6 +22,11 @@ const MOBILE_WIDTHS = [320, 340, 360, 375, 390, 393, 412, 414, 430];
 
 // Corre com a fonte normal e com uma fonte larga (DejaVu Sans, a que o GitHub Actions usa por omissão),
 // porque a largura do logótipo depende das fontes de cada aparelho.
+
+// Total de torneios a partir do texto do contador («N torneios» ou «N em Portugal · M internacionais»).
+const countTotal = t => { const m = t.match(/^(\d+) em Portugal · (\d+) internaciona(?:l|is)$/); if (m) return +m[1] + +m[2]; const n = t.match(/^(\d+) torneios?$/); return n ? +n[1] : NaN; };
+const COUNT_RE = /^(\d+ torneios?|\d+ em Portugal · \d+ internaciona(l|is))$/;
+
 test('1. cabeçalho: logótipo nunca se sobrepõe à navegação (320–430 px e desktop)', { skip }, async () => {
   for (const [theme, font] of [['light', null], ['dark', null], ['light', 'DejaVu Sans'], ['dark', 'Arial']]) {
     const page = await open({ width: 320, theme });
@@ -131,7 +136,7 @@ test('6. contador: nunca «0 torneios» quando há datas informativas visíveis'
   assert.equal(rows, 0); assert.equal(info, 1);
   assert.equal(txt, '1 data informativa');
   const [txtAll] = await set('');
-  assert.match(txtAll, /^\d+ torneios$/);
+  assert.match(txtAll, COUNT_RE);
   await page.eval(`(() => { const s = document.getElementById('search'); s.value = 'zzzz'; s.dispatchEvent(new Event('input')); })()`);
   assert.equal(await page.eval(`document.getElementById('count').textContent`), '0 torneios');
   await page.close();
@@ -232,7 +237,7 @@ test('9. cada evento aparece uma só vez e as contagens não mudam com as linhas
   assert.equal(new Set(r.ids).size, r.ids.length, 'há torneios repetidos');
   assert.equal(new Set(r.infoIds).size, r.infoIds.length, 'há datas informativas repetidas');
   assert.ok(r.ids.every(id => !r.infoIds.includes(id)));
-  assert.equal(r.count, `${r.ids.length} torneios`);
+  assert.equal(countTotal(r.count), r.ids.length, r.count);
   assert.ok(r.cont >= 2, `esperava linhas «A decorrer» na fixture (há ${r.cont})`);
   for (const m of r.months) assert.equal(m.total, m.rows ? `${m.rows} ${m.rows === 1 ? 'torneio' : 'torneios'}` : '');
   for (const d of r.days) {
@@ -366,7 +371,7 @@ test('14. pesquisa, filtros, passados, modal e mudanças de largura sem erros na
   assert.equal(await set('search', 'paupergeddon'), '1 torneio');
   assert.equal(await page.eval(`document.querySelectorAll('.day-card').length`), 1);
   await set('search', '');
-  assert.match(await set('scope', 'internacional'), /^\d+ torneios$/);
+  assert.match(await set('scope', 'internacional'), COUNT_RE);
   assert.equal(await page.eval(`document.querySelectorAll('.info-row').length`), 0, 'datas informativas escondidas com filtro de local');
   assert.ok(await page.eval(`[...document.querySelectorAll('.event-row')].every(r => r.querySelector('.price-col small').textContent === 'Internacional')`));
   await page.eval(`document.getElementById('reset').click()`);
@@ -450,7 +455,7 @@ test('15. filtros: Distrito só com Portugal, Round só com RCQ, formatos por or
     await set('scope', 'portugal'); await set('circuit', 'type:RCQ');
     await page.eval(`document.getElementById('reset').click()`);
     s = await st(); assert.ok(!s.district && !s.round, `${w}px: limpar filtros esconde os dependentes`);
-    assert.match(s.count, /^\d+ torneios$/);
+    assert.match(s.count, COUNT_RE);
     assert.deepEqual(page.errors, []);
     await page.close();
   }
@@ -549,6 +554,124 @@ test('19. internacionais mostram o país; legenda só no computador; pré-visual
   await page.resize(390);
   assert.equal(await page.eval(`getComputedStyle(document.getElementById('type-legend')).display`), 'none');
   assert.ok((await page.eval('document.documentElement.scrollWidth - innerWidth')) <= 0);
+  assert.deepEqual(page.errors, []);
+  await page.close();
+});
+
+// ---------- Contador separado, links partilháveis e páginas de loja ----------
+test('20. contador separa Portugal e internacionais', { skip }, async () => {
+  const page = await open({ width: 1280 });
+  const r = await page.eval(`(() => {
+    const rows = [...document.querySelectorAll('.event-row')];
+    const intl = rows.filter(r => r.querySelector('.price-col.intl')).length;
+    return { count: document.getElementById('count').textContent, pt: rows.length - intl, intl };
+  })()`);
+  assert.ok(r.pt > 0 && r.intl > 0, 'a fixture tem torneios dos dois');
+  assert.equal(r.count, `${r.pt} em Portugal · ${r.intl} ${r.intl === 1 ? 'internacional' : 'internacionais'}`);
+  const set = (id, v) => page.eval(`(() => { const s = document.getElementById(${JSON.stringify(id)}); s.value = ${JSON.stringify(v)}; s.dispatchEvent(new Event('input', { bubbles: true })); return document.getElementById('count').textContent; })()`);
+  assert.equal(await set('scope', 'portugal'), `${r.pt} ${r.pt === 1 ? 'torneio' : 'torneios'}`);
+  assert.equal(await set('scope', 'internacional'), `${r.intl} ${r.intl === 1 ? 'torneio' : 'torneios'}`);
+  assert.deepEqual(page.errors, []);
+  await page.close();
+});
+
+test('21. links partilháveis: filtros e torneio no endereço', { skip }, async () => {
+  const page = await open({ width: 1280 });
+  const set = (id, v) => page.eval(`(() => { const s = document.getElementById(${JSON.stringify(id)}); s.value = ${JSON.stringify(v)}; s.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  assert.ok(await page.eval(`document.getElementById('share-filters').hidden`), 'sem filtros, sem botão de partilha');
+  await set('scope', 'portugal');
+  const district = await page.eval(`document.getElementById('district').options[1].value`);
+  await set('district', district); await set('circuit', 'type:RCQ');
+  const st = await page.eval(`({ search: location.search, count: document.getElementById('count').textContent, shown: !document.getElementById('share-filters').hidden })`);
+  const p = new URLSearchParams(st.search);
+  assert.equal(p.get('onde'), 'portugal'); assert.equal(p.get('distrito'), district); assert.equal(p.get('circuito'), 'RCQ');
+  assert.ok(st.shown, 'botão «Partilhar filtros» com filtros activos');
+  // Abrir o mesmo endereço noutra página repõe os filtros (e as listas dependentes).
+  const page2 = await open({ width: 390, hash: st.search });
+  const st2 = await page2.eval(`({ scope: document.getElementById('scope').value, district: document.getElementById('district').value, distShown: !document.getElementById('district-filter').hidden, circuit: document.getElementById('circuit').value, roundShown: !document.getElementById('round-filter').hidden, count: document.getElementById('count').textContent })`);
+  assert.deepEqual(st2, { scope: 'portugal', district, distShown: true, circuit: 'type:RCQ', roundShown: true, count: st.count });
+  await page2.close();
+  // Torneio: ?t=<id> enquanto o modal está aberto; desaparece ao fechar.
+  await page.eval(`document.getElementById('reset').click()`);
+  assert.equal(await page.eval('location.search'), '');
+  const id = await page.eval(`document.querySelector('.event-row').dataset.id`);
+  await page.eval(`document.querySelector('.event-row').click()`);
+  assert.equal(await page.eval(`new URLSearchParams(location.search).get('t')`), id);
+  await page.eval(`Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async t => { window.__copied = t; } } })`);
+  await page.eval(`document.getElementById('share-event').click()`);
+  await new Promise(r => setTimeout(r, 100));
+  const shared = await page.eval(`({ copied: window.__copied, label: document.getElementById('share-event').textContent })`);
+  assert.equal(new URL(shared.copied).searchParams.get('t'), id);
+  assert.equal(shared.label, 'Link copiado ✓');
+  await page.eval(`document.getElementById('close-dialog').click()`);
+  assert.equal(await page.eval('location.search'), '');
+  // Link directo para o torneio abre o modal; um id que não existe é ignorado.
+  const page3 = await open({ width: 1280, hash: '?t=' + id });
+  assert.ok(await page3.eval(`document.getElementById('detail-dialog').open`));
+  assert.ok(await page3.eval(`document.querySelector('#detail-dialog [data-id], #dialog-body') && true`));
+  await page3.close();
+  const page4 = await open({ width: 1280, hash: '?t=naoexiste&formato=Nada' });
+  assert.ok(!(await page4.eval(`document.getElementById('detail-dialog').open`)));
+  assert.equal(await page4.eval(`document.getElementById('format').value`), '');
+  assert.deepEqual(page4.errors, []);
+  await page4.close();
+  assert.deepEqual(page.errors, []);
+  await page.close();
+});
+
+test('22. página da loja: nomes diferentes da mesma loja juntam-se; abre a partir do modal e dos vencedores', { skip }, async () => {
+  const page = await open({ width: 1280 });
+  const same = await page.eval(`[
+    storeKeyFor('End Turn', 'Avintes') === storeKeyFor('EndTurn', 'Avintes'),
+    storeKeyFor('Magus Gamestore', 'Vila Nova de Famalicão') === storeKeyFor('Magus', 'Vila Nova de Famalicão'),
+    storeKeyFor('Mulligan Quarteira', 'Quarteira') === storeKeyFor('Mulligan Games', 'Quarteira'),
+    storeKeyFor('Mulligan Quarteira', 'Quarteira') !== storeKeyFor('Mulligan Portimão', 'Portimão'),
+    storeKeyFor('Mercadia Games', 'Benfica') === storeKeyFor('Mercadia', 'Lisboa'),
+    storeKeyFor("Templars' Arena", 'Rio de Mouro') === storeKeyFor('Templars Arena Gamecenter', 'Rio de Mouro'),
+    storeKeyFor('Templar Games', 'Tomar') !== storeKeyFor('Templars Arena', 'Rio de Mouro'),
+    storeKeyFor('PlayHub Faro', 'Faro') === storeKeyFor('PlayHub', 'Faro'),
+    storeKeyFor('Valquíria', 'Torres Novas') === storeKeyFor('Valquiria', 'Torres Novas'),
+    /^[a-z0-9-]+$/.test(storeKeyFor('Gárgula Gaming', 'Lisboa')),
+  ]`);
+  assert.deepEqual(same, same.map(() => true), JSON.stringify(same));
+  // Do modal para a loja.
+  await page.eval(`document.querySelector('.event-row').click()`);
+  const storeName = await page.eval(`events.find(e => e.id === document.querySelector('.event-row').dataset.id).loja`);
+  await page.eval(`document.querySelector('#dialog-actions .store-link').click()`);
+  await page.waitFor(`document.body.dataset.view === 'store' && document.querySelector('.store-head h2')`);
+  const r = await page.eval(`(() => {
+    const key = location.hash.slice(6);
+    const ids = [...document.querySelectorAll('#store .event-row, #store .info-row')].map(e => e.dataset.id);
+    return { key, dialog: document.getElementById('detail-dialog').open, name: document.querySelector('.store-head h2').textContent,
+      all: ids.every(id => storeKey(events.find(e => e.id === id)) === key), n: ids.length, title: document.title,
+      dupIds: (() => { const all = [...document.querySelectorAll('[id]')].map(e => e.id); return all.length - new Set(all).size; })() };
+  })()`);
+  assert.ok(!r.dialog, 'o modal fecha ao ir para a loja');
+  assert.ok(r.n >= 1 && r.all, 'só torneios desta loja');
+  assert.equal(r.name, storeName);
+  assert.ok(r.title.startsWith(storeName));
+  assert.equal(r.dupIds, 0, 'sem ids repetidos');
+  // Torneio na página da loja abre o modal.
+  await page.eval(`document.querySelector('#store .event-row').click()`);
+  assert.ok(await page.eval(`document.getElementById('detail-dialog').open`));
+  await page.eval(`document.getElementById('close-dialog').click()`);
+  // Voltar à agenda.
+  await page.eval(`document.querySelector('#store .back-link').click()`);
+  await page.waitFor(`document.body.dataset.view === 'agenda'`);
+  // Vencedores → loja.
+  await page.eval(`location.hash = 'winners'`);
+  await page.waitFor(`document.body.dataset.view === 'winners'`);
+  const link = await page.eval(`document.querySelector('#results .store-name-link')?.getAttribute('href')`);
+  assert.match(link, /^#loja-[a-z0-9-]+$/);
+  await page.eval(`document.querySelector('#results .store-name-link').click()`);
+  await page.waitFor(`document.body.dataset.view === 'store'`);
+  assert.ok(await page.eval(`!!document.querySelector('.store-results .result')`), 'a página da loja mostra os vencedores');
+  // Loja desconhecida e telemóvel sem scroll horizontal.
+  await page.eval(`location.hash = 'loja-naoexiste-nada'`);
+  await page.waitFor(`document.querySelector('#store .empty')`);
+  await page.eval(`location.hash = ${JSON.stringify(link.slice(1))}`);
+  await page.resize(320);
+  assert.ok((await page.eval('document.documentElement.scrollWidth - innerWidth')) <= 0, '320px: scroll horizontal na página da loja');
   assert.deepEqual(page.errors, []);
   await page.close();
 });
