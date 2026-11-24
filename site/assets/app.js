@@ -186,6 +186,9 @@ const longWeek = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Q
 let events = [];
 let milestones = [];
 let showPast = false;
+// Texto da pesquisa de cada vista (a caixa é a mesma na Agenda e nos Vencedores).
+let agendaQuery = '', winQuery = '';
+const SEARCH_PH = { agenda: 'Pesquisar loja, local ou formato', winners: 'Pesquisar jogador, loja ou deck' };
 const $ = s => document.querySelector(s);
 const eventsEl = $('#events');
 
@@ -236,7 +239,7 @@ const byFormatOrder = (a, b) => formatRank(a) - formatRank(b) || a.localeCompare
 // Cada filtro guarda um conjunto de «fichas». Cada torneio tem uma ficha por filtro; passa se o filtro
 // estiver vazio ou se a sua ficha estiver escolhida. Um grupo (Portugal, RCQ) representa todas as fichas filhas.
 const sel = { format: new Set(), place: new Set(), circuit: new Set() };
-const PLACEHOLDER = { format: 'Formato', place: 'Onde', circuit: 'Circuito' };
+const PLACEHOLDER = { format: 'Formato', place: 'Onde', circuit: 'Tipo' };
 let trees = { format: [], place: [], circuit: [] };
 const TOKEN = {
   format: e => filterFormat(e),
@@ -255,7 +258,8 @@ function buildFilters() {
   const pool = events.filter(e => !isInfo(e) && (showPast || !isPastEvent(e)));
   // Formatos: lista fixa dos habituais (mesmo sem torneios marcados) + formatos novos que apareçam no calendário.
   const formats = [...new Set([...FORMAT_ORDER.map(k => FORMAT_NAME[k]), 'Limited', ...pool.map(filterFormat).filter(Boolean)])].sort(byFormatOrder);
-  trees.format = formats.map(f => leaf(f, f));
+  // «Limited» junta Sealed, Draft, etc. (os cartões mostram o nome exacto); a dica diz o que inclui.
+  trees.format = formats.map(f => leaf(f, f, f === 'Limited' ? { hint: 'Sealed, Draft' } : {}));
   const pt = [...new Set(pool.filter(e => e.scope === 'portugal').map(e => e.distrito || ''))].sort((a, b) => (!a) - (!b) || a.localeCompare(b, 'pt'));
   const intl = [...new Set(pool.filter(e => e.scope !== 'portugal').map(countryOf))].sort((a, b) => (!a) - (!b) || a.localeCompare(b, 'pt'));
   trees.place = [
@@ -284,7 +288,7 @@ function optionHtml(key, n, counts, child) {
   const id = `${key}-opt-${n.id || n.values[0]}`.replace(/[^\w-]/g, '_');
   return `<label class="ms-opt${child ? ' child' : ''}${n.children ? ' parent' : ''}${count ? '' : ' zero'}" for="${id}">`
     + `<input type="checkbox" id="${id}" data-values="${esc(JSON.stringify(n.values))}"${st === 'on' ? ' checked' : ''}${st === 'some' ? ' data-some="1"' : ''}>`
-    + `<span class="ms-text">${n.flag ? `<span class="flag" aria-hidden="true">${n.flag}</span>` : ''}${esc(n.label)}</span><span class="ms-count">${count}</span></label>`;
+    + `<span class="ms-text"${n.hint ? ` data-hint="${esc(n.hint)}"` : ''}>${n.flag ? `<span class="flag" aria-hidden="true">${n.flag}</span>` : ''}${esc(n.label)}</span><span class="ms-count">${count}</span></label>`;
 }
 
 function renderPanel(key) {
@@ -429,8 +433,8 @@ function rowHtml(e) {
   const range = multi ? `<span class="range-pill">${esc(rangeLabel(e, true))} · ${n} dias</span>` : '';
   const placeHtml = place ? esc(place) + flagHtml(e) : '';
   const meta = [`<b>${esc(fmt || 'Formato a confirmar')}</b>`, wp && esc(wp), placeHtml].filter(Boolean).join('  ·  ');
-  return `<button type="button" class="event-row ${typeClass(e)}${e.scope === 'internacional' ? ' intl' : ''}" data-id="${esc(e.id)}" aria-label="Detalhes de ${esc(displayName(e))}, ${esc(formatDate(e.dateStart))}">`
-    + `<span class="event-type">${typePillHtml(e)}${range}</span>`
+  return `<button type="button" class="event-row ${typeClass(e)}${e.scope === 'internacional' ? ' intl' : ''}${isPastEvent(e) ? ' is-past' : ''}" data-id="${esc(e.id)}" aria-label="Detalhes de ${esc(displayName(e))}, ${esc(formatDate(e.dateStart))}">`
+    + `<span class="event-type">${typePillHtml(e)}${range}${isPastEvent(e) ? '<span class="past-pill">Terminado</span>' : ''}</span>`
     + `<span class="event-main"><span class="store">${esc(displayName(e))}${newPill(e)}</span>${place ? `<span class="subline">${placeHtml}</span>` : ''}<span class="meta-m">${meta}</span>${qualifiesFor(e) ? `<span class="qualifies">Qualifica para ${esc(qualifiesFor(e))}</span>` : ''}</span>`
     + `<span class="format-col${fmt ? '' : ' pending'}">${esc(fmt || 'Formato a confirmar')}${wp ? `<small class="when-price">${esc(wp)}</small>` : ''}</span></button>`;
 }
@@ -473,8 +477,9 @@ function countText(list) {
   return plural(tournaments.length, 'torneio', 'torneios');
 }
 
-/** Cartões por dia, agrupados por mês. withMilestones: marcos das rounds (só na agenda principal). */
-function monthsHtml(filtered, withMilestones) {
+/** Cartões por dia, agrupados por mês. withMilestones: marcos das rounds (só na agenda principal).
+ *  past: secção de eventos passados (do mais recente para o mais antigo, sem marcos nem «A decorrer»). */
+function monthsHtml(filtered, withMilestones, { past = false, idPrefix = withMilestones ? 'm' : '' } = {}) {
   // Mês → dias (cada evento aparece uma só vez, no dia em que começa) com torneios, datas informativas e marcos.
   const months = new Map();
   const dayFor = date => {
@@ -490,20 +495,21 @@ function monthsHtml(filtered, withMilestones) {
     else { day.events.push(e); months.get(e.dateStart.slice(0, 7)).total++; }
   }
   // Eventos de vários dias já começados: há sempre um cartão de hoje com «A decorrer».
-  if (!showPast) for (const e of filtered) if (e.dateStart < today && e.dateEnd >= today) dayFor(today);
+  if (!past) for (const e of filtered) if (e.dateStart < today && e.dateEnd >= today) dayFor(today);
   if (withMilestones) for (const m of milestones) {
     if (!milestoneVisible(m)) continue;
     for (const kind of ['start', 'end']) {
       const date = kind === 'start' ? m.start : m.end;
-      if (!months.has(date.slice(0, 7)) || (!showPast && date < today)) continue;
+      if (!months.has(date.slice(0, 7)) || date < today) continue;
       dayFor(date)[kind === 'start' ? 'before' : 'after'].push(milestoneHtml(m, kind));
     }
   }
   const multiDay = filtered.filter(e => e.dateStart !== e.dateEnd);
-  const sortedKeys = [...months.keys()].sort();
-  const html = sortedKeys.map(key => {
+  const order = past ? (a, b) => b.localeCompare(a) : (a, b) => a.localeCompare(b);
+  const sortedKeys = [...months.keys()].sort(order);
+  const html = sortedKeys.map((key, mi) => {
     const g = months.get(key);
-    const cards = [...g.days.keys()].sort().map(date => {
+    const cards = [...g.days.keys()].sort(order).map(date => {
       const day = g.days.get(date), dt = asDate(date);
       const cont = multiDay.filter(e => e.dateStart < date && e.dateEnd >= date);
       const count = day.events.length ? plural(day.events.length, 'torneio', 'torneios')
@@ -515,7 +521,7 @@ function monthsHtml(filtered, withMilestones) {
         + cont.map(e => contHtml(e, date)).join('') + day.after.join('') + `</article>`;
     }).join('');
     const total = g.total ? plural(g.total, 'torneio', 'torneios') : '';
-    return `<section class="month-block"${withMilestones ? ` id="m-${key}"` : ''} aria-label="${months_[g.date.getMonth()]} ${g.date.getFullYear()}"><div class="month-title"><h3>${months_[g.date.getMonth()]}</h3><span class="year">${g.date.getFullYear()}</span><span class="total">${total}</span></div>${COL_HEAD}${cards}</section>`;
+    return `<section class="month-block"${idPrefix ? ` id="${idPrefix}-${key}"` : ''} aria-label="${months_[g.date.getMonth()]} ${g.date.getFullYear()}"><div class="month-title"><h3>${months_[g.date.getMonth()]}</h3><span class="year">${g.date.getFullYear()}</span><span class="total">${total}</span></div>${mi === 0 && !past ? COL_HEAD : ''}${cards}</section>`;
   }).join('');
   return { months, sortedKeys, html };
 }
@@ -531,6 +537,19 @@ function agoText(date, now = new Date()) {
   const d = Math.round(h / 24);
   return d === 1 ? 'ontem' : `há ${d} dias`;
 }
+/** Filtros activos (um grupo completo conta como um só) + pesquisa, para o estado vazio. */
+let emptyChips = [];
+function activeChips() {
+  const chips = [];
+  for (const key of Object.keys(sel)) for (const n of trees[key] || []) {
+    const st = nodeState(key, n);
+    if (st === 'on') chips.push({ label: n.label, key, values: n.values });
+    else if (st === 'some') n.children.forEach(c => { if (nodeState(key, c) === 'on') chips.push({ label: c.label, key, values: c.values }); });
+  }
+  const q = $('#search').value.trim();
+  if (q) chips.push({ label: `«${q}»`, search: true });
+  return chips;
+}
 function renderEvents() {
   const q = normalize($('#search').value.trim());
   const filtered = events.filter(e => matches(e, q));
@@ -545,12 +564,24 @@ function renderEvents() {
   syncFiltersToUrl();
   if (!filtered.length) {
     $('#month-jump').innerHTML = '<option value="">Ir para mês…</option>';
-    eventsEl.innerHTML = `<div class="empty"><p>Nenhum torneio encontrado com estes filtros.</p><button type="button" class="empty-reset">Limpar filtros</button></div>`;
+    // Estado vazio: mostra os filtros activos como botões que se tiram um a um, e esconde «Partilhar filtros».
+    const chips = activeChips();
+    eventsEl.innerHTML = `<div class="empty"><p>Nenhum torneio encontrado com estes filtros.</p>`
+      + (chips.length ? `<p class="empty-hint">Tira um filtro:</p><div class="empty-chips">${chips.map((c, i) => `<button type="button" class="chip" data-chip="${i}" aria-label="Tirar o filtro ${esc(c.label)}">${esc(c.label)} <span aria-hidden="true">×</span></button>`).join('')}</div>` : '')
+      + `<button type="button" class="empty-reset">Limpar todos os filtros</button></div>`;
+    emptyChips = chips;
+    document.getElementById('share-filters').hidden = true;
     return;
   }
-  const { months, sortedKeys, html } = monthsHtml(filtered, true);
-  $('#month-jump').innerHTML = '<option value="">Ir para mês…</option>' + sortedKeys.map(key => { const g = months.get(key); return `<option value="${key}">${months_[g.date.getMonth()]} ${g.date.getFullYear()}</option>`; }).join('');
-  eventsEl.innerHTML = html;
+  // Passados (com «Ver eventos passados»): numa secção própria por baixo, do mais recente para o mais antigo,
+  // para a agenda continuar a abrir em hoje.
+  const upcoming = filtered.filter(e => !isPastEvent(e)), done = showPast ? filtered.filter(isPastEvent) : [];
+  const { months, sortedKeys, html } = upcoming.length ? monthsHtml(upcoming, true) : { months: new Map(), sortedKeys: [], html: '' };
+  const pastPart = done.length ? monthsHtml(done, false, { past: true, idPrefix: 'mp' }) : null;
+  const opt = (m, key) => { const g = m.get(key); return `<option value="${key}">${months_[g.date.getMonth()]} ${g.date.getFullYear()}</option>`; };
+  $('#month-jump').innerHTML = '<option value="">Ir para mês…</option>' + sortedKeys.map(k => opt(months, k)).join('')
+    + (pastPart ? `<optgroup label="Passados">${pastPart.sortedKeys.map(k => opt(pastPart.months, k).replace('value="', 'value="p')).join('')}</optgroup>` : '');
+  eventsEl.innerHTML = html + (pastPart ? `<section class="past-section" aria-label="Eventos passados"><h2 class="past-heading">Eventos passados <span>do mais recente para o mais antigo</span></h2>${pastPart.html}</section>` : '');
 }
 
 eventsEl.addEventListener('click', ev => {
@@ -598,6 +629,21 @@ function storeLinksHtml(info) {
 }
 let winners = [];
 
+// Vencedores da loja agrupados por época e round (mais recente primeiro), sem link para a própria loja.
+function storeWinsHtml(wins) {
+  const groups = new Map();
+  for (const r of [...wins].sort((a, b) => b.date.localeCompare(a.date))) {
+    const k = `${r.season || ''}|${r.round || ''}`;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(r);
+  }
+  return [...groups].map(([k, list]) => {
+    const [season, round] = k.split('|');
+    const info = winRounds.find(x => x.round === round && (x.season || '') === season) || {};
+    const title = [season, info.label || (round ? 'Round ' + roundNum(round) : ''), info.format].filter(Boolean).join(' · ');
+    return `${title ? `<h4 class="store-round">${esc(title)}</h4>` : ''}${list.map(r => resultHtml(r, { self: true })).join('')}`;
+  }).join('');
+}
 function renderStore(key) {
   const el = document.getElementById('store');
   const list = events.filter(e => storeKey(e) === key);
@@ -625,8 +671,8 @@ function renderStore(key) {
     <div class="store-actions">${map ? `<a href="${esc(map)}" target="_blank" rel="noopener">Ver no mapa ↗</a>` : ''}${storeLinksHtml(info)}<button type="button" class="share-btn" id="share-store">Partilhar</button></div></div>
     <h3 class="store-section">Próximos torneios</h3>
     ${upcoming.length ? `<div class="store-events">${monthsHtml(upcoming, false).html}</div>` : '<p class="store-none">Sem torneios marcados de momento.</p>'}
-    ${wins.length ? `<h3 class="store-section">Vencedores</h3><div class="store-results">${[...wins].reverse().map(resultHtml).join('')}</div>` : ''}
-    ${past.length ? `<details class="store-past"><summary>Torneios anteriores (${past.length})</summary><div class="store-events">${monthsHtml(past, false).html}</div></details>` : ''}
+    ${wins.length ? `<h3 class="store-section">Vencedores</h3><div class="store-results">${storeWinsHtml(wins)}</div>` : ''}
+    ${past.length ? `<details class="store-past"><summary>Torneios anteriores (${past.length})</summary><div class="store-events">${monthsHtml(past, false, { past: true }).html}</div></details>` : ''}
   </div>`;
   el.querySelector('#share-store').addEventListener('click', async ev => {
     const btn = ev.currentTarget, msg = await shareLink(location.origin + location.pathname + '#loja-' + key, name);
@@ -641,12 +687,13 @@ function deckText(r) {
   if (isLimitedFmt(r.format)) return r.format.replace(/^(sealed|draft)\s+/i, (m, k) => `${k[0].toUpperCase()}${k.slice(1).toLowerCase()} · `).replace(/\s+·\s*$/, '');
   return '';
 }
-function resultHtml(r) {
+function resultHtml(r, { self = false } = {}) {
   const d = asDate(r.date);
   const key = storeKeyFor(r.store, r.city);
   // A localidade não se repete quando já faz parte do nome da loja («Mulligan Quarteira»).
   const city = r.city && !normalize(r.store).includes(normalize(r.city)) ? r.city : '';
-  const storeName = key ? `<a href="#loja-${esc(key)}" class="store-name-link">${esc(r.store)}</a>` : esc(r.store);
+  // Na página da própria loja o nome não é link (não leva a lado nenhum).
+  const storeName = key && !self ? `<a href="#loja-${esc(key)}" class="store-name-link">${esc(r.store)}</a>` : esc(r.store);
   const deck = deckText(r);
   // Formato construído ao lado do deck (Modern, Standard…), útil quando a época mistura formatos.
   const fmt = r.deck && r.format && !isLimitedFmt(r.format) ? r.format : '';
@@ -834,6 +881,7 @@ function applyView(view) {
   if (view === 'store' && dataReady) renderStore(location.hash.slice(6));
   if (view !== 'store') document.title = 'Torneios MTG Portugal — Agenda de torneios de Magic';
   const changed = view !== currentView || view === 'store';
+  swapSearch(currentView, view);
   currentView = view;
   document.body.dataset.view = view;
   document.querySelectorAll('.view').forEach(e => e.classList.toggle('active', e.id === view));
@@ -861,8 +909,26 @@ document.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('cl
 document.getElementById('home').addEventListener('click', e => { e.preventDefault(); setView('agenda'); });
 applyView(viewFromHash());
 
-eventsEl.addEventListener('click', ev => { if (ev.target.closest('.empty-reset')) document.getElementById('reset').click(); });
-document.getElementById('search').addEventListener('input', () => renderEvents());
+eventsEl.addEventListener('click', ev => {
+  if (ev.target.closest('.empty-reset')) document.getElementById('reset').click();
+  const chip = ev.target.closest('[data-chip]');
+  if (!chip) return;
+  const c = emptyChips[+chip.dataset.chip];
+  if (c.search) $('#search').value = '';
+  else c.values.forEach(v => sel[c.key].delete(v));
+  renderEvents();
+});
+// A mesma caixa de pesquisa serve a Agenda e os Vencedores, cada uma com o seu texto.
+document.getElementById('search').addEventListener('input', ev => {
+  if (currentView === 'winners') { winQuery = ev.target.value; renderWinners(); } else renderEvents();
+});
+function swapSearch(from, to) {
+  const input = document.getElementById('search');
+  if (from === to) return;
+  if (from === 'winners') winQuery = input.value; else if (from) agendaQuery = input.value;
+  if (to === 'winners') { input.value = winQuery; input.placeholder = SEARCH_PH.winners; }
+  else if (from === 'winners') { input.value = agendaQuery; input.placeholder = SEARCH_PH.agenda; }
+}
 document.getElementById('reset').addEventListener('click', () => { document.getElementById('search').value = ''; Object.values(sel).forEach(x => x.clear()); renderEvents(); });
 document.getElementById('share-filters').addEventListener('click', async ev => {
   const btn = ev.currentTarget, msg = await shareLink(location.origin + location.pathname + '?' + currentParams().toString(), 'Torneios MTG Portugal');
@@ -946,7 +1012,7 @@ document.getElementById('subscribe').addEventListener('click', openSubscribe);
 document.getElementById('month-jump').addEventListener('change', ev => {
   const key = ev.target.value;
   if (!key) return;
-  document.getElementById('m-' + key)?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  document.getElementById(key.startsWith('p') ? 'mp-' + key.slice(1) : 'm-' + key)?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   ev.target.value = '';
 });
 
@@ -1054,8 +1120,16 @@ function renderWinners() {
   $('#winners-title').textContent = winSeason ? `${winTitle} · Época ${winSeason}` : winTitle;
   $('#win-seasons').innerHTML = seasons.length > 1 ? seasons.map(se => `<button type="button" class="quick" data-season="${esc(se)}" aria-pressed="${se === winSeason}" aria-label="Época ${esc(se)}">${se ? esc(se) : 'Sem época'}</button>`).join('') : '';
   $('#win-rounds').innerHTML = rounds.length > 1 ? ['', ...rounds].map(r => `<button type="button" class="quick" data-round="${esc(r)}" aria-pressed="${r === winRound}">${r ? esc(roundLabel(r)) + (roundFormat(r) ? ` <small class="round-fmt">${esc(roundFormat(r))}</small>` : '') : 'Todas'}</button>`).join('') : '';
-  const list = winRound ? inSeason.filter(r => r.round === winRound) : inSeason;
-  $('#win-stats').innerHTML = statsHtml(list);
+  // Pesquisa (jogador, loja, localidade, deck): procura em todas as épocas e esconde a escolha de época/round.
+  const q = normalize(winQuery.trim());
+  const list = q ? winners.filter(r => [r.name, r.store, r.city, r.deck, r.format].some(v => normalize(v).includes(q)))
+    : winRound ? inSeason.filter(r => r.round === winRound) : inSeason;
+  if (q) {
+    $('#win-seasons').innerHTML = ''; $('#win-rounds').innerHTML = '';
+    $('#winners-title').textContent = `${winTitle} · todas as épocas`;
+  }
+  $('#win-stats').innerHTML = q && !list.length ? `<p class="stat-empty win-empty">Nenhum vencedor encontrado para «${esc(winQuery.trim())}».</p>` : statsHtml(list, { search: !!q });
+  $('#results-heading').textContent = q ? `${plural(list.length, 'resultado', 'resultados')} para «${winQuery.trim()}»` : 'Todos os resultados';
   // Mais recente primeiro (como na página da loja).
   $('#results').innerHTML = [...list].sort((a, b) => b.date.localeCompare(a.date)).map(resultHtml).join('');
 }
@@ -1068,7 +1142,7 @@ document.getElementById('winners').addEventListener('click', ev => {
 });
 
 /* ---------- Estatísticas dos RCQs (a partir das listas oficiais de vencedores) ---------- */
-function statsHtml(list) {
+function statsHtml(list, { search = false } = {}) {
   if (!list.length) return `<p class="stat-empty win-empty">Ainda não há vencedores ${winRound ? 'da ' + esc(roundLabel(winRound)) : winSeason ? 'da época ' + esc(winSeason) : ''} nas listas oficiais.</p>`;
   const count = (arr, key) => { const m = new Map(); for (const x of arr) { const k = key(x); if (k) m.set(k, (m.get(k) || 0) + 1); } return [...m].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt')); };
   const withPlayers = list.filter(r => r.players);
@@ -1095,12 +1169,15 @@ function statsHtml(list) {
   });
   // Quem ganha um RCQ fica apurado para o RC dessa round, por isso numa round não há repetidos.
   // Só em «Todas» faz sentido: jogadores que ganharam em mais de uma round.
-  const multiRound = new Set(list.map(r => r.round)).size > 1;
+  const manySeasons = new Set(list.map(r => r.season)).size > 1;
+  const rkey = r => (manySeasons ? `${r.season} ${r.round}` : r.round);
+  const multiRound = new Set(list.map(rkey)).size > 1;
   const byName = new Map();
-  list.forEach(r => { const k = (r.name || '').trim(); if (k) byName.set(k, [...(byName.get(k) || []), r.round]); });
+  list.forEach(r => { const k = (r.name || '').trim(); if (k) byName.set(k, [...(byName.get(k) || []), rkey(r)]); });
   const repeat = [...byName].filter(([, rs]) => new Set(rs).size > 1)
     .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'pt'));
-  const repeatBox = multiRound && repeat.length ? `<section class="stat-box"><h3>Venceram em mais de uma round</h3><ol class="stat-list">${repeat.slice(0, 8).map(([k, rs]) => `<li><span class="stat-name">${esc(k)}</span><span class="stat-rounds">${[...new Set(rs)].sort().map(esc).join(' · ')}</span></li>`).join('')}</ol>${repeat.length > 8 ? `<p class="stat-foot">e mais ${repeat.length - 8}.</p>` : ''}</section>` : '';
+  // Na pesquisa (ex.: um jogador) esta caixa só repetiria o que já está na lista.
+  const repeatBox = !search && multiRound && repeat.length ? `<section class="stat-box"><h3>Venceram em mais de uma round</h3><ol class="stat-list">${repeat.slice(0, 8).map(([k, rs]) => `<li><span class="stat-name">${esc(k)}</span><span class="stat-rounds">${[...new Set(rs)].sort().map(esc).join(' · ')}</span></li>`).join('')}</ol>${repeat.length > 8 ? `<p class="stat-foot">e mais ${repeat.length - 8}.</p>` : ''}</section>` : '';
 
   return `<div class="win-stats">
     <div class="stat-tiles">

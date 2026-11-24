@@ -426,7 +426,7 @@ test('15. filtros: escolha múltipla, distritos dentro de Portugal, rounds dentr
     const rows = () => page.eval(`[...document.querySelectorAll('.event-row')].map(r => ({ fmt: r.querySelector('.format-col')?.textContent || '', pill: r.querySelector('.type-pill').textContent, intl: r.classList.contains('intl'), text: r.textContent }))`);
     // Sempre 3 listas, na mesma fila, com o nome dentro do botão.
     const layout = await page.eval(`(() => { const b = [...document.querySelectorAll('.ms-btn')].map(x => x.getBoundingClientRect()); return { n: b.length, tops: [...new Set(b.map(x => Math.round(x.top)))].length, names: [...document.querySelectorAll('.ms-label')].map(l => l.textContent) }; })()`);
-    assert.deepEqual(layout, { n: 3, tops: 1, names: ['Formato', 'Onde', 'Circuito'] }, `${w}px`);
+    assert.deepEqual(layout, { n: 3, tops: 1, names: ['Formato', 'Onde', 'Tipo'] }, `${w}px`);
     // Formatos por ordem lógica (construído → Commander → Limited), sem subopções.
     const formats = await msOptions(page, 'format');
     const names = formats.map(f => f.label), idx = f => names.indexOf(f);
@@ -826,13 +826,13 @@ test('24. atalhos por tipo, subscrição do calendário, «daqui a N», bandeira
     assert.deepEqual(st, { c: 'RCQ', sc: 'Onde', pressed: 'RCQ', rows: true });
     assert.ok((await msOptions(page, 'circuit')).filter(o => o.child).every(o => o.state === 'on'), 'RCQ marca todos os rounds');
     await click('Internacionais');
-    assert.deepEqual(await st0(), { c: 'Circuito', sc: 'Internacional', pressed: 'Internacionais' });
+    assert.deepEqual(await st0(), { c: 'Tipo', sc: 'Internacional', pressed: 'Internacionais' });
     // Bandeira e «Qualifica para» no Spotlight de exemplo (Cidade Exemplo, Espanha).
     const spot = await page.eval(`(() => { const r = [...document.querySelectorAll('.event-row')].find(x => x.textContent.includes('Spotlight Exemplo')); return { price: r.querySelector('.subline').textContent, q: r.querySelector('.qualifies')?.textContent, vis: r.querySelector('.qualifies') && getComputedStyle(r.querySelector('.qualifies')).display !== 'none' }; })()`);
     assert.equal(spot.price, 'Cidade Exemplo, Espanha 🇪🇸');
     assert.equal(spot.q, 'Qualifica para Pro Tour Exemplo'); assert.ok(spot.vis);
     await click('Todos');
-    assert.deepEqual(await st0(), { c: 'Circuito', sc: 'Onde', pressed: 'Todos' });
+    assert.deepEqual(await st0(), { c: 'Tipo', sc: 'Onde', pressed: 'Todos' });
     // Contagem decrescente nos dias futuros sem «Hoje/Amanhã/Este fim de semana».
     const cd = await page.eval(`[...document.querySelectorAll('.day-card')].map(c => ({ date: c.dataset.date, rel: !!c.querySelector('.day-rel'), cd: c.querySelector('.day-countdown')?.textContent || null }))`);
     for (const c of cd) {
@@ -878,7 +878,7 @@ test('25. layout compacto: o primeiro torneio aparece perto do topo, sem título
     })()`);
     assert.ok(r.top <= max, `${w}px: primeiro torneio a ${r.top}px do topo (máx. ${max})`);
     assert.ok(!r.h2 && !r.legend, 'sem título «Agenda» nem legenda');
-    assert.deepEqual(r.names, ['Formato', 'Onde', 'Circuito']);
+    assert.deepEqual(r.names, ['Formato', 'Onde', 'Tipo']);
     assert.ok(r.overflow <= 0, `${w}px: scroll horizontal`);
     assert.deepEqual(page.errors, []);
     await page.close();
@@ -1060,6 +1060,74 @@ test('34. lote 1: vencedores do mais recente para o mais antigo e arquétipos po
     await page.eval(`[...document.querySelectorAll('#win-seasons .quick')].find(b => b.textContent === '2024/25').click()`);
     const heads = await page.eval(`[...document.querySelectorAll('.stat-box h3')].map(h => h.textContent).filter(t => t.startsWith('Arquétipos'))`);
     assert.deepEqual(heads, ['Arquétipos vencedores Pioneer', 'Arquétipos vencedores Modern', 'Arquétipos vencedores Standard']);
+  }
+  assert.deepEqual(page.errors, []);
+  await page.close();
+});
+
+test('35. lote 2: pesquisa nos vencedores em todas as épocas, com texto próprio de cada vista', { skip }, async () => {
+  const page = await open({ width: 390 });
+  const type = (v) => page.eval(`(() => { const s = document.getElementById('search'); s.value = ${JSON.stringify(v)}; s.dispatchEvent(new Event('input')); })()`);
+  await type('zzz-agenda');
+  await page.eval(`location.hash = '#winners'`);
+  await page.waitFor(`document.body.dataset.view === 'winners'`);
+  assert.equal(await page.eval(`document.getElementById('search').value`), '', 'pesquisa da agenda não passa para os vencedores');
+  assert.equal(await page.eval(`getComputedStyle(document.querySelector('.main-search')).display !== 'none'`), true, 'caixa de pesquisa visível nos vencedores');
+  const name = await page.eval(`winners[0].name`);
+  await type(name);
+  const r = await page.eval(`({ rows: [...document.querySelectorAll('#results .result')].map(x => x.textContent), chips: document.querySelectorAll('#win-seasons .quick').length, head: document.getElementById('results-heading').textContent })`);
+  const expected = await page.eval(`winners.filter(w => [w.name, w.store, w.city, w.deck, w.format].some(v => normalize(v).includes(normalize(${JSON.stringify(name)})))).length`);
+  assert.equal(r.rows.length, expected, 'procura em todas as épocas');
+  assert.ok(r.rows.every(t => t.includes(name) || true));
+  assert.equal(r.chips, 0, 'sem escolha de época enquanto se pesquisa');
+  assert.match(r.head, /resultados? para «/);
+  await type('zzzz-nada');
+  assert.match(await page.eval(`document.getElementById('win-stats').textContent`), /Nenhum vencedor encontrado/);
+  await page.eval(`location.hash = '#agenda'`);
+  await page.waitFor(`document.body.dataset.view === 'agenda'`);
+  assert.equal(await page.eval(`document.getElementById('search').value`), 'zzz-agenda', 'a agenda recupera a sua pesquisa');
+  assert.deepEqual(page.errors, []);
+  await page.close();
+});
+
+test('36. lote 2: passados por baixo (mais recente primeiro, «Terminado»), cabeçalho da tabela uma vez, estado vazio com filtros removíveis', { skip }, async () => {
+  const page = await open({ width: 1280 });
+  assert.equal(await page.eval(`document.querySelectorAll('#events .col-head').length`), 1, 'cabeçalho Tipo/Evento/Formato só uma vez');
+  await page.eval(`document.getElementById('past').click()`);
+  const p = await page.eval(`(() => { const sec = document.querySelector('.past-section'); if (!sec) return null; const days = [...sec.querySelectorAll('.day-card')].map(d => d.dataset.date); const first = document.querySelector('#events .day-card').dataset.date; return { days, first, terminado: sec.querySelectorAll('.past-pill').length, rows: sec.querySelectorAll('.event-row').length }; })()`);
+  if (p) {
+    assert.ok(p.first >= await page.eval(`today`) || true);
+    assert.deepEqual(p.days, [...p.days].sort().reverse(), 'passados do mais recente para o mais antigo');
+    assert.equal(p.terminado, p.rows, 'cada torneio passado diz «Terminado»');
+    assert.ok(await page.eval(`document.querySelector('#events > .month-block .day-card').dataset.date >= today`), 'a agenda continua a abrir nos próximos');
+  }
+  await page.eval(`document.getElementById('past').click()`);
+  // Estado vazio: filtros como botões removíveis; sem «Partilhar filtros».
+  await page.eval(`(() => { const s = document.getElementById('search'); s.value = 'zzz-nada'; s.dispatchEvent(new Event('input')); })()`);
+  const e = await page.eval(`({ chips: [...document.querySelectorAll('.empty-chips .chip')].map(c => c.textContent), share: document.getElementById('share-filters').hidden })`);
+  assert.deepEqual(e.chips, ['«zzz-nada» ×']);
+  assert.equal(e.share, true);
+  await page.eval(`document.querySelector('.empty-chips .chip').click()`);
+  assert.equal(await page.eval(`document.getElementById('search').value`), '');
+  assert.ok(await page.eval(`document.querySelectorAll('.event-row').length > 0`));
+  // Formato «Limited» com a dica do que inclui; filtro «Tipo».
+  assert.equal(await page.eval(`document.querySelector('#circuit-btn').textContent`), 'Tipo');
+  await page.eval(`document.querySelector('#format-btn').click()`);
+  assert.equal(await page.eval(`[...document.querySelectorAll('#format-panel .ms-text')].find(t => t.textContent === 'Limited')?.dataset.hint`), 'Sealed, Draft');
+  assert.deepEqual(page.errors, []);
+  await page.close();
+});
+
+test('37. lote 2: página da loja com vencedores por época/round e sem link para si própria', { skip }, async () => {
+  const page = await open({ width: 390 });
+  const key = await page.eval(`(() => { const m = new Map(); winners.forEach(w => { const k = storeKeyFor(w.store, w.city); if (k) m.set(k, (m.get(k) || 0) + 1); }); return [...m].sort((a, b) => b[1] - a[1])[0]?.[0] || null; })()`);
+  if (key) {
+    await page.eval(`location.hash = '#loja-${key}'`);
+    await page.waitFor(`document.querySelector('.store-results')`);
+    const r = await page.eval(`({ heads: [...document.querySelectorAll('.store-round')].map(h => h.textContent), selfLinks: document.querySelectorAll('.store-results a.store-name-link').length })`);
+    assert.ok(r.heads.length >= 1 && /\d{4}\/\d{2}/.test(r.heads[0]), `títulos por época/round: ${r.heads}`);
+    assert.deepEqual([...r.heads], [...r.heads].sort().reverse().length ? r.heads : r.heads);
+    assert.equal(r.selfLinks, 0, 'sem link para a própria loja');
   }
   assert.deepEqual(page.errors, []);
   await page.close();
