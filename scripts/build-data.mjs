@@ -31,7 +31,7 @@ const REVIEW_DIR = resolve(ROOT, 'build');
 export const PUBLIC_FIELDS = [
   'id', 'title', 'allDay', 'dateStart', 'dateEnd', 'timeStart', 'timeEnd',
   'tipo', 'typeKey', 'typeShort', 'typeFamily', 'scope',
-  'formato', 'formatFamily', 'ronda', 'rondaDeduzida', 'fase',
+  'formato', 'formatFamily', 'ronda', 'rondaDeduzida', 'epoca', 'fase',
   'loja', 'localidade', 'distrito', 'pais', 'local', 'set',
   'preco', 'precoTexto', 'checkin', 'juiz', 'vagas', 'ligacao',
   'premios', 'notas', 'detalhesOriginais', 'emRevisao', 'qualifica',
@@ -66,16 +66,27 @@ export function toPublic(e) {
   return out;
 }
 
-/** RCQ sem RONDA: atribui a round cuja janela oficial (config/site.json) contém a data. */
+/** RCQ sem RONDA: atribui a round cuja janela oficial (config/site.json) contém a data.
+ *  Todos os RCQs ficam também com a época da janela (ex.: R2 de 2026/27 ≠ R2 de 2027/28). */
 export function applyRoundWindows(events, milestones) {
+  const windows = milestones.filter(w => w.circuit === 'RCQ' && w.ronda);
   for (const e of events) {
-    if (e.typeKey !== 'rcq' || e.ronda) continue;
-    const m = milestones.find(w => w.circuit === 'RCQ' && w.ronda && w.start <= e.dateStart && e.dateStart <= w.end);
-    if (!m) continue;
-    e.ronda = m.ronda;
-    e.rondaDeduzida = true;
-    e.issues = e.issues.filter(i => i.code !== 'ronda-em-falta');
-    e.issues.push({ code: 'ronda-deduzida', level: 'info', message: `RONDA «A confirmar»; mostrada como ${m.ronda} pela janela ${m.start} a ${m.end}.` });
+    if (e.typeKey !== 'rcq') continue;
+    if (!e.ronda) {
+      const m = windows.find(w => w.start <= e.dateStart && e.dateStart <= w.end);
+      if (m) {
+        e.ronda = m.ronda;
+        e.rondaDeduzida = true;
+        e.issues = e.issues.filter(i => i.code !== 'ronda-em-falta');
+        e.issues.push({ code: 'ronda-deduzida', level: 'info', message: `RONDA «A confirmar»; mostrada como ${m.ronda} pela janela ${m.start} a ${m.end}.` });
+      }
+    }
+    if (!e.ronda) continue;
+    // Época: a janela da mesma round que contém a data; senão, a última janela dessa round que já começou.
+    const same = windows.filter(w => w.ronda === e.ronda && w.season);
+    const m = same.find(w => w.start <= e.dateStart && e.dateStart <= w.end)
+      || same.filter(w => w.start <= e.dateStart).sort((a, b) => b.start.localeCompare(a.start))[0];
+    if (m) e.epoca = m.season;
   }
   return events;
 }

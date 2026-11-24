@@ -4,16 +4,34 @@
     {
       "circuit": "RCQ",
       "ronda": "R2",
-      "label": "Round 2 · Standard",
+      "season": "2026/27",
+      "label": "Round 2 2026/27 · Standard",
       "start": "2026-08-15",
       "end": "2026-11-29"
     },
     {
       "circuit": "RCQ",
       "ronda": "R3",
-      "label": "Round 3 · Standard",
+      "season": "2026/27",
+      "label": "Round 3 2026/27 · Standard",
       "start": "2026-12-11",
       "end": "2027-03-07"
+    },
+    {
+      "circuit": "RCQ",
+      "ronda": "R1",
+      "season": "2027/28",
+      "label": "Round 1 2027/28 · Modern",
+      "start": "2027-04-10",
+      "end": "2027-06-27"
+    },
+    {
+      "circuit": "RCQ",
+      "ronda": "R2",
+      "season": "2027/28",
+      "label": "Round 2 2027/28 · Pioneer",
+      "start": "2027-07-03",
+      "end": "2027-09-26"
     }
   ],
   "rcqLists": {

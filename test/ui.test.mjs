@@ -174,7 +174,7 @@ test('7. evento que acaba às 00:00 aparece num só dia; eventos de vários dias
   const night = await row('Loja Exemplo Centro');
   // LCQ nocturno: 4 Dez 20:00 → 5 Dez 00:00
   const nightRow = await page.eval(`[...document.querySelectorAll('.event-row')].find(r => r.getAttribute('aria-label').includes('4 Dezembro'))?.innerText`);
-  assert.ok(nightRow && nightRow.includes('20:00'), `linha do evento nocturno: ${nightRow} / ${night}`);
+  assert.ok(nightRow, `linha do evento nocturno: ${night}`);
   assert.ok(!/4–5|5 Dezembro/.test(nightRow), 'não deve aparecer como 2 dias');
   await page.eval(`[...document.querySelectorAll('.event-row')].find(r => r.getAttribute('aria-label').includes('4 Dezembro')).click()`);
   const modal = await page.eval(`document.getElementById('dialog-body').innerText`);
@@ -307,27 +307,28 @@ test('10. eventos de vários dias: intervalo no primeiro dia e «A decorrer · D
   }
 });
 
-test('11. desktop: colunas alinhadas, tipo encostado à esquerda', { skip }, async () => {
+test('11. desktop: três colunas alinhadas (tipo, evento, formato), sem horário nem inscrição', { skip }, async () => {
   for (const w of [1280, 1100, 900]) {
     const page = await open({ width: w });
     await showAll(page);
     const r = await page.eval(`[...document.querySelectorAll('.event-row')].map(row => {
       const R = s => row.querySelector(s).getBoundingClientRect();
-      const pill = R('.type-pill'), name = R('.store'), fmt = R('.format-col'), price = R('.price-col');
-      return { gap: name.left - pill.right, pillLeft: Math.round(pill.left), nameLeft: Math.round(name.left), fmtLeft: Math.round(fmt.left), priceRight: Math.round(price.right), rowRight: Math.round(row.getBoundingClientRect().right), name: row.querySelector('.store').textContent };
+      const pill = R('.type-pill'), name = R('.store'), fmt = R('.format-col');
+      return { gap: name.left - pill.right, pillLeft: Math.round(pill.left), nameLeft: Math.round(name.left), fmtLeft: Math.round(fmt.left), extra: !!row.querySelector('.price-col, .event-time'), name: row.querySelector('.store').textContent };
     })`);
     for (const x of r) assert.ok(x.gap >= 10, `${w}px «${x.name}»: ${x.gap.toFixed(1)}px entre o tipo e o nome`);
     assert.equal(new Set(r.map(x => x.pillLeft)).size, 1, `${w}px: etiquetas de tipo desalinhadas à esquerda`);
     assert.equal(new Set(r.map(x => x.nameLeft)).size, 1, `${w}px: coluna do evento desalinhada`);
     assert.equal(new Set(r.map(x => x.fmtLeft)).size, 1, `${w}px: coluna do formato desalinhada`);
-    assert.equal(new Set(r.map(x => x.priceRight)).size, 1, `${w}px: coluna da inscrição desalinhada`);
+    assert.ok(r.every(x => !x.extra), `${w}px: sem colunas de horário/inscrição`);
+    assert.deepEqual(await page.eval(`[...document.querySelectorAll('.col-head')].length && [...document.querySelector('.col-head').children].map(c => c.textContent)`), ['Tipo', 'Evento', 'Formato']);
     assert.ok(await page.eval(`getComputedStyle(document.querySelector('.col-head')).display !== 'none'`));
     assert.ok((await page.eval('document.documentElement.scrollWidth - innerWidth')) <= 0, `${w}px: scroll horizontal`);
     await page.close();
   }
 });
 
-test('12. telemóvel 320–430 px: tipo e preço na primeira linha, nome e detalhes por baixo, sem sobreposições', { skip }, async () => {
+test('12. telemóvel 320–430 px: tipo na primeira linha, nome e detalhes por baixo, sem sobreposições', { skip }, async () => {
   for (const theme of ['light', 'dark']) {
     const page = await open({ width: 320, theme });
     await showAll(page);
@@ -338,17 +339,15 @@ test('12. telemóvel 320–430 px: tipo e preço na primeira linha, nome e detal
         const hit = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
         const bad = [];
         for (const row of document.querySelectorAll('.event-row')) {
-          const t = box(row.querySelector('.event-type')), p = box(row.querySelector('.price-col')), n = box(row.querySelector('.store')), m = box(row.querySelector('.meta-m')), rb = box(row);
+          const t = box(row.querySelector('.event-type')), n = box(row.querySelector('.store')), m = box(row.querySelector('.meta-m')), rb = box(row);
           const name = row.querySelector('.store').textContent;
-          if (hit(t, p)) bad.push(name + ': tipo sobre o preço');
-          if (n.top < Math.max(t.bottom, p.bottom) - 0.5) bad.push(name + ': nome sobe para a linha do tipo');
+          if (n.top < t.bottom - 0.5) bad.push(name + ': nome sobe para a linha do tipo');
           if (m.top < n.bottom - 0.5 || m.height === 0) bad.push(name + ': detalhes em falta ou sobrepostos');
-          if (p.right > rb.right + 0.5 || t.right > rb.right + 0.5 || n.right > rb.right + 0.5) bad.push(name + ': sai do cartão');
-          if (Math.abs(p.top - t.top) > 6) bad.push(name + ': preço fora da primeira linha');
+          if (t.right > rb.right + 0.5 || n.right > rb.right + 0.5 || m.right > rb.right + 0.5) bad.push(name + ': sai do cartão');
         }
         for (const el of document.querySelectorAll('.day-head')) { const n = box(el.querySelector('.day-num')), w = box(el.querySelector('.day-names')), c = el.querySelector('.day-count'); if (hit(n, w) || (c && hit(w, box(c)))) bad.push('cabeçalho do dia sobreposto'); }
         return { bad: bad.slice(0, 5), overflow: document.documentElement.scrollWidth - innerWidth,
-          hidden: ['.col-head', '.format-col', '.event-time'].every(s => getComputedStyle(document.querySelector(s)).display === 'none') };
+          hidden: ['.col-head', '.format-col'].every(s => getComputedStyle(document.querySelector(s)).display === 'none') };
       })()`);
       assert.deepEqual(r.bad, [], `${w}px ${theme}`);
       assert.ok(r.overflow <= 0, `${w}px ${theme}: scroll horizontal de ${r.overflow}px`);
@@ -399,7 +398,7 @@ test('14. pesquisa, filtros, passados, modal e mudanças de largura sem erros na
   await set('search', '');
   assert.match(await pick(page, 'place', 'Internacional'), COUNT_RE);
   assert.equal(await page.eval(`document.querySelectorAll('.info-row').length`), 0, 'datas informativas escondidas com filtro de local');
-  assert.ok(await page.eval(`[...document.querySelectorAll('.event-row')].every(r => r.querySelector('.price-col').textContent.includes('Internacional'))`));
+  assert.ok(await page.eval(`[...document.querySelectorAll('.event-row')].every(r => r.classList.contains('intl'))`));
   await page.eval(`document.getElementById('reset').click()`);
   for (const sel of ['.event-row', '.info-row']) {
     await page.eval(`document.querySelector(${JSON.stringify(sel)}).click()`);
@@ -421,7 +420,7 @@ test('15. filtros: escolha múltipla, distritos dentro de Portugal, rounds dentr
   for (const w of [1280, 390, 320]) {
     const page = await open({ width: w });
     await showAll(page);
-    const rows = () => page.eval(`[...document.querySelectorAll('.event-row')].map(r => ({ fmt: r.querySelector('.format-col')?.textContent || '', pill: r.querySelector('.type-pill').textContent, intl: !!r.querySelector('.price-col.intl'), text: r.textContent }))`);
+    const rows = () => page.eval(`[...document.querySelectorAll('.event-row')].map(r => ({ fmt: r.querySelector('.format-col')?.textContent || '', pill: r.querySelector('.type-pill').textContent, intl: r.classList.contains('intl'), text: r.textContent }))`);
     // Sempre 3 listas, na mesma fila, com o nome dentro do botão.
     const layout = await page.eval(`(() => { const b = [...document.querySelectorAll('.ms-btn')].map(x => x.getBoundingClientRect()); return { n: b.length, tops: [...new Set(b.map(x => Math.round(x.top)))].length, names: [...document.querySelectorAll('.ms-label')].map(l => l.textContent) }; })()`);
     assert.deepEqual(layout, { n: 3, tops: 1, names: ['Formato', 'Onde', 'Circuito'] }, `${w}px`);
@@ -469,9 +468,9 @@ test('15. filtros: escolha múltipla, distritos dentro de Portugal, rounds dentr
     const circ = await msOptions(page, 'circuit');
     const rcq = circ.findIndex(o => o.label === 'RCQ');
     assert.ok(circ[rcq].parent && circ[rcq + 1].child && circ[rcq + 1].label.startsWith('Round'), JSON.stringify(circ));
-    await pick(page, 'circuit', 'Round 3');
+    await pick(page, 'circuit', 'Round 3 · 2026/27');
     assert.ok((await rows()).length && (await rows()).every(r => r.pill.includes('R3')));
-    assert.equal(await msLabel(page, 'circuit'), 'Round 3');
+    assert.equal(await msLabel(page, 'circuit'), 'Round 3 · 2026/27');
     // Combinações: RCQ em Portugal num distrito; números das outras listas reflectem os filtros.
     await pick(page, 'place', d);
     const fmtSum = (await msOptions(page, 'format')).reduce((s, o) => s + o.count, 0);
@@ -585,15 +584,15 @@ test('18. formatos habituais sempre disponíveis; sem resultados mostra «Limpar
   }
 });
 
-test('19. internacionais mostram o país; sem legenda das cores; pré-visualização para partilha', { skip }, async () => {
+test('19. internacionais mostram «Cidade, País» e a bandeira; sem legenda das cores; pré-visualização para partilha', { skip }, async () => {
   const page = await open({ width: 1280 });
   await showAll(page);
-  const intl = await page.eval(`[...document.querySelectorAll('.event-row .price-col.intl')].map(p => ({ main: p.firstChild.textContent, small: p.querySelector('small')?.textContent || '' }))`);
+  const intl = await page.eval(`[...document.querySelectorAll('.event-row.intl')].map(r => ({ sub: r.querySelector('.subline')?.textContent || '', meta: r.querySelector('.meta-m').textContent, flagLast: !!r.querySelector('.subline .flag:last-child') }))`);
   assert.ok(intl.length >= 3);
-  for (const p of intl) {
-    assert.ok(!/\d+ dias?/.test(p.main), `sem duração na coluna: ${p.main}`);
-    if (p.main !== 'Internacional') assert.equal(p.small, 'Internacional');
-  }
+  for (const p of intl) assert.ok(!/\d+ dias?/.test(p.sub), `sem duração no local: ${p.sub}`);
+  const es = intl.find(p => p.sub.includes('Espanha'));
+  assert.equal(es.sub, 'Cidade Exemplo, Espanha 🇪🇸', 'cidade, país e bandeira a seguir');
+  assert.ok(es.flagLast && es.meta.includes('Cidade Exemplo, Espanha 🇪🇸'));
   assert.equal(await page.eval(`document.getElementById('type-legend')`), null, 'legenda retirada (as etiquetas já dizem o tipo)');
   const meta = await page.eval(`(async () => {
     const m = p => document.querySelector('meta[property="' + p + '"]')?.content;
@@ -620,7 +619,7 @@ test('20. contador separa Portugal e internacionais', { skip }, async () => {
   const page = await open({ width: 1280 });
   const r = await page.eval(`(() => {
     const rows = [...document.querySelectorAll('.event-row')];
-    const intl = rows.filter(r => r.querySelector('.price-col.intl')).length;
+    const intl = rows.filter(r => r.classList.contains('intl')).length;
     return { count: document.getElementById('count').textContent, pt: rows.length - intl, intl };
   })()`);
   assert.ok(r.pt > 0 && r.intl > 0, 'a fixture tem torneios dos dois');
@@ -652,10 +651,10 @@ test('21. links partilháveis: filtros e torneio no endereço', { skip }, async 
   await page2.close();
   // Links antigos (uma só escolha por lista) continuam a funcionar: RCQ só com o Round 3; Portugal inteiro.
   const old = await open({ width: 1280, hash: '?onde=portugal&circuito=RCQ&round=R3' });
-  assert.deepEqual(await labels(old), ['Formato', 'Portugal', 'Round 3']);
+  assert.deepEqual(await labels(old), ['Formato', 'Portugal', 'Round 3 · 2026/27']);
   assert.ok(await old.eval(`[...document.querySelectorAll('.event-row .type-pill')].every(x => x.textContent.includes('R3'))`));
   const oldP = new URLSearchParams(await old.eval('location.search'));
-  assert.deepEqual([oldP.get('onde'), oldP.get('circuito'), oldP.get('round')], ['portugal', null, 'R3']);
+  assert.deepEqual([oldP.get('onde'), oldP.get('circuito'), oldP.get('round')], ['portugal', null, 'R3 2026/27']);
   await old.close();
   // Torneio: ?t=<id> enquanto o modal está aberto; desaparece ao fechar.
   await page.eval(`document.getElementById('reset').click()`);
@@ -806,8 +805,8 @@ test('24. atalhos por tipo, subscrição do calendário, «daqui a N», bandeira
     await click('Internacionais');
     assert.deepEqual(await st0(), { c: 'Circuito', sc: 'Internacional', pressed: 'Internacionais' });
     // Bandeira e «Qualifica para» no Spotlight de exemplo (Cidade Exemplo, Espanha).
-    const spot = await page.eval(`(() => { const r = [...document.querySelectorAll('.event-row')].find(x => x.textContent.includes('Spotlight Exemplo')); return { price: r.querySelector('.price-col').textContent, q: r.querySelector('.qualifies')?.textContent, vis: r.querySelector('.qualifies') && getComputedStyle(r.querySelector('.qualifies')).display !== 'none' }; })()`);
-    assert.ok(spot.price.startsWith('🇪🇸 Espanha'), spot.price);
+    const spot = await page.eval(`(() => { const r = [...document.querySelectorAll('.event-row')].find(x => x.textContent.includes('Spotlight Exemplo')); return { price: r.querySelector('.subline').textContent, q: r.querySelector('.qualifies')?.textContent, vis: r.querySelector('.qualifies') && getComputedStyle(r.querySelector('.qualifies')).display !== 'none' }; })()`);
+    assert.equal(spot.price, 'Cidade Exemplo, Espanha 🇪🇸');
     assert.equal(spot.q, 'Qualifica para Pro Tour Exemplo'); assert.ok(spot.vis);
     await click('Todos');
     assert.deepEqual(await st0(), { c: 'Circuito', sc: 'Onde', pressed: 'Todos' });

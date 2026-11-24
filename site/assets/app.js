@@ -194,16 +194,12 @@ const placeLine = e => {
     if (!e.localidade) return e.local || '';
     return e.distrito && normalize(e.distrito) !== normalize(e.localidade) ? `${e.localidade} · ${e.distrito}` : e.localidade;
   }
-  return [e.local, e.pais].filter(Boolean).join(' · ');
+  // Internacionais: «Cidade, País» (o país vem da localização ou das cidades habituais).
+  const country = countryOf(e);
+  const city = (e.local || '').includes(',') ? e.local.split(',').slice(0, -1).join(',').trim() : (e.local || '');
+  return [city && normalize(city) !== normalize(country) ? city : null, country].filter(Boolean).join(', ');
 };
-const timeLine = e => {
-  // Na lista só a hora a que começa (no calendário, o início dos RCQs é o início do check-in);
-  // o intervalo do check-in fica no detalhe do torneio.
-  if (e.dateStart !== e.dateEnd) return rangeLabel(e, true);
-  if (e.checkin) return String(e.checkin).split(/\s*[–-]\s*/)[0];
-  if (!e.allDay && e.timeStart) return e.timeStart;
-  return '';
-};
+const flagHtml = e => { const f = e.scope === 'internacional' ? flagFor(countryOf(e)) : ''; return f ? ` <span class="flag" aria-hidden="true">${f}</span>` : ''; };
 
 const byCount = (list, key) => {
   const counts = new Map();
@@ -243,8 +239,11 @@ let trees = { format: [], place: [], circuit: [] };
 const TOKEN = {
   format: e => filterFormat(e),
   place: e => e.scope === 'portugal' ? 'pt:' + (e.distrito || '') : 'intl:' + countryOf(e),
-  circuit: e => e.typeKey === 'rcq' ? 'RCQ:' + (e.ronda || '') : 'type:' + e.tipo,
+  circuit: e => e.typeKey === 'rcq' ? 'RCQ:' + roundKey(e) : 'type:' + e.tipo,
 };
+// Round com época (R2 de 2026/27 ≠ R2 de 2027/28).
+const roundKey = e => (e.ronda ? e.ronda + (e.epoca ? ' ' + e.epoca : '') : '');
+const roundText = e => (e.ronda ? e.ronda + (e.epoca ? ' ' + e.epoca : '') : '');
 const typeName = t => (t === 'Campeonato / Evento especial' ? 'Evento especial' : t);
 const leaf = (value, label, extra = {}) => ({ label, values: [value], ...extra });
 const group = (id, label, children) => ({ id, label, children, values: children.flatMap(c => c.values) });
@@ -262,9 +261,11 @@ function buildFilters() {
     group('intl', 'Internacional', intl.map(c => leaf('intl:' + c, c || 'Vários locais', { flag: flagFor(c) }))),
   ].filter(g => g.children.length);
   const types = byCount(events.filter(e => showPast || !isPastEvent(e)), e => e.tipo);
-  const rounds = [...new Set(pool.filter(e => e.typeKey === 'rcq').map(e => e.ronda || ''))].sort((a, b) => (!a) - (!b) || a.localeCompare(b));
+  // Rounds por época e depois por número (época 2026/27 antes de 2027/28).
+  const roundSort = k => { const [r, ep = ''] = k.split(' '); return ep + ' ' + r; };
+  const rounds = [...new Set(pool.filter(e => e.typeKey === 'rcq').map(roundKey))].sort((a, b) => (!a) - (!b) || roundSort(a).localeCompare(roundSort(b)));
   trees.circuit = types.map(t => (t === 'RCQ' && rounds.length > 1)
-    ? group('rcq', 'RCQ', rounds.map(r => leaf('RCQ:' + r, r ? `Round ${r.replace(/\D/g, '')}` : 'Sem round')))
+    ? group('rcq', 'RCQ', rounds.map(r => leaf('RCQ:' + r, r ? `Round ${r.split(' ')[0].replace(/\D/g, '')}${r.includes(' ') ? ' · ' + r.split(' ')[1] : ''}` : 'Sem round')))
     : t === 'RCQ' ? leaf('RCQ:' + (rounds[0] || ''), 'RCQ') : leaf('type:' + t, typeName(t)));
   // Escolhas que deixaram de existir (por exemplo ao esconder os passados) saem do filtro.
   for (const key of Object.keys(sel)) { const ok = new Set(allValues(key)); for (const v of sel[key]) if (!ok.has(v)) sel[key].delete(v); }
@@ -377,37 +378,25 @@ function matches(e, q, skip) {
 const spanDays = e => daysBetween(e.dateStart, e.dateEnd) + 1;
 const formatText = e => (e.formato ? `${e.formato}${e.set ? ' · ' + e.set : ''}` : null);
 
-function priceHtml(e) {
-  if (e.scope === 'internacional') {
-    // País (última parte da localização); a duração já está na etiqueta das datas.
-    const country = countryOf(e);
-    const flag = flagFor(country);
-    return `<span class="price-col intl">${flag ? `<span class="flag" aria-hidden="true">${flag}</span> ` : ''}${esc(country || 'Internacional')}${country ? '<small>Internacional</small>' : ''}</span>`;
-  }
-  if (e.preco != null) return `<span class="price-col">${esc(e.preco === 0 ? 'Grátis' : euro(e.preco))}<small>Inscrição</small></span>`;
-  return `<span class="price-col unknown">${esc(e.precoTexto || 'A confirmar')}<small>Inscrição</small></span>`;
-}
-
 function typePillHtml(e) {
-  const extra = [e.ronda, e.fase].filter(Boolean).map(esc).join(' · ');
+  const extra = [roundText(e), e.fase].filter(Boolean).map(esc).join(' · ');
   const title = e.ronda && e.rondaDeduzida ? ' title="Round atribuída pela data (janela oficial da round)"' : '';
   return `<span class="type-pill"${title}>${esc(typeLabel(e))}${extra ? ' · ' + extra : ''}</span>`;
 }
 
 function rowHtml(e) {
+  // Três colunas: tipo, onde (loja/evento + local) e formato. Preço e horário ficam no detalhe do torneio.
   const place = placeLine(e);
   const fmt = formatText(e);
-  const time = timeLine(e);
   const multi = e.dateStart !== e.dateEnd;
   const n = spanDays(e);
   const range = multi ? `<span class="range-pill">${esc(rangeLabel(e, true))} · ${n} dias</span>` : '';
-  const meta = [`<b>${esc(fmt || 'Formato a confirmar')}</b>`, place && esc(place), !multi && time && esc(time)].filter(Boolean).join('  ·  ');
-  return `<button type="button" class="event-row ${typeClass(e)}" data-id="${esc(e.id)}" aria-label="Detalhes de ${esc(displayName(e))}, ${esc(formatDate(e.dateStart))}">`
+  const placeHtml = place ? esc(place) + flagHtml(e) : '';
+  const meta = [`<b>${esc(fmt || 'Formato a confirmar')}</b>`, placeHtml].filter(Boolean).join('  ·  ');
+  return `<button type="button" class="event-row ${typeClass(e)}${e.scope === 'internacional' ? ' intl' : ''}" data-id="${esc(e.id)}" aria-label="Detalhes de ${esc(displayName(e))}, ${esc(formatDate(e.dateStart))}">`
     + `<span class="event-type">${typePillHtml(e)}${range}</span>`
-    + `<span class="event-main"><span class="store">${esc(displayName(e))}</span>${place ? `<span class="subline">${esc(place)}</span>` : ''}<span class="meta-m">${meta}</span>${e.qualifica ? `<span class="qualifies">Qualifica para ${esc(e.qualifica)}</span>` : ''}</span>`
-    + `<span class="format-col${fmt ? '' : ' pending'}">${esc(fmt || 'Formato a confirmar')}</span>`
-    + `<span class="event-time">${esc(time)}</span>`
-    + priceHtml(e) + `</button>`;
+    + `<span class="event-main"><span class="store">${esc(displayName(e))}</span>${place ? `<span class="subline">${placeHtml}</span>` : ''}<span class="meta-m">${meta}</span>${e.qualifica ? `<span class="qualifies">Qualifica para ${esc(e.qualifica)}</span>` : ''}</span>`
+    + `<span class="format-col${fmt ? '' : ' pending'}">${esc(fmt || 'Formato a confirmar')}</span></button>`;
 }
 
 function infoHtml(e) {
@@ -429,13 +418,13 @@ function milestoneHtml(m, kind) {
 }
 
 function milestoneVisible(m) {
-  if (sel.format.size || sel.place.size) return false;
+  if (sel.format.size || sel.place.size || $('#search').value.trim()) return false;
   if (!sel.circuit.size) return true;
-  return m.circuit === 'RCQ' ? (m.ronda ? sel.circuit.has('RCQ:' + m.ronda) : [...sel.circuit].some(v => v.startsWith('RCQ:'))) : sel.circuit.has('type:' + m.circuit);
+  return m.circuit === 'RCQ' ? (m.ronda ? sel.circuit.has('RCQ:' + m.ronda + (m.season ? ' ' + m.season : '')) : [...sel.circuit].some(v => v.startsWith('RCQ:'))) : sel.circuit.has('type:' + m.circuit);
 }
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-const COL_HEAD = '<div class="col-head" aria-hidden="true"><span>Tipo</span><span>Evento</span><span>Formato</span><span>Horário</span><span class="r">Inscrição</span></div>';
+const COL_HEAD = '<div class="col-head" aria-hidden="true"><span>Tipo</span><span>Evento</span><span>Formato</span></div>';
 
 function renderLegend(list) {
   if (!$('#type-legend')) return; // legenda retirada no layout compacto (as etiquetas já dizem o tipo)
@@ -652,7 +641,8 @@ function applyFiltersFromUrl() {
     if (normalize(c) === 'rcq' && rounds.length) continue; // RCQ só com alguns rounds: tratado a seguir
     add('circuit', normalize(c) === 'rcq' ? findNode('circuit', n => n.values[0].startsWith('RCQ:') && (n.children || n.label === 'RCQ')) : findNode('circuit', n => normalize(n.values[0]) === normalize('type:' + c)));
   }
-  for (const r of rounds) add('circuit', findNode('circuit', n => !n.children && n.values[0] === 'RCQ:' + r));
+  // «round=R3» (links antigos) apanha a R3 de qualquer época; «round=R3 2026/27» só essa.
+  for (const r of rounds) for (const n of trees.circuit.flatMap(x => x.children || [x])) if (n.values[0] === 'RCQ:' + r || n.values[0].startsWith('RCQ:' + r + ' ')) add('circuit', n);
   urlReady = true;
   renderEvents();
   const t = p.get('t');
@@ -686,7 +676,7 @@ function openDetails(id) {
   const tabs = [
     `<span class="dialog-tab dialog-type ${typeClass(e)}">${esc(e.tipo + (e.fase ? ' · ' + e.fase : ''))}</span>`,
     ...[e.formato ? `${e.formato}${e.set ? ' · ' + e.set : ''}` : null,
-      e.ronda, e.vagas ? `${e.vagas} vagas` : null,
+      roundText(e) || null, e.vagas ? `${e.vagas} vagas` : null,
       e.scope === 'internacional' ? 'Internacional' : null,
     ].filter(Boolean).map(t => `<span class="dialog-tab">${esc(t)}</span>`),
   ];
@@ -699,7 +689,7 @@ function openDetails(id) {
   else if (!e.allDay && e.timeStart) add(e.timeEnd && e.timeEnd !== e.timeStart ? 'Horário' : 'Início', `${e.timeStart}${e.timeEnd && e.timeEnd !== e.timeStart ? '–' + e.timeEnd : ''}`);
   if (!isInfo(e)) add('Formato', e.formato ? `${e.formato}${e.set ? ' · ' + e.set : ''}` : 'A confirmar', !e.formato);
   if (e.scope === 'portugal') add('Juiz', e.juiz || 'A confirmar', !e.juiz);
-  if (e.ronda) add('Ronda', e.rondaDeduzida ? `${e.ronda} (pela data)` : e.ronda);
+  if (e.ronda) add('Ronda', e.rondaDeduzida ? `${roundText(e)} (pela data)` : roundText(e));
   if (e.fase) add('Fase', e.fase);
   if (e.vagas) add('Vagas', String(e.vagas));
   if (e.qualifica) add('Qualifica para', e.qualifica);
@@ -708,7 +698,7 @@ function openDetails(id) {
   const sub = [];
   if (name !== e.title) sub.push(e.title);
   const where = e.scope === 'portugal' ? [placeLine(e), e.local && normalize(e.local) !== normalize(e.loja) ? e.local : null].filter(Boolean).join(' — ') : placeLine(e);
-  if (where) sub.push(e.scope === 'internacional' && flagFor(countryOf(e)) ? `${flagFor(countryOf(e))} ${where}` : where);
+  if (where) sub.push(e.scope === 'internacional' && flagFor(countryOf(e)) ? `${where} ${flagFor(countryOf(e))}` : where);
 
   document.getElementById('dialog-body').innerHTML =
     `<div class="dialog-top"><div><div class="dialog-meta">${esc(dateMeta)}</div><h2 id="modal-title">${esc(name)}</h2>${sub.map(s => `<div class="dialog-location">${esc(s)}</div>`).join('')}</div><button type="button" class="dialog-close" id="close-dialog" aria-label="Fechar detalhes">×</button></div>`
