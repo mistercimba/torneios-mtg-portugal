@@ -889,7 +889,8 @@ test('26. Voltar depois de «Ver a loja» regressa ao torneio; cartão de hoje c
   const id = await page.eval(`[...document.querySelectorAll('.event-row')].find(r => r.textContent.includes('Loja Exemplo Norte')).dataset.id`);
   await page.eval(`document.querySelector('.event-row[data-id="${id}"]').click()`);
   await page.eval(`document.querySelector('#dialog-actions .store-link').click()`);
-  await page.waitFor(`document.body.dataset.view === 'store'`);
+  // O fecho do diálogo é assíncrono: espera que a entrada da loja fique sem ?t= antes de voltar.
+  await page.waitFor(`document.body.dataset.view === 'store' && !document.getElementById('detail-dialog').open && !new URLSearchParams(location.search).has('t')`);
   await page.eval(`history.back()`);
   await page.waitFor(`document.body.dataset.view === 'agenda' && document.getElementById('detail-dialog').open`);
   assert.equal(await page.eval(`new URLSearchParams(location.search).get('t')`), id);
