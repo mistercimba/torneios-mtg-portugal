@@ -92,8 +92,11 @@ test('2. vencedores em telemóvel: data, vencedor, jogadores, loja, localidade e
       assert.ok(r.text.includes(s), `${w}px: falta «${s}» em: ${r.text}`);
     }
     assert.ok(r.overflow <= 0 && r.rowOverflow <= 0, `${w}px: scroll horizontal`);
-    const missingDeck = await page.eval(`[...document.querySelectorAll('.result')].find(x => x.textContent.includes('Sérgio Preto')).innerText`);
-    assert.ok(missingDeck.includes('Deck não indicado'), `deck em falta deve ser indicado: ${missingDeck}`);
+    // Construído sem deck → «Deck não indicado»; Sealed → «Sealed · set» (não é dado em falta).
+    const noDeck = await page.eval(`(() => { const r = winners.find(x => x.season === winSeason && !x.deck && !/sealed|draft/i.test(x.format || '')); return r ? [...document.querySelectorAll('.result')].find(x => x.textContent.includes(r.name))?.innerText : null; })()`);
+    if (noDeck) assert.ok(noDeck.includes('Deck não indicado'), `deck em falta deve ser indicado: ${noDeck}`);
+    const sealed = await page.eval(`(() => { const r = winners.find(x => x.season === winSeason && !x.deck && /sealed/i.test(x.format || '')); return r ? [...document.querySelectorAll('.result')].find(x => x.textContent.includes(r.name))?.innerText : null; })()`);
+    if (sealed) assert.match(sealed, /Sealed · /, `Sealed mostra o set: ${sealed}`);
     await page.close();
   }
 });
@@ -101,7 +104,7 @@ test('2. vencedores em telemóvel: data, vencedor, jogadores, loja, localidade e
 test('3. vencedores: tamanhos de letra legíveis em desktop e mobile', { skip }, async () => {
   for (const w of [1280, 390]) {
     const page = await open({ width: w, hash: '#winners' });
-    const sizes = await page.eval(`(() => { const r = document.querySelector('.result'); const fs = s => { const e = [...r.querySelectorAll(s)].find(x => x.offsetParent); return e ? parseFloat(getComputedStyle(e).fontSize) : null; };
+    const sizes = await page.eval(`(() => { const r = [...document.querySelectorAll('.result')].find(x => x.querySelector('.location')) || document.querySelector('.result'); const fs = s => { const e = [...r.querySelectorAll(s)].find(x => x.offsetParent); return e ? parseFloat(getComputedStyle(e).fontSize) : null; };
       return { name: fs('.win'), date: fs('.date'), meta: fs('.location, .result-meta') }; })()`);
     assert.ok(sizes.name >= 15, `${w}px: nome do vencedor com ${sizes.name}px`);
     assert.ok(sizes.date >= 13, `${w}px: data com ${sizes.date}px`);
@@ -1009,6 +1012,54 @@ test('32. vencedores: histórico com nomes próprios (WPNQ, Season 1…) e anos 
   assert.deepEqual(await page.eval(`[...document.querySelectorAll('#win-rounds .quick')].map(b => b.firstChild.textContent.trim())`), ['Todas', 'Season 1', 'Season 2', 'Season 3']);
   assert.deepEqual(await page.eval(`[...document.querySelectorAll('#win-rounds .round-fmt')].map(x => x.textContent)`), ['Pioneer', 'Modern', 'Standard'], 'formato de cada Season');
   assert.equal(await page.eval(`document.querySelector('#winners-title').textContent`), 'RCQ · Época 2024/25');
+  assert.deepEqual(page.errors, []);
+  await page.close();
+});
+
+test('33. lote 1: atalhos mantêm o «Onde», inscrição na loja, RC a anunciar, hora e preço, actualizado há', { skip }, async () => {
+  const page = await open({ width: 390 });
+  // Atalho RCQ depois de escolher Portugal: o «Onde» mantém-se.
+  await pick(page, 'place', 'Portugal');
+  const before = await page.eval(`sel.place.size`);
+  assert.ok(before > 0);
+  await page.eval(`[...document.querySelectorAll('#quick-types .quick')].find(b => b.textContent === 'RCQ')?.click()`);
+  assert.equal(await page.eval(`sel.place.size`), before, 'RCQ não apaga o «Onde»');
+  assert.equal(await page.eval(`document.querySelector('#quick-types [aria-pressed=true]')?.textContent`), 'RCQ');
+  await page.eval(`[...document.querySelectorAll('#quick-types .quick')].find(b => b.textContent === 'Todos').click()`);
+  assert.equal(await page.eval(`sel.place.size + sel.circuit.size`), 0, '«Todos» limpa os dois');
+  // Hora e preço na linha do torneio.
+  const wp = await page.eval(`(() => { const e = events.find(x => x.scope === 'portugal' && x.timeStart && !x.allDay && x.dateStart === x.dateEnd && x.preco != null && document.querySelector('.event-row[data-id="' + x.id + '"]')); return e ? [e.timeStart, document.querySelector('.event-row[data-id="' + e.id + '"] .meta-m').textContent] : null; })()`);
+  if (wp) assert.ok(wp[1].includes(wp[0]), `hora na linha: ${wp[1]}`);
+  // «actualizado há …» ao lado do contador, sem mexer no texto do contador.
+  assert.match(await page.eval(`document.getElementById('updated-ago').textContent`), /actualizado (agora|há|ontem)/);
+  assert.match(await page.eval(`document.getElementById('count').textContent`), COUNT_RE);
+  // RCQ futuro sem destino: «Regional Championship a anunciar».
+  const rcq = await page.eval(`(() => { const e = events.find(x => x.typeKey === 'rcq' && !isPastEvent(x)); if (!e) return null; delete e.qualifica; renderEvents(); return document.querySelector('.event-row[data-id="' + e.id + '"] .qualifies')?.textContent || ''; })()`);
+  if (rcq !== null) assert.equal(rcq, 'Qualifica para Regional Championship a anunciar');
+  // Torneio em Portugal sem link: a acção principal é a inscrição na loja.
+  const act = await page.eval(`(() => { const e = events.find(x => x.scope === 'portugal' && !x.ligacao && !isInfo(x)); if (!e) return null; openDetails(e.id); const a = document.querySelector('#dialog-actions .primary, #dialog-actions .unavailable'); return a.textContent; })()`);
+  if (act !== null) assert.match(act, /^Inscrição na loja/);
+  assert.ok(!(await page.eval(`document.getElementById('dialog-body').textContent.includes('Atribuída pela data')`)));
+  await page.eval(`document.getElementById('detail-dialog').close()`);
+  // Alvos de toque no cabeçalho.
+  const nav = await page.eval(`[...document.querySelectorAll('.nav button')].map(b => Math.round(b.getBoundingClientRect().height))`);
+  assert.ok(nav.every(h => h >= 38), `alvos de toque do cabeçalho: ${nav}`);
+  assert.deepEqual(page.errors, []);
+  await page.close();
+});
+
+test('34. lote 1: vencedores do mais recente para o mais antigo e arquétipos por formato', { skip }, async () => {
+  const page = await open({ width: 1280, hash: '#winners' });
+  await page.waitFor(`document.querySelector('.stat-tile')`);
+  const dates = await page.eval(`[...document.querySelectorAll('#results .result')].length`);
+  const first = await page.eval(`(() => { const list = winners.filter(r => r.season === winSeason); const max = list.map(r => r.date).sort().at(-1); const d = new Date(max + 'T12:00:00'); return [document.querySelector('#results .result .date').textContent, d.getDate()]; })()`);
+  if (dates) assert.ok(first[0].startsWith(String(first[1]) + ' '), `primeiro resultado = o mais recente: ${first}`);
+  const seasons = await page.eval(`[...document.querySelectorAll('#win-seasons .quick')].map(b => b.textContent)`);
+  if (seasons.includes('2024/25')) {
+    await page.eval(`[...document.querySelectorAll('#win-seasons .quick')].find(b => b.textContent === '2024/25').click()`);
+    const heads = await page.eval(`[...document.querySelectorAll('.stat-box h3')].map(h => h.textContent).filter(t => t.startsWith('Arquétipos'))`);
+    assert.deepEqual(heads, ['Arquétipos vencedores Pioneer', 'Arquétipos vencedores Modern', 'Arquétipos vencedores Standard']);
+  }
   assert.deepEqual(page.errors, []);
   await page.close();
 });

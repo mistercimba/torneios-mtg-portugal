@@ -130,6 +130,19 @@
       "Oleksander Shevtsov": "Oleksandr Shevtsov",
       "Oleksandr Shetsov": "Oleksandr Shevtsov",
       "Ricardo Batista": "Ricardo Baptista"
+    },
+    "deckAliases": {
+      "Esper Goryos": "Esper Goryo’s",
+      "Mono Green Landfall": "Mono-Green Landfall",
+      "Mono Green Lanfall": "Mono-Green Landfall",
+      "Zur Domain": "Domain Zur",
+      "Scam": "Rakdos Scam",
+      "Affinity": "Izzet Affinity",
+      "Tameshi Belcher": "Belcher",
+      "Red Belcher": "Belcher",
+      "Mono Blue Belcher": "Belcher",
+      "Mono Red Aggro": "Mono Red",
+      "Storm": "Ruby Storm"
     }
   }
 }

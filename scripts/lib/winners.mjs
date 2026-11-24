@@ -113,12 +113,14 @@ export async function fetchListTexts(sources, { fetchImpl = fetch } = {}) {
  * Junta os vencedores de várias listas. Erros de rede ou de leitura não param a publicação:
  * devolve { results: null, error } e o site mantém o winners.json anterior.
  */
-export async function fetchWinners(sources, { fetchImpl = fetch, lists = null, aliases = {} } = {}) {
+export async function fetchWinners(sources, { fetchImpl = fetch, lists = null, aliases = {}, deckAliases = {} } = {}) {
   const { texts, error } = lists || await fetchListTexts(sources, { fetchImpl });
   if (error) return { results: null, error };
   // Mesmo jogador escrito de formas diferentes nas listas → um só nome (config → rcqLists.aliases).
   const results = texts.flatMap(t => parseWinnersText(t.text, { round: t.round, season: t.season }))
-    .map(r => (aliases[r.name] ? { ...r, name: aliases[r.name] } : r));
+    .map(r => (aliases[r.name] ? { ...r, name: aliases[r.name] } : r))
+    // O mesmo arquétipo escrito de formas diferentes («Affinity» / «Izzet Affinity») → um só nome (config → rcqLists.deckAliases).
+    .map(r => (r.deck && deckAliases[r.deck] ? { ...r, deck: deckAliases[r.deck] } : r));
   results.sort((a, b) => a.date.localeCompare(b.date));
   return { results, error: null };
 }

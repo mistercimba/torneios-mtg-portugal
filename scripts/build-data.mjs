@@ -188,7 +188,7 @@ const WINNERS_OUT = resolve(ROOT, 'site/data/winners.json');
 export async function updateWinners(cfg, generatedAt, { fetchImpl = fetch, out = WINNERS_OUT, lists = null } = {}) {
   let previous = [];
   try { previous = JSON.parse(await readFile(out, 'utf8')).results || []; } catch { /* sem ficheiro anterior */ }
-  const { results, error } = await fetchWinners(cfg.sources, { fetchImpl, lists, aliases: cfg.aliases || {} });
+  const { results, error } = await fetchWinners(cfg.sources, { fetchImpl, lists, aliases: cfg.aliases || {}, deckAliases: cfg.deckAliases || {} });
   if (error) return `Vencedores: mantidos os ${previous.length} anteriores (${error}).`;
   if (previous.length >= 6 && results.length < previous.length * 0.5) return `Vencedores: a lista devolveu ${results.length} (antes ${previous.length}); mantidos os anteriores.`;
   // «rounds»: época + round de cada lista oficial, para o site mostrar a escolha (mesmo antes de haver vencedores).

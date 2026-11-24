@@ -410,19 +410,29 @@ const NEW_DAYS = 7;
 const isNew = e => !!e.criado && !isInfo(e) && !isPastEvent(e) && e.criado <= today && (asDate(today) - asDate(e.criado)) / 864e5 <= NEW_DAYS;
 const newPill = e => (isNew(e) ? ' <span class="new-pill" title="Acrescentado nos últimos 7 dias">Novo</span>' : '');
 
+// RCQ sem destino ainda anunciado (ex.: Round 3): diz-se que o RC está por anunciar, em vez de não dizer nada.
+const qualifiesFor = e => e.qualifica || (e.typeKey === 'rcq' && !isPastEvent(e) ? 'Regional Championship a anunciar' : '');
+
+// Hora e preço na lista (decisão de 24/11): as horas variam entre lojas. Hora = início no calendário (check-in).
+function whenPrice(e) {
+  const time = e.dateStart === e.dateEnd && !e.allDay && e.timeStart ? e.timeStart : '';
+  const price = e.scope === 'portugal' ? (e.preco != null ? (e.preco === 0 ? 'Grátis' : euro(e.preco)) : '') : '';
+  return [time, price].filter(Boolean).join(' · ');
+}
 function rowHtml(e) {
-  // Três colunas: tipo, onde (loja/evento + local) e formato. Preço e horário ficam no detalhe do torneio.
+  // Três colunas: tipo, onde (loja/evento + local) e formato, com a hora e o preço por baixo do formato.
   const place = placeLine(e);
   const fmt = formatText(e);
+  const wp = whenPrice(e);
   const multi = e.dateStart !== e.dateEnd;
   const n = spanDays(e);
   const range = multi ? `<span class="range-pill">${esc(rangeLabel(e, true))} · ${n} dias</span>` : '';
   const placeHtml = place ? esc(place) + flagHtml(e) : '';
-  const meta = [`<b>${esc(fmt || 'Formato a confirmar')}</b>`, placeHtml].filter(Boolean).join('  ·  ');
+  const meta = [`<b>${esc(fmt || 'Formato a confirmar')}</b>`, wp && esc(wp), placeHtml].filter(Boolean).join('  ·  ');
   return `<button type="button" class="event-row ${typeClass(e)}${e.scope === 'internacional' ? ' intl' : ''}" data-id="${esc(e.id)}" aria-label="Detalhes de ${esc(displayName(e))}, ${esc(formatDate(e.dateStart))}">`
     + `<span class="event-type">${typePillHtml(e)}${range}</span>`
-    + `<span class="event-main"><span class="store">${esc(displayName(e))}${newPill(e)}</span>${place ? `<span class="subline">${placeHtml}</span>` : ''}<span class="meta-m">${meta}</span>${e.qualifica ? `<span class="qualifies">Qualifica para ${esc(e.qualifica)}</span>` : ''}</span>`
-    + `<span class="format-col${fmt ? '' : ' pending'}">${esc(fmt || 'Formato a confirmar')}</span></button>`;
+    + `<span class="event-main"><span class="store">${esc(displayName(e))}${newPill(e)}</span>${place ? `<span class="subline">${placeHtml}</span>` : ''}<span class="meta-m">${meta}</span>${qualifiesFor(e) ? `<span class="qualifies">Qualifica para ${esc(qualifiesFor(e))}</span>` : ''}</span>`
+    + `<span class="format-col${fmt ? '' : ' pending'}">${esc(fmt || 'Formato a confirmar')}${wp ? `<small class="when-price">${esc(wp)}</small>` : ''}</span></button>`;
 }
 
 function infoHtml(e) {
@@ -510,10 +520,24 @@ function monthsHtml(filtered, withMilestones) {
   return { months, sortedKeys, html };
 }
 
+let generatedAt = null, generatedStamp = '';
+// «há 5 min», «há 3 h», «ontem», «há 4 dias» (a partir da data da última sincronização).
+function agoText(date, now = new Date()) {
+  const min = Math.max(0, Math.round((now - date) / 60000));
+  if (min < 1) return 'agora';
+  if (min < 60) return `há ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `há ${h} h`;
+  const d = Math.round(h / 24);
+  return d === 1 ? 'ontem' : `há ${d} dias`;
+}
 function renderEvents() {
   const q = normalize($('#search').value.trim());
   const filtered = events.filter(e => matches(e, q));
+  // «actualizado há X» ao lado do contador: é o que diz que a agenda está em dia.
   $('#count').textContent = countText(filtered);
+  const ago = document.getElementById('updated-ago');
+  if (generatedAt) { ago.textContent = `· actualizado ${agoText(generatedAt)}`; ago.title = `Última actualização: ${generatedStamp}`; }
   renderQuick();
   // «Limpar filtros» só aparece quando há algum filtro ou pesquisa activa.
   $('#reset').hidden = !hasFilters() && !$('#search').value.trim();
@@ -565,10 +589,12 @@ const looksLikeAddress = v => /\d/.test(v || '') && /,/.test(v || '');
 const cleanAddress = v => v.replace(/,\s*Portugal\s*$/i, '').replace(/^(?!\s*(?:rua|r\.|av\.?|avenida|largo|pra[cç]a|estrada|travessa|tv\.|urb\.?|urbaniza[cç][aã]o|alameda|cal[cç]ada|lugar|bairro)\b)[^,\d]+,\s*(?=.*\d)/i, '');
 const addressOf = e => (e.scope !== 'portugal' ? null : looksLikeAddress(e.local) ? cleanAddress(e.local) : storeInfo(e)?.morada || null);
 const socialUrl = (v, base) => (!v ? null : /^https?:\/\//i.test(v) ? safeUrl(v) : base + encodeURIComponent(v.replace(/^@/, '').replace(/^\/+|\/+$/g, '')));
+function storeLinkList(info) {
+  if (!info) return [];
+  return [[socialUrl(info.instagram, 'https://www.instagram.com/'), 'Instagram'], [socialUrl(info.facebook, 'https://www.facebook.com/'), 'Facebook'], [safeUrl(info.site), 'Site']].filter(([u]) => u);
+}
 function storeLinksHtml(info) {
-  if (!info) return '';
-  return [[socialUrl(info.instagram, 'https://www.instagram.com/'), 'Instagram'], [socialUrl(info.facebook, 'https://www.facebook.com/'), 'Facebook'], [safeUrl(info.site), 'Site']]
-    .filter(([u]) => u).map(([u, t]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${t} ↗</a>`).join('');
+  return storeLinkList(info).map(([u, t]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${t} ↗</a>`).join('');
 }
 let winners = [];
 
@@ -608,14 +634,24 @@ function renderStore(key) {
   });
 }
 
+// Deck do vencedor: construído → nome do deck; Sealed/Draft → «Sealed · set» (não é dado em falta).
+const isLimitedFmt = f => /sealed|draft|limited/i.test(f || '');
+function deckText(r) {
+  if (r.deck) return r.deck;
+  if (isLimitedFmt(r.format)) return r.format.replace(/^(sealed|draft)\s+/i, (m, k) => `${k[0].toUpperCase()}${k.slice(1).toLowerCase()} · `).replace(/\s+·\s*$/, '');
+  return '';
+}
 function resultHtml(r) {
   const d = asDate(r.date);
   const key = storeKeyFor(r.store, r.city);
   // A localidade não se repete quando já faz parte do nome da loja («Mulligan Quarteira»).
   const city = r.city && !normalize(r.store).includes(normalize(r.city)) ? r.city : '';
   const storeName = key ? `<a href="#loja-${esc(key)}" class="store-name-link">${esc(r.store)}</a>` : esc(r.store);
-  const meta = [storeName, city && esc(city), esc(r.deck || 'Deck não indicado')].filter(Boolean).join(' · ');
-  return `<div class="result"><span class="date">${d.getDate()} ${mon3(d).toUpperCase()}<br>${d.getFullYear()}</span><span class="win">${esc(r.name)}</span><span class="store-cell">${storeName}${city ? `<span class="location">${esc(city)}</span>` : ''}</span><span class="deck">${esc(r.deck || 'Não indicado')}</span><span class="num">${r.players == null ? '—' : r.players}<small>jogadores</small></span><span class="result-meta">${meta}</span></div>`;
+  const deck = deckText(r);
+  // Formato construído ao lado do deck (Modern, Standard…), útil quando a época mistura formatos.
+  const fmt = r.deck && r.format && !isLimitedFmt(r.format) ? r.format : '';
+  const meta = [storeName, city && esc(city), esc(deck || 'Deck não indicado') + (fmt ? ` <small class="deck-fmt">${esc(fmt)}</small>` : '')].filter(Boolean).join(' · ');
+  return `<div class="result"><span class="date">${d.getDate()} ${mon3(d).toUpperCase()}<br>${d.getFullYear()}</span><span class="win">${esc(r.name)}</span><span class="store-cell">${storeName}${city ? `<span class="location">${esc(city)}</span>` : ''}</span><span class="deck">${esc(deck || 'Não indicado')}${fmt ? `<small class="deck-fmt">${esc(fmt)}</small>` : ''}</span><span class="num">${r.players == null ? '—' : r.players}<small>jogadores</small></span><span class="result-meta">${meta}</span></div>`;
 }
 
 /* ---------- Endereços partilháveis ---------- */
@@ -728,7 +764,6 @@ function openDetails(id) {
   if (e.checkin) fact('Check-in', e.checkin);
   if (e.scope === 'portugal' && !isInfo(e)) fact('Juiz', e.juiz || 'A confirmar', !e.juiz);
   if (e.vagas) fact('Vagas', String(e.vagas));
-  if (e.rondaDeduzida) fact('Round', 'Atribuída pela data');
 
   const list = (title, items) => (items && items.length ? `<div class="detail-section"><h3>${esc(title)}</h3><ul>${items.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>` : '');
   const sub = [];
@@ -741,7 +776,7 @@ function openDetails(id) {
   document.getElementById('dialog-body').innerHTML =
     `<div class="dialog-top"><div><div class="dialog-meta">${esc(when)}</div><h2 id="modal-title">${esc(name)}</h2>${sub.map(s => `<div class="dialog-location">${esc(s)}</div>`).join('')}</div><button type="button" class="dialog-close" id="close-dialog" aria-label="Fechar detalhes">×</button></div>`
     + `<div class="dialog-tabs">${tabs.join('')}</div>`
-    + (e.qualifica ? `<div class="dialog-qualifica">Qualifica para <b>${esc(e.qualifica)}</b></div>` : '')
+    + (qualifiesFor(e) ? `<div class="dialog-qualifica">Qualifica para <b>${esc(qualifiesFor(e))}</b></div>` : '')
     + (facts.length ? `<dl class="facts">${facts.join('')}</dl>` : '')
     + list('Prémios', e.premios)
     + list('Notas', e.notas)
@@ -753,10 +788,18 @@ function openDetails(id) {
   const icsName = (e.title || 'evento').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase().slice(0, 60) + '.ics';
   const store = storeKey(e);
   // Acções compactas: inscrição em destaque; o resto em botões curtos; calendário num menu.
+  // Sem link de inscrição num torneio em Portugal: a inscrição faz-se na loja, e a página da loja passa a acção principal.
+  const socials = storeLinkList(storeInfo(e));
+  const viaStore = !link && !isInfo(e) && e.scope === 'portugal';
+  const primary = link
+    ? `<a class="primary" href="${esc(link)}" target="_blank" rel="noopener">${isInfo(e) ? 'Mais informação' : 'Inscrição / anúncio'} ↗</a>`
+    : viaStore ? (socials.length
+      ? `<a class="primary" href="${esc(socials[0][0])}" target="_blank" rel="noopener">Inscrição na loja · ${socials[0][1]} ↗</a>`
+      : '<span class="unavailable">Inscrição na loja</span>') : '';
   document.getElementById('dialog-actions').innerHTML =
-    (link ? `<a class="primary" href="${esc(link)}" target="_blank" rel="noopener">${isInfo(e) ? 'Mais informação' : 'Inscrição / anúncio'} ↗</a>` : (isInfo(e) ? '' : '<span class="unavailable">Sem link de inscrição</span>'))
+    primary
     + (map ? `<a href="${esc(map)}" target="_blank" rel="noopener">Mapa ↗</a>` : '')
-    + storeLinksHtml(storeInfo(e))
+    + (viaStore ? socials.slice(1) : socials).map(([u, t]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${t} ↗</a>`).join('')
     + (store ? `<a href="#loja-${esc(store)}" class="store-link">Loja</a>` : '')
     + `<button type="button" class="share-btn" id="share-event">Partilhar</button>`
     + `<details class="add-cal"><summary>Calendário</summary><div class="add-cal-menu"><span class="add-cal-label">Adicionar ao calendário:</span><a href="${esc(googleCalendarUrl(e))}" target="_blank" rel="noopener">Google Calendar</a><a href="#" class="ics-link" data-name="${esc(icsName)}">Apple / Outlook (.ics)</a></div></details>`;
@@ -847,7 +890,8 @@ function renderQuick() {
   el.innerHTML = QUICK.map((q, i) => {
     const c = quickValues('circuit', q.circuit), pl = quickValues('place', q.place);
     if ((q.circuit && !c.length) || (q.place && !pl.length)) return '';
-    const on = sameSet(sel.circuit, c) && sameSet(sel.place, pl);
+    // Cada atalho só mexe no seu filtro: RCQ/LPP no circuito, Internacionais no «Onde»; «Todos» limpa os dois.
+    const on = q.circuit ? sameSet(sel.circuit, c) : q.place ? sameSet(sel.place, pl) : !sel.circuit.size && !sel.place.size;
     return `<button type="button" class="quick ${q.cls ? typeClass({ typeKey: q.cls }) : ''}" data-quick="${i}" aria-pressed="${on}">${q.label}</button>`;
   }).join('');
 }
@@ -855,8 +899,18 @@ document.getElementById('quick-types').addEventListener('click', ev => {
   const b = ev.target.closest('button.quick');
   if (!b) return;
   const q = QUICK[b.dataset.quick];
-  sel.circuit = new Set(quickValues('circuit', q.circuit));
-  sel.place = new Set(quickValues('place', q.place));
+  const intl = quickValues('place', n => n.id === 'intl');
+  if (q.circuit) {
+    sel.circuit = new Set(quickValues('circuit', q.circuit));
+    // RCQ e LPP são em Portugal: se o «Onde» estava só em Internacional, deixa de fazer sentido.
+    if (sel.place.size && [...sel.place].every(v => intl.includes(v))) sel.place = new Set();
+  } else if (q.place) {
+    sel.place = new Set(quickValues('place', q.place));
+    sel.circuit = new Set(); // os circuitos RCQ/LPP não existem fora de Portugal
+  } else {
+    sel.circuit = new Set();
+    sel.place = new Set();
+  }
   renderEvents();
 });
 
@@ -943,6 +997,17 @@ async function loadJson(url) {
   return res.json();
 }
 
+/* ---------- Reportar erro / torneio em falta ---------- */
+// Preencher com o Instagram de contacto (sem @) e, se quiser, quem mantém o site. Vazio = a secção não aparece.
+const CONTACT = { instagram: '', maintainer: '' };
+(function showReport() {
+  const ig = socialUrl(CONTACT.instagram, 'https://www.instagram.com/');
+  if (!ig) return;
+  document.getElementById('report-link').href = ig;
+  if (CONTACT.maintainer) document.getElementById('maintainer').textContent = ` Mantido por ${CONTACT.maintainer}.`;
+  document.getElementById('report').hidden = false;
+})();
+
 async function init() {
   // A ficha das lojas carrega em paralelo e fica pronta antes da agenda aparecer.
   const storesReady = loadJson('data/stores.json').then(s => loadStoreInfo(s.lojas)).catch(err => console.warn('Ficha das lojas indisponível', err));
@@ -955,6 +1020,7 @@ async function init() {
     const stamp = new Intl.DateTimeFormat('pt-PT', { timeZone: 'Europe/Lisbon', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(updated);
     $('#footnote').innerHTML = `<strong>Fonte:</strong> Google Calendar «Torneios MTG». Última actualização: ${esc(stamp)}. Horas em hora de Portugal continental.`;
     $('#updated').textContent = `actualizado ${stamp}`;
+    if (!Number.isNaN(updated.getTime())) { generatedAt = updated; generatedStamp = stamp; }
     await storesReady;
     buildFilters();
     renderEvents();
@@ -998,7 +1064,8 @@ function renderWinners() {
   $('#win-rounds').innerHTML = rounds.length > 1 ? ['', ...rounds].map(r => `<button type="button" class="quick" data-round="${esc(r)}" aria-pressed="${r === winRound}">${r ? esc(roundLabel(r)) + (roundFormat(r) ? ` <small class="round-fmt">${esc(roundFormat(r))}</small>` : '') : 'Todas'}</button>`).join('') : '';
   const list = winRound ? inSeason.filter(r => r.round === winRound) : inSeason;
   $('#win-stats').innerHTML = statsHtml(list);
-  $('#results').innerHTML = list.map(resultHtml).join('');
+  // Mais recente primeiro (como na página da loja).
+  $('#results').innerHTML = [...list].sort((a, b) => b.date.localeCompare(a.date)).map(resultHtml).join('');
 }
 document.getElementById('winners').addEventListener('click', ev => {
   const b = ev.target.closest('button[data-round], button[data-season]');
@@ -1017,14 +1084,18 @@ function statsHtml(list) {
   const sealed = list.filter(r => /sealed|draft|limited/i.test(r.format || '')).length;
   const std = list.length - sealed;
   // Formato construído de cada round (R1 Modern, R2/R3 Standard); em «Todas» mostra os vários.
-  const constructed = [...new Set(list.filter(r => !/sealed|draft|limited/i.test(r.format || '')).map(r => r.format).filter(Boolean))].sort();
+  // Por ordem cronológica (Season 1 Pioneer, Season 2 Modern, Season 3 Standard…).
+  const constructed = [...new Set(list.filter(r => !isLimitedFmt(r.format)).sort((a, b) => a.date.localeCompare(b.date)).map(r => r.format).filter(Boolean))];
   const cLabel = constructed.length === 1 ? esc(constructed[0]) : 'Construído';
-  const cSmall = constructed.map(esc).join(' · ');
   const bars = (rows, max, fmt = n => n) => `<ol class="stat-bars">${rows.map(([k, n, extra]) => `<li><span class="stat-name">${k}${extra ? ` <small>${extra}</small>` : ''}</span><span class="stat-bar"><i style="width:${Math.max(6, Math.round(n / max * 100))}%"></i></span><span class="stat-num">${fmt(n)}</span></li>`).join('')}</ol>`;
 
-  // Arquétipos: só RCQs construídos com deck indicado.
-  const decks = count(list.filter(r => !/sealed|draft|limited/i.test(r.format || '')), r => r.deck);
-  const noDeck = list.filter(r => !/sealed|draft|limited/i.test(r.format || '') && !r.deck).length;
+  // Arquétipos: só RCQs construídos com deck indicado, um bloco por formato (não se misturam Modern e Standard).
+  const archBoxes = (constructed.length ? constructed : ['']).map(f => {
+    const inFmt = list.filter(r => !isLimitedFmt(r.format) && (!f || r.format === f));
+    const decks = count(inFmt, r => r.deck);
+    const noDeck = inFmt.filter(r => !r.deck).length;
+    return `<section class="stat-box"><h3>Arquétipos vencedores${f ? ` <small>${esc(f)}</small>` : ''}</h3>${decks.length ? bars(decks.slice(0, 6).map(([k, n]) => [esc(k), n]), decks[0][1]) : '<p class="stat-empty">Sem decks indicados.</p>'}${noDeck ? `<p class="stat-foot">${noDeck} ${noDeck === 1 ? 'RCQ' : 'RCQs'} sem deck indicado na lista.</p>` : ''}</section>`;
+  }).join('');
   // Lojas: nº de RCQs com resultado e média de jogadores.
   const stores = count(list, r => r.store).slice(0, 6).map(([store, n]) => {
     const ps = list.filter(r => r.store === store && r.players).map(r => r.players);
@@ -1044,10 +1115,10 @@ function statsHtml(list) {
       <div class="stat-tile"><b>${list.length}</b><span>RCQs com vencedor</span></div>
       <div class="stat-tile"><b>${totalPlayers}</b><span>jogadores no total</span></div>
       <div class="stat-tile"><b>${withPlayers.length ? Math.round(totalPlayers / withPlayers.length) : '—'}</b><span>jogadores por RCQ (média)</span></div>
-      <div class="stat-tile"><b>${std} · ${sealed}</b><span>${cLabel} · Sealed</span></div>
+      <div class="stat-tile"><b>${std}</b><span>${cLabel}${sealed ? ` · mais ${sealed} de Sealed` : ''}</span></div>
     </div>
     <div class="stat-cols">
-      <section class="stat-box"><h3>Arquétipos vencedores${cSmall ? ` <small>${cSmall}</small>` : ''}</h3>${decks.length ? bars(decks.slice(0, 6).map(([k, n]) => [esc(k), n]), decks[0][1]) : '<p class="stat-empty">Sem decks indicados.</p>'}${noDeck ? `<p class="stat-foot">${noDeck} ${noDeck === 1 ? 'RCQ' : 'RCQs'} sem deck indicado na lista.</p>` : ''}</section>
+      ${archBoxes}
       <section class="stat-box"><h3>Lojas com mais RCQs <small>média de jogadores</small></h3>${bars(stores, stores[0][1])}</section>
       ${repeatBox}
     </div>

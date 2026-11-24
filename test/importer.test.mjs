@@ -211,6 +211,8 @@ test('vencedores: «???» não conta e nomes do mesmo jogador juntam-se pelos al
   assert.deepEqual(parseWinnersText(text, { round: 'R2' }).map(r => r.name), ['Ikinho']);
   const { results } = await fetchWinners([], { lists: { texts: [{ round: 'R2', season: '2025/26', text }], error: null }, aliases: { Ikinho: 'Henrique ‘Ikinho’ Santos' } });
   assert.deepEqual(results.map(r => r.name), ['Henrique ‘Ikinho’ Santos']);
+  const d = await fetchWinners([], { lists: { texts: [{ round: 'R2', season: '2025/26', text }], error: null }, deckAliases: { 'Mono Red': 'Mono Red Aggro' } });
+  assert.deepEqual(d.results.map(r => r.deck), ['Mono Red Aggro']);
 });
 
 test('vencedores: anos da época, lojas sem parênteses e quebras de linha do Google Docs', () => {
