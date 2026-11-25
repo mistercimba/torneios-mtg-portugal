@@ -80,8 +80,10 @@ export async function launchBrowser() {
       if (msg.sessionId !== sessionId) return;
       if (msg.method === 'Runtime.exceptionThrown') errors.push(msg.params.exceptionDetails.exception?.description || msg.params.exceptionDetails.text);
       if (msg.method === 'Runtime.consoleAPICalled' && msg.params.type === 'error') errors.push(msg.params.args.map(a => a.value ?? a.description).join(' '));
+      // Bloqueios da Content-Security-Policy (25/11) também contam como erro.
+      if (msg.method === 'Log.entryAdded' && msg.params.entry.source === 'security') errors.push('CSP: ' + msg.params.entry.text);
     });
-    await s('Page.enable'); await s('Runtime.enable');
+    await s('Page.enable'); await s('Runtime.enable'); await s('Log.enable');
     // UI_FORCE_FONT="DejaVu Sans" simula localmente as fontes de outro ambiente (ex.: GitHub Actions).
     const force = process.env.UI_FORCE_FONT ? `document.addEventListener('DOMContentLoaded',()=>{const st=document.createElement('style');st.textContent='body,.brand{font-family:${JSON.stringify(process.env.UI_FORCE_FONT).slice(1, -1)},sans-serif!important}';document.head.appendChild(st)});` : '';
     await s('Page.addScriptToEvaluateOnNewDocument', { source: `${dateShim};${force}try{localStorage.setItem('torneios-portugal-theme','${theme}')}catch(e){}` });

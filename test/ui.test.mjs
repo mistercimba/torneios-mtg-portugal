@@ -1201,3 +1201,18 @@ test('31. vencedores: a mesma round de épocas diferentes não se mistura', { sk
   assert.deepEqual(page.errors, []);
   await page.close();
 });
+
+test('segurança: CSP no HTML autoriza o script inline do tema (hash certo) e não há outros scripts inline', async () => {
+  const { createHash } = await import('node:crypto');
+  const { readFileSync } = await import('node:fs');
+  const html = readFileSync(new URL('../site/index.html', import.meta.url), 'utf8');
+  const csp = (html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/) || [])[1];
+  assert.ok(csp, 'falta a CSP');
+  assert.match(csp, /default-src 'self'/);
+  assert.match(csp, /object-src 'none'/);
+  const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+  assert.equal(inline.length, 1, 'só deve haver um script inline (o do tema)');
+  const hash = createHash('sha256').update(inline[0], 'utf8').digest('base64');
+  assert.ok(csp.includes(`'sha256-${hash}'`), 'o hash do script do tema na CSP está desactualizado');
+  assert.match(html, /<meta name="referrer" content="strict-origin-when-cross-origin">/);
+});
