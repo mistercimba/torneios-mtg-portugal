@@ -1129,6 +1129,9 @@ test('37. lote 2: página da loja com vencedores por época/round e sem link par
     assert.ok(r.heads.length >= 1 && /\d{4}\/\d{2}/.test(r.heads[0]), `títulos por época/round: ${r.heads}`);
     assert.deepEqual([...r.heads], [...r.heads].sort().reverse().length ? r.heads : r.heads);
     assert.equal(r.selfLinks, 0, 'sem link para a própria loja');
+    const titles = await page.eval(`[...document.querySelectorAll('#store .event-row .store')].map(x => x.textContent.replace('Novo', '').trim())`);
+    const storeName = await page.eval(`document.querySelector('#store h1').textContent`);
+    assert.ok(titles.every(t => t !== storeName), `torneios da loja sem repetir o nome: ${titles}`);
   }
   assert.deepEqual(page.errors, []);
   await page.close();

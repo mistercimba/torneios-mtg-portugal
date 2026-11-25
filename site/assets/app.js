@@ -423,20 +423,21 @@ function whenPrice(e) {
   const price = e.scope === 'portugal' ? (e.preco != null ? (e.preco === 0 ? 'Grátis' : euro(e.preco)) : '') : '';
   return [time, price].filter(Boolean).join(' · ');
 }
-function rowHtml(e) {
+function rowHtml(e, { inStore = false } = {}) {
   // Três colunas: tipo, onde (loja/evento + local) e formato, com a hora e o preço por baixo do formato.
-  const place = placeLine(e);
+  // Na página da loja, o título é o formato (o tipo já está na etiqueta) e não se repete o nome nem a localidade da loja.
+  const place = inStore ? '' : placeLine(e);
   const fmt = formatText(e);
   const wp = whenPrice(e);
   const multi = e.dateStart !== e.dateEnd;
   const n = spanDays(e);
   const range = multi ? `<span class="range-pill">${esc(rangeLabel(e, true))} · ${n} dias</span>` : '';
   const placeHtml = place ? esc(place) + flagHtml(e) : '';
-  const meta = [`<b>${esc(fmt || 'Formato a confirmar')}</b>`, wp && esc(wp), placeHtml].filter(Boolean).join('  ·  ');
+  const meta = [inStore ? '' : `<b>${esc(fmt || 'Formato a confirmar')}</b>`, wp && esc(wp), placeHtml].filter(Boolean).join('  ·  ');
   return `<button type="button" class="event-row ${typeClass(e)}${e.scope === 'internacional' ? ' intl' : ''}${isPastEvent(e) ? ' is-past' : ''}" data-id="${esc(e.id)}" aria-label="Detalhes de ${esc(displayName(e))}, ${esc(formatDate(e.dateStart))}">`
     + `<span class="event-type">${typePillHtml(e)}${range}${isPastEvent(e) ? '<span class="past-pill">Terminado</span>' : ''}</span>`
-    + `<span class="event-main"><span class="store">${esc(displayName(e))}${newPill(e)}</span>${place ? `<span class="subline">${placeHtml}</span>` : ''}<span class="meta-m">${meta}</span>${qualifiesFor(e) ? `<span class="qualifies">Qualifica para ${esc(qualifiesFor(e))}</span>` : ''}</span>`
-    + `<span class="format-col${fmt ? '' : ' pending'}">${esc(fmt || 'Formato a confirmar')}${wp ? `<small class="when-price">${esc(wp)}</small>` : ''}</span></button>`;
+    + `<span class="event-main"><span class="store">${esc(inStore ? fmt || 'Formato a confirmar' : displayName(e))}${newPill(e)}</span>${place ? `<span class="subline">${placeHtml}</span>` : ''}<span class="meta-m">${meta}</span>${qualifiesFor(e) ? `<span class="qualifies">Qualifica para ${esc(qualifiesFor(e))}</span>` : ''}</span>`
+    + `<span class="format-col${fmt || inStore ? '' : ' pending'}">${inStore ? '' : esc(fmt || 'Formato a confirmar')}${wp ? `<small class="when-price">${esc(wp)}</small>` : ''}</span></button>`;
 }
 
 function infoHtml(e) {
@@ -465,6 +466,7 @@ function milestoneVisible(m) {
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 const COL_HEAD = '<div class="col-head" aria-hidden="true"><span>Tipo</span><span>Evento</span><span>Formato</span></div>';
+const COL_HEAD_STORE = '<div class="col-head" aria-hidden="true"><span>Tipo</span><span>Formato</span><span>Hora e preço</span></div>';
 
 
 /** Separa o total em Portugal e internacionais quando há dos dois. */
@@ -479,7 +481,7 @@ function countText(list) {
 
 /** Cartões por dia, agrupados por mês. withMilestones: marcos das rounds (só na agenda principal).
  *  past: secção de eventos passados (do mais recente para o mais antigo, sem marcos nem «A decorrer»). */
-function monthsHtml(filtered, withMilestones, { past = false, idPrefix = withMilestones ? 'm' : '' } = {}) {
+function monthsHtml(filtered, withMilestones, { past = false, idPrefix = withMilestones ? 'm' : '', inStore = false } = {}) {
   // Mês → dias (cada evento aparece uma só vez, no dia em que começa) com torneios, datas informativas e marcos.
   const months = new Map();
   const dayFor = date => {
@@ -517,11 +519,11 @@ function monthsHtml(filtered, withMilestones, { past = false, idPrefix = withMil
       const rel = relativeDay(date);
       const label = `${rel ? rel + ', ' : ''}${longWeek[dt.getDay()]}, ${dt.getDate()} de ${months_[dt.getMonth()]} de ${dt.getFullYear()}`;
       return `<article class="day-card" data-date="${date}" aria-label="${esc(label)}"><div class="day-head"><span class="day-num" aria-hidden="true">${dt.getDate()}</span><span class="day-names"><span class="day-wd">${longWeek[dt.getDay()]}${rel ? ` <span class="day-rel">${rel}</span>` : ''}</span><span class="day-mon">${months_[dt.getMonth()]} ${dt.getFullYear()}${!rel && countdown(date) ? ` · <span class="day-countdown">${countdown(date)}</span>` : ''}</span></span>${count ? `<span class="day-count">${count}</span>` : ''}</div>`
-        + day.before.join('') + day.events.map(rowHtml).join('') + day.info.map(infoHtml).join('')
+        + day.before.join('') + day.events.map(e => rowHtml(e, { inStore })).join('') + day.info.map(infoHtml).join('')
         + cont.map(e => contHtml(e, date)).join('') + day.after.join('') + `</article>`;
     }).join('');
     const total = g.total ? plural(g.total, 'torneio', 'torneios') : '';
-    return `<section class="month-block"${idPrefix ? ` id="${idPrefix}-${key}"` : ''} aria-label="${months_[g.date.getMonth()]} ${g.date.getFullYear()}"><div class="month-title"><h2>${months_[g.date.getMonth()]}</h2><span class="year">${g.date.getFullYear()}</span><span class="total">${total}</span></div>${mi === 0 && !past ? COL_HEAD : ''}${cards}</section>`;
+    return `<section class="month-block"${idPrefix ? ` id="${idPrefix}-${key}"` : ''} aria-label="${months_[g.date.getMonth()]} ${g.date.getFullYear()}"><div class="month-title"><h2>${months_[g.date.getMonth()]}</h2><span class="year">${g.date.getFullYear()}</span><span class="total">${total}</span></div>${mi === 0 && !past ? (inStore ? COL_HEAD_STORE : COL_HEAD) : ''}${cards}</section>`;
   }).join('');
   return { months, sortedKeys, html };
 }
@@ -730,9 +732,9 @@ function renderStore(key) {
     <div class="store-head"><div><h1>${esc(name)}</h1><p class="store-place">${esc(place)}${address ? `<span class="store-address">${esc(address)}</span>` : ''}</p><p class="store-stats">${esc(stats)}</p></div>
     <div class="store-actions">${map ? `<a href="${esc(map)}" target="_blank" rel="noopener">Ver no mapa ↗</a>` : ''}${storeLinksHtml(info)}<button type="button" class="share-btn" id="share-store">Partilhar</button></div></div>
     <h3 class="store-section">Próximos torneios</h3>
-    ${upcoming.length ? `<div class="store-events">${monthsHtml(upcoming, false).html}</div>` : '<p class="store-none">Sem torneios marcados de momento.</p>'}
+    ${upcoming.length ? `<div class="store-events">${monthsHtml(upcoming, false, { inStore: true }).html}</div>` : '<p class="store-none">Sem torneios marcados de momento.</p>'}
     ${wins.length ? `<h3 class="store-section">Vencedores</h3><div class="store-results">${storeWinsHtml(wins)}</div>` : ''}
-    ${past.length ? `<details class="store-past"><summary>Torneios anteriores (${past.length})</summary><div class="store-events">${monthsHtml(past, false, { past: true }).html}</div></details>` : ''}
+    ${past.length ? `<details class="store-past"><summary>Torneios anteriores (${past.length})</summary><div class="store-events">${monthsHtml(past, false, { past: true, inStore: true }).html}</div></details>` : ''}
   </div>`;
   el.querySelector('#share-store').addEventListener('click', async ev => {
     const btn = ev.currentTarget, msg = await shareLink(location.origin + location.pathname + '#loja-' + key, name);
