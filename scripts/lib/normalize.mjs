@@ -27,6 +27,7 @@ export const TYPE_CATALOG = {
   'rcq': { label: 'RCQ', short: 'RCQ', family: 'rcq' },
   'lpp': { label: 'LPP', short: 'LPP', family: 'lpp' },
   'lll': { label: 'LLL', short: 'LLL', family: 'lll' },
+  'road to nationals': { label: 'Road to Nationals', short: 'RTN', family: 'rtn' },
   'cedh': { label: 'cEDH', short: 'cEDH', family: 'cedh' },
   'prerelease': { label: 'Prerelease', short: 'Prerelease', family: 'prerelease' },
   'qualificador': { label: 'Qualificador', short: 'Qualificador', family: 'qualificador' },
@@ -41,7 +42,7 @@ export const TYPE_CATALOG = {
 };
 
 // Circuitos locais: sem outra indicação, assume-se torneio em Portugal (e avisa-se se faltar a localidade).
-const LOCAL_CIRCUITS = new Set(['rcq', 'lpp', 'lll', 'cedh', 'qualificador']);
+const LOCAL_CIRCUITS = new Set(['rcq', 'lpp', 'lll', 'cedh', 'qualificador', 'road to nationals']);
 
 const PENDING = new Set(['a confirmar', 'tba', 'tbd', 'a anunciar', 'por confirmar', '?', '-', '—']);
 const isPending = v => PENDING.has(normalizeKey(v));

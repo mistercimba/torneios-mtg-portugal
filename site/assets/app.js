@@ -173,7 +173,7 @@ function rangeLabel(e, short) {
 /* ---------- Cor por tipo de evento ---------- */
 // Cada tipo tem a sua cor (definida em styles.css como .t-<chave>); tipos novos usam o estilo genérico .t-outro.
 const TYPE_CLASS = {
-  rcq: 'rcq', lpp: 'lpp', lll: 'lll', cedh: 'cedh', prerelease: 'prerelease', qualificador: 'qualificador',
+  rcq: 'rcq', lpp: 'lpp', lll: 'lll', 'road to nationals': 'rtn', cedh: 'cedh', prerelease: 'prerelease', qualificador: 'qualificador',
   spotlight: 'spotlight', 'regional championship': 'rc', 'pro tour': 'pt', 'world championship': 'worlds',
   'campeonato / evento especial': 'especial', paupergeddon: 'paupergeddon', anuncio: 'anuncio',
 };

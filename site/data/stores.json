@@ -64,6 +64,14 @@
       "site": ""
     },
     {
+      "nome": "GG Lounge",
+      "localidade": "Viseu",
+      "morada": "Rua de São Pedro 52, Cave B, 3500-696 Viseu",
+      "instagram": "gglounge_viseu",
+      "facebook": "",
+      "site": ""
+    },
+    {
       "nome": "Gárgula Gaming",
       "localidade": "Lisboa",
       "morada": "Rua José Galhardo 5, loja 1, 1750-131 Lisboa",
@@ -103,6 +111,14 @@
       "site": ""
     },
     {
+      "nome": "Mulligan Faro",
+      "localidade": "Faro",
+      "morada": "Estrada de São Luís 70A, 8000-123 Faro",
+      "instagram": "mulligan.games",
+      "facebook": "",
+      "site": ""
+    },
+    {
       "nome": "Mulligan Portimão",
       "localidade": "Portimão",
       "morada": "Rua José Guerreiro de Matos, 8500-483 Portimão",
@@ -123,6 +139,18 @@
       "site": ""
     },
     {
+      "nome": "Player's Spot",
+      "aliases": [
+        "Players Spot",
+        "PlayerSpot"
+      ],
+      "localidade": "Barreiro",
+      "morada": "Rua Prof. Joaquim Vicente França 85, 2830-298 Barreiro",
+      "instagram": "players_spot",
+      "facebook": "",
+      "site": ""
+    },
+    {
       "nome": "PlayHub",
       "aliases": [
         "PlayHub Faro"
@@ -133,6 +161,18 @@
       "facebook": "",
       "site": "",
       "mapa": "https://maps.app.goo.gl/oVPNasw6M4YQbtbDA"
+    },
+    {
+      "nome": "Taberna Topdeck",
+      "aliases": [
+        "Taberna TopDeck",
+        "Topdeck"
+      ],
+      "localidade": "Coimbra",
+      "morada": "Rua do Brasil 98, 3030-775 Coimbra",
+      "instagram": "tabernatopdeck",
+      "facebook": "",
+      "site": ""
     },
     {
       "nome": "Templar Games",
