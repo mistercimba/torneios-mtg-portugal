@@ -455,8 +455,11 @@ function rowHtml(e, { inStore = false } = {}) {
   const range = multi ? `<span class="range-pill">${esc(rangeLabel(e, true))} · ${n} dias</span>` : '';
   const placeHtml = place ? esc(place) + flagHtml(e) : '';
   const meta = [inStore ? '' : `<b>${esc(fmt || 'Formato a confirmar')}</b>`, wp && esc(wp), placeHtml].filter(Boolean).join('  ·  ');
-  return `<button type="button" class="event-row ${typeClass(e)}${e.scope === 'internacional' ? ' intl' : ''}${isPastEvent(e) ? ' is-past' : ''}" data-id="${esc(e.id)}" aria-label="Detalhes de ${esc(displayName(e))}, ${esc(formatDate(e.dateStart))}">`
-    + `<span class="event-type">${typePillHtml(e)}${range}${isPastEvent(e) ? '<span class="past-pill">Terminado</span>' : ''}</span>`
+  // Computador (pedido do Mário, 25/11): formato e hora/preço numa linha por baixo da etiqueta, sem 3.ª coluna.
+  // Formato sozinho numa linha e, por baixo, hora · preço (escolha do Mário, 25/11).
+  const typeMeta = inStore ? '' : `<span class="type-meta"><b class="${fmt ? '' : 'pending'}">${esc(fmt || 'Formato a confirmar')}</b>${wp ? `<span class="tm-wp">${esc(wp)}</span>` : ''}</span>`;
+  return `<button type="button" class="event-row ${typeClass(e)}${inStore ? ' in-store' : ''}${e.scope === 'internacional' ? ' intl' : ''}${isPastEvent(e) ? ' is-past' : ''}" data-id="${esc(e.id)}" aria-label="Detalhes de ${esc(displayName(e))}, ${esc(formatDate(e.dateStart))}">`
+    + `<span class="event-type">${typePillHtml(e)}${range}${isPastEvent(e) ? '<span class="past-pill">Terminado</span>' : ''}${typeMeta}</span>`
     + `<span class="event-main"><span class="store">${esc(inStore ? fmt || 'Formato a confirmar' : displayName(e))}${newPill(e)}</span>${place ? `<span class="subline">${placeHtml}</span>` : ''}<span class="meta-m">${meta}</span>${qualifiesFor(e) ? `<span class="qualifies">Qualifica para ${esc(qualifiesFor(e))}</span>` : ''}</span>`
     + `<span class="format-col${fmt || inStore ? '' : ' pending'}">${inStore ? '' : esc(fmt || 'Formato a confirmar')}${wp ? `<small class="when-price">${esc(wp)}</small>` : ''}</span></button>`;
 }
@@ -489,7 +492,7 @@ function milestoneVisible(m) {
 }
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-const COL_HEAD = '<div class="col-head" aria-hidden="true"><span>Tipo</span><span>Evento</span><span>Formato</span></div>';
+const COL_HEAD = '<div class="col-head agenda-head" aria-hidden="true"><span>Tipo e formato</span><span>Evento</span></div>';
 const COL_HEAD_STORE = '<div class="col-head" aria-hidden="true"><span>Tipo</span><span>Formato</span><span>Hora e preço</span></div>';
 
 

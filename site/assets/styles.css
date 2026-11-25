@@ -493,3 +493,14 @@ html[data-theme=dark] .brand .brand-torneios{color:#43b46e}html[data-theme=dark]
 .act-grid > .act:last-child:nth-child(odd){grid-column:1/-1}
 /* Atalhos no telemóvel: com RTN são 5; cabem numa linha a 390px sem cortar «Internacionais». */
 @media(max-width:760px){.quick-types{gap:6px}.quick{padding:7px 11px;font-size:12.5px}.quick.t-rcq:before,.quick.t-lpp:before,.quick.t-rtn:before{display:none}}
+
+/* Agenda no computador (25/11): 2 colunas — tipo + «formato · hora · preço» à esquerda, evento à direita. */
+.type-meta{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1.35}
+.type-meta b{display:block;font-size:14px;font-weight:650;color:var(--secondary)}.type-meta b.pending{font-weight:600;color:var(--muted)}
+.tm-wp{display:block;margin-top:2px;font-size:12.5px;font-weight:600}
+@media(min-width:761px){
+ .wrapper{max-width:900px}
+ .agenda-head,.event-row:not(.in-store){grid-template-columns:200px minmax(0,1fr)}
+ .event-row:not(.in-store) .format-col{display:none}
+}
+@media(max-width:760px){.type-meta{display:none}}

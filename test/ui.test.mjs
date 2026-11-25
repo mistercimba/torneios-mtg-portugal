@@ -310,21 +310,22 @@ test('10. eventos de vários dias: intervalo no primeiro dia e «A decorrer · D
   }
 });
 
-test('11. desktop: três colunas alinhadas (tipo, evento, formato), sem horário nem inscrição', { skip }, async () => {
+test('11. desktop: duas colunas alinhadas (tipo + formato/hora/preço, evento), sem 3.ª coluna', { skip }, async () => {
   for (const w of [1280, 1100, 900]) {
     const page = await open({ width: w });
     await showAll(page);
     const r = await page.eval(`[...document.querySelectorAll('.event-row')].map(row => {
       const R = s => row.querySelector(s).getBoundingClientRect();
-      const pill = R('.type-pill'), name = R('.store'), fmt = R('.format-col');
-      return { gap: name.left - pill.right, pillLeft: Math.round(pill.left), nameLeft: Math.round(name.left), fmtLeft: Math.round(fmt.left), extra: !!row.querySelector('.price-col, .event-time'), name: row.querySelector('.store').textContent };
+      const pill = R('.type-pill'), name = R('.store'), meta = R('.type-meta'), col = R('.event-type');
+      return { gap: name.left - Math.max(pill.right, meta.right), pillLeft: Math.round(col.left), metaLeft: Math.round(meta.left - pill.left), below: meta.top >= pill.bottom - 1, nameLeft: Math.round(name.left), fmtShown: getComputedStyle(row.querySelector('.format-col')).display !== 'none', extra: !!row.querySelector('.price-col, .event-time'), name: row.querySelector('.store').textContent };
     })`);
-    for (const x of r) assert.ok(x.gap >= 10, `${w}px «${x.name}»: ${x.gap.toFixed(1)}px entre o tipo e o nome`);
+    for (const x of r) assert.ok(x.gap >= 10, `${w}px «${x.name}»: ${x.gap.toFixed(1)}px entre a coluna do tipo e o nome`);
     assert.equal(new Set(r.map(x => x.pillLeft)).size, 1, `${w}px: etiquetas de tipo desalinhadas à esquerda`);
+    assert.ok(r.every(x => x.metaLeft === 0), `${w}px: formato e hora alinhados à esquerda com a etiqueta`);
+    assert.ok(r.every(x => x.below), `${w}px: «formato · hora» por baixo da etiqueta`);
     assert.equal(new Set(r.map(x => x.nameLeft)).size, 1, `${w}px: coluna do evento desalinhada`);
-    assert.equal(new Set(r.map(x => x.fmtLeft)).size, 1, `${w}px: coluna do formato desalinhada`);
-    assert.ok(r.every(x => !x.extra), `${w}px: sem colunas de horário/inscrição`);
-    assert.deepEqual(await page.eval(`[...document.querySelectorAll('.col-head')].length && [...document.querySelector('.col-head').children].map(c => c.textContent)`), ['Tipo', 'Evento', 'Formato']);
+    assert.ok(r.every(x => !x.fmtShown && !x.extra), `${w}px: sem 3.ª coluna nem colunas de horário/inscrição`);
+    assert.deepEqual(await page.eval(`[...document.querySelectorAll('.col-head')].length && [...document.querySelector('.col-head').children].map(c => c.textContent)`), ['Tipo e formato', 'Evento']);
     assert.ok(await page.eval(`getComputedStyle(document.querySelector('.col-head')).display !== 'none'`));
     assert.ok((await page.eval('document.documentElement.scrollWidth - innerWidth')) <= 0, `${w}px: scroll horizontal`);
     await page.close();
