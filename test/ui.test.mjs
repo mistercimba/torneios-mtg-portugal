@@ -198,7 +198,7 @@ test('modo claro e escuro: sem erros e etiquetas legíveis em desktop e mobile',
       const lum = c => { const [r,g,b] = c.match(/\\d+(\\.\\d+)?/g).slice(0,3).map(Number).map(v => { v/=255; return v <= .03928 ? v/12.92 : ((v+.055)/1.055)**2.4; }); return .2126*r+.7152*g+.0722*b; };
       const bgOf = el => { while (el) { const c = getComputedStyle(el).backgroundColor; if (c && !c.endsWith(', 0)') && c !== 'transparent') return c; el = el.parentElement; } return getComputedStyle(document.body).backgroundColor; };
       const bad = [];
-      for (const el of document.querySelectorAll('.store, .win, .type-pill, .range-pill, .format-col, .event-time, .meta-m, .meta-m b, .price-col, .month-title h3, .month-title .year, .month-title .total, .col-head span, .day-num, .day-wd, .day-mon, .day-count, .count, .result-meta, .milestone-name, .info-kind, .info-name, .info-when, .cont-kind, .cont-name, .cont-when, .legend-item, .subline, .price-col small, .filter label, .dialog-meta, .dialog-location, .dialog-tab, .detail-label, .detail-value, .detail-section li, .dialog-note, .unavailable')) {
+      for (const el of document.querySelectorAll('.store, .win, .type-pill, .range-pill, .format-col, .event-time, .meta-m, .meta-m b, .price-col, .month-title h2, .month-title .year, .month-title .total, .col-head span, .day-num, .day-wd, .day-mon, .day-count, .count, .result-meta, .milestone-name, .info-kind, .info-name, .info-when, .cont-kind, .cont-name, .cont-when, .legend-item, .subline, .price-col small, .filter label, .dialog-meta, .dialog-location, .dialog-tab, .detail-label, .detail-value, .detail-section li, .dialog-note, .unavailable')) {
         if (!el.offsetParent) continue;
         const a = lum(getComputedStyle(el).color), b = lum(bgOf(el));
         const ratio = (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
@@ -729,11 +729,11 @@ test('22. página da loja: nomes diferentes da mesma loja juntam-se; abre a part
   await page.eval(`document.querySelector('.event-row').click()`);
   const storeName = await page.eval(`events.find(e => e.id === document.querySelector('.event-row').dataset.id).loja`);
   await page.eval(`document.querySelector('#dialog-actions .store-link').click()`);
-  await page.waitFor(`document.body.dataset.view === 'store' && document.querySelector('.store-head h2')`);
+  await page.waitFor(`document.body.dataset.view === 'store' && document.querySelector('.store-head h1')`);
   const r = await page.eval(`(() => {
     const key = location.hash.slice(6);
     const ids = [...document.querySelectorAll('#store .event-row, #store .info-row')].map(e => e.dataset.id);
-    return { key, dialog: document.getElementById('detail-dialog').open, name: document.querySelector('.store-head h2').textContent,
+    return { key, dialog: document.getElementById('detail-dialog').open, name: document.querySelector('.store-head h1').textContent,
       all: ids.every(id => storeKey(events.find(e => e.id === id)) === key), n: ids.length, title: document.title,
       dupIds: (() => { const all = [...document.querySelectorAll('[id]')].map(e => e.id); return all.length - new Set(all).size; })() };
   })()`);
@@ -973,6 +973,7 @@ test('30. vencedores: estatísticas dos RCQs e escolha da round', { skip }, asyn
   let s = await st();
   assert.deepEqual(s.chips.map(c => c[0]), ['Todas', 'Round 1', 'Round 2', 'Round 3']);
   assert.equal(Number(s.rcqs), s.rows, 'nº de RCQs = linhas da lista');
+  assert.match(await page.eval(`document.getElementById('win-dest').textContent`), /Round 1 → RC .+ · Round 2 → RC /, 'destino de cada round em «Todas»');
   const total = s.rows;
   await page.eval(`[...document.querySelectorAll('#win-rounds .quick')].find(b => b.dataset.round === 'R3').click()`);
   s = await st();
@@ -990,10 +991,10 @@ test('30. vencedores: estatísticas dos RCQs e escolha da round', { skip }, asyn
   // Numa round ninguém repete (quem ganha fica apurado): sem caixa de repetidos.
   assert.equal(await page.eval(`document.querySelector('.stat-list')`), null, 'numa round não há caixa de repetidos');
   await page.eval(`[...document.querySelectorAll('#win-rounds .quick')].find(b => b.dataset.round === '').click()`);
-  const multi = await page.eval(`(() => { const m = {}; winners.forEach(r => (m[r.name] ??= new Set()).add(r.round)); return Object.values(m).filter(s => s.size > 1).length; })()`);
+  const multi = await page.eval(`(() => { const m = {}; winners.filter(r => r.season === winSeason).forEach(r => { m[r.name] = (m[r.name] || 0) + 1; }); return Object.values(m).filter(n => n > 1).length; })()`);
   const items = await page.eval(`[...document.querySelectorAll('.stat-list li')].map(li => li.textContent)`);
-  assert.equal(items.length, Math.min(8, multi), 'em «Todas»: quem ganhou em mais de uma round');
-  if (items.length) assert.match(items[0], /R\d · R\d/);
+  assert.equal(items.length, Math.min(10, multi), 'em «Todas»: ranking de quem ganhou mais de um RCQ');
+  if (items.length) assert.match(items[0], /^1\. .+\d+ vitórias$/);
   assert.deepEqual(page.errors, []);
   await page.close();
 });
@@ -1003,7 +1004,7 @@ test('32. vencedores: histórico com nomes próprios (WPNQ, Season 1…) e anos 
   await page.waitFor(`document.querySelector('.stat-tile')`);
   const seasons = await page.eval(`[...document.querySelectorAll('#win-seasons .quick')].map(b => b.textContent)`);
   if (!seasons.includes('2023/24')) { await page.close(); return; } // dados sem histórico
-  assert.deepEqual(seasons.slice(0, 2), ['2023/24', '2024/25']);
+  assert.deepEqual(seasons.slice(0, 3), ['Desde 2023', '2023/24', '2024/25']);
   assert.equal(await page.eval(`document.querySelector('#win-seasons [aria-pressed=true]').textContent`), '2026/27', 'abre na época actual');
   await page.eval(`[...document.querySelectorAll('#win-seasons .quick')].find(b => b.textContent === '2023/24').click()`);
   assert.deepEqual(await page.eval(`[...document.querySelectorAll('#win-rounds .quick')].map(b => b.firstChild.textContent.trim())`), ['Todas', 'WPNQ R5', 'WPNQ R6']);
@@ -1133,16 +1134,58 @@ test('37. lote 2: página da loja com vencedores por época/round e sem link par
   await page.close();
 });
 
+test('38. lote 3: ranking «Desde 2023», página de jogador, «Como qualificar», contagens do calendário e acessibilidade', { skip }, async () => {
+  const page = await open({ width: 390, hash: '#winners' });
+  await page.waitFor(`document.querySelector('.stat-tile')`);
+  // «Desde …»: todas as épocas, sem rounds, com ranking.
+  await page.eval(`[...document.querySelectorAll('#win-seasons .quick')].find(b => b.dataset.season === '*').click()`);
+  const r = await page.eval(`({ rounds: document.querySelectorAll('#win-rounds .quick').length, rows: document.querySelectorAll('#results .result').length, total: winners.length, rank: [...document.querySelectorAll('.rank-list li')].map(li => li.textContent) })`);
+  assert.equal(r.rounds, 0);
+  assert.equal(await page.eval(`document.getElementById('win-dest').textContent`), '', 'sem destino em «Desde»');
+  assert.equal(r.rows, r.total, 'todas as épocas');
+  assert.ok(r.rank.length > 0 && /^1\. /.test(r.rank[0]));
+  // Página de jogador a partir do ranking.
+  const top = await page.eval(`(() => { const a = document.querySelector('.rank-list a.player-link'); const n = a.textContent; a.click(); return n; })()`);
+  await page.waitFor(`document.body.dataset.view === 'player' && document.querySelector('#player h1')`);
+  const pl = await page.eval(`({ name: document.querySelector('#player h1').textContent, rows: document.querySelectorAll('#player .result').length, links: document.querySelectorAll('#player .result a.player-link').length, nav: document.querySelector('.nav [data-view=winners]').classList.contains('active') })`);
+  assert.equal(pl.name, top);
+  assert.equal(pl.rows, await page.eval(`winners.filter(w => w.name === ${JSON.stringify(top)}).length`));
+  assert.equal(pl.links, 0, 'sem link para o próprio jogador');
+  assert.ok(pl.nav, 'separador Vencedores activo');
+  // Para onde apurou: em cada grupo e em cada vitória.
+  assert.ok(await page.eval(`[...document.querySelectorAll('#player .store-round')].every(h => / → RC /.test(h.textContent))`), 'grupos com o RC de destino');
+  assert.ok(await page.eval(`[...document.querySelectorAll('#player .result')].every(r => r.querySelector('.rc-dest')?.textContent.startsWith('→ RC'))`));
+  // Como qualificar.
+  await page.eval(`location.hash = '#qualificar'`);
+  await page.waitFor(`document.body.dataset.view === 'qualificar' && document.querySelector('.qualify-table')`);
+  const q = await page.eval(`({ h1: document.querySelector('#qualificar h1').textContent, rows: document.querySelectorAll('.qualify-table tbody tr').length })`);
+  assert.equal(q.h1, 'Como qualificar');
+  assert.ok(q.rows >= 1);
+  assert.equal(await page.eval(`document.documentElement.scrollWidth - innerWidth`), 0, 'sem scroll horizontal');
+  // Acessibilidade: um h1 por vista e atalho «Saltar para o conteúdo».
+  await page.eval(`location.hash = '#agenda'`);
+  await page.waitFor(`document.body.dataset.view === 'agenda'`);
+  assert.equal(await page.eval(`document.querySelector('#agenda h1').textContent`), 'Agenda de torneios de Magic em Portugal');
+  assert.equal(await page.eval(`document.querySelector('.skip-link').getAttribute('href')`), '#conteudo');
+  assert.ok(await page.eval(`document.querySelector('.month-title h2') !== null`));
+  // Contagens do calendário como o contador: torneios à parte das datas informativas.
+  await page.eval(`document.getElementById('subscribe').click()`);
+  const feed = await page.eval(`document.querySelector('.feed .feed-count').textContent`);
+  assert.match(feed, /^\d+ torneios?( · \d+ datas? informativas?)?$/);
+  assert.deepEqual(page.errors, []);
+  await page.close();
+});
+
 test('31. vencedores: a mesma round de épocas diferentes não se mistura', { skip }, async () => {
   const page = await open({ width: 1280, hash: '#winners' });
   await page.waitFor(`document.querySelector('.stat-tile')`);
   const r1 = await page.eval(`winners.filter(r => r.round === 'R1' && r.season === '2026/27').length`);
   const before = await page.eval(`[...document.querySelectorAll('#win-seasons .quick')].map(b => b.textContent)`);
-  assert.equal(before.at(-1), '2026/27');
+  assert.deepEqual([before[0], before.at(-1)], ['Desde 2023', '2026/27']);
   await page.eval(`winners.push({ date: '2027-04-17', store: 'Arena Porto', city: 'Porto', name: 'Teste Futuro', deck: 'Deck', players: 20, format: 'Modern', round: 'R1', season: '2027/28' }); winRounds.push({ season: '2027/28', round: 'R1' }, { season: '2027/28', round: 'R2' }); winSeason = null; winRound = ''; renderWinners();`);
   const st = () => page.eval(`({ seasons: [...document.querySelectorAll('#win-seasons .quick')].map(b => [b.textContent, b.getAttribute('aria-pressed')]), rounds: [...document.querySelectorAll('#win-rounds .quick')].map(b => b.firstChild.textContent.trim()), title: document.querySelector('#winners-title').textContent, rows: document.querySelectorAll('#results .result').length })`);
   let s = await st();
-  assert.deepEqual(s.seasons.slice(-2), [['2026/27', 'false'], ['2027/28', 'true']], 'abre na época mais recente com vencedores');
+  assert.deepEqual([s.seasons[0], ...s.seasons.slice(-2)], [['Desde 2023', 'false'], ['2026/27', 'false'], ['2027/28', 'true']], 'abre na época mais recente com vencedores');
   assert.equal(s.title, 'RCQ · Época 2027/28');
   assert.deepEqual(s.rounds, ['Todas', 'Round 1', 'Round 2']);
   assert.equal(s.rows, 1);

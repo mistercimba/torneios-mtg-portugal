@@ -52,6 +52,7 @@
         "round": "R5",
         "label": "WPNQ R5",
         "format": "Modern",
+        "rc": "RC Ghent 2024",
         "docId": "1jJ9_afZZgleCuYyBtZ_rx8VPiRWQ-9aBRnFtepYQHxM"
       },
       {
@@ -59,6 +60,7 @@
         "round": "R6",
         "label": "WPNQ R6",
         "format": "Standard",
+        "rc": "RC Nápoles 2024",
         "docId": "1Hb_sxXwqL5nClWq3c7CO2ilQC0qrtNueqK7YDcpWcWI"
       },
       {
@@ -66,6 +68,7 @@
         "round": "S1",
         "label": "Season 1",
         "format": "Pioneer",
+        "rc": "RC Lille 2024",
         "docId": "1CfPtdUcbZ2FkoiR9kzEysFKIk8aaxFh1algEg_i6PQA"
       },
       {
@@ -73,6 +76,7 @@
         "round": "S2",
         "label": "Season 2",
         "format": "Modern",
+        "rc": "RC Praga 2025",
         "docId": "1ClpCvWIZGKfV5iwRX9VrTUMaBqP7FOFwVzqWDfSdiLc"
       },
       {
@@ -80,36 +84,42 @@
         "round": "S3",
         "label": "Season 3",
         "format": "Standard",
+        "rc": "RC Bolonha 2025",
         "docId": "16QzE3yY1bVNSmeSEyxNa6YZqS_Zv19506ICdkRNG75M"
       },
       {
         "season": "2025/26",
         "round": "R1",
         "format": "Modern",
+        "rc": "RC Antuérpia 2025",
         "docId": "18Eo9t9d87p20YeagMRh4KF8AOOFX7l5vL9E6MbOpkFo"
       },
       {
         "season": "2025/26",
         "round": "R2",
         "format": "Standard",
+        "rc": "RC Turim 2026",
         "docId": "1l6-KmQF8ZfHIAiPc8KpNUIAK6aRmTV8aJPG6Hjzrejw"
       },
       {
         "season": "2025/26",
         "round": "R3",
         "format": "Standard",
+        "rc": "RC Praga 2026",
         "docId": "1UN2g92eOEUtuLpRWbhF4sRnHCwRE-442ONfZWS-0WTI"
       },
       {
         "season": "2026/27",
         "round": "R1",
         "format": "Modern",
+        "rc": "RC Ghent 2026",
         "docId": "1JaUjzxvTgKfXvpPAmaeo4SLq45i2eALxsxdMGezIGKU"
       },
       {
         "season": "2026/27",
         "round": "R2",
         "format": "Standard",
+        "rc": "RC Bilbao 2027",
         "docId": "1kOJ0reJH5Q_r95OUTlzq2GMvTw119rAwuPUE91VTnvk"
       },
       {

@@ -6,56 +6,66 @@
    "season": "2023/24",
    "round": "R5",
    "label": "WPNQ R5",
-   "format": "Modern"
+   "format": "Modern",
+   "rc": "RC Ghent 2024"
   },
   {
    "season": "2023/24",
    "round": "R6",
    "label": "WPNQ R6",
-   "format": "Standard"
+   "format": "Standard",
+   "rc": "RC Nápoles 2024"
   },
   {
    "season": "2024/25",
    "round": "S1",
    "label": "Season 1",
-   "format": "Pioneer"
+   "format": "Pioneer",
+   "rc": "RC Lille 2024"
   },
   {
    "season": "2024/25",
    "round": "S2",
    "label": "Season 2",
-   "format": "Modern"
+   "format": "Modern",
+   "rc": "RC Praga 2025"
   },
   {
    "season": "2024/25",
    "round": "S3",
    "label": "Season 3",
-   "format": "Standard"
+   "format": "Standard",
+   "rc": "RC Bolonha 2025"
   },
   {
    "season": "2025/26",
    "round": "R1",
-   "format": "Modern"
+   "format": "Modern",
+   "rc": "RC Antuérpia 2025"
   },
   {
    "season": "2025/26",
    "round": "R2",
-   "format": "Standard"
+   "format": "Standard",
+   "rc": "RC Turim 2026"
   },
   {
    "season": "2025/26",
    "round": "R3",
-   "format": "Standard"
+   "format": "Standard",
+   "rc": "RC Praga 2026"
   },
   {
    "season": "2026/27",
    "round": "R1",
-   "format": "Modern"
+   "format": "Modern",
+   "rc": "RC Ghent 2026"
   },
   {
    "season": "2026/27",
    "round": "R2",
-   "format": "Standard"
+   "format": "Standard",
+   "rc": "RC Bilbao 2027"
   },
   {
    "season": "2026/27",

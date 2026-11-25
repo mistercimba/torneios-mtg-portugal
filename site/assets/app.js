@@ -521,7 +521,7 @@ function monthsHtml(filtered, withMilestones, { past = false, idPrefix = withMil
         + cont.map(e => contHtml(e, date)).join('') + day.after.join('') + `</article>`;
     }).join('');
     const total = g.total ? plural(g.total, 'torneio', 'torneios') : '';
-    return `<section class="month-block"${idPrefix ? ` id="${idPrefix}-${key}"` : ''} aria-label="${months_[g.date.getMonth()]} ${g.date.getFullYear()}"><div class="month-title"><h3>${months_[g.date.getMonth()]}</h3><span class="year">${g.date.getFullYear()}</span><span class="total">${total}</span></div>${mi === 0 && !past ? COL_HEAD : ''}${cards}</section>`;
+    return `<section class="month-block"${idPrefix ? ` id="${idPrefix}-${key}"` : ''} aria-label="${months_[g.date.getMonth()]} ${g.date.getFullYear()}"><div class="month-title"><h2>${months_[g.date.getMonth()]}</h2><span class="year">${g.date.getFullYear()}</span><span class="total">${total}</span></div>${mi === 0 && !past ? COL_HEAD : ''}${cards}</section>`;
   }).join('');
   return { months, sortedKeys, html };
 }
@@ -630,7 +630,7 @@ function storeLinksHtml(info) {
 let winners = [];
 
 // Vencedores da loja agrupados por época e round (mais recente primeiro), sem link para a própria loja.
-function storeWinsHtml(wins) {
+function storeWinsHtml(wins, opts = { self: true }) {
   const groups = new Map();
   for (const r of [...wins].sort((a, b) => b.date.localeCompare(a.date))) {
     const k = `${r.season || ''}|${r.round || ''}`;
@@ -640,10 +640,70 @@ function storeWinsHtml(wins) {
   return [...groups].map(([k, list]) => {
     const [season, round] = k.split('|');
     const info = winRounds.find(x => x.round === round && (x.season || '') === season) || {};
-    const title = [season, info.label || (round ? 'Round ' + roundNum(round) : ''), info.format].filter(Boolean).join(' · ');
-    return `${title ? `<h4 class="store-round">${esc(title)}</h4>` : ''}${list.map(r => resultHtml(r, { self: true })).join('')}`;
+    const title = [season, info.label || (round ? 'Round ' + roundNum(round) : ''), info.format].filter(Boolean).join(' · ') + (round ? ` → ${rcText(season, round)}` : '');
+    return `${title ? `<h4 class="store-round">${esc(title)}</h4>` : ''}${list.map(r => resultHtml(r, opts)).join('')}`;
   }).join('');
 }
+/* ---------- Página de jogador (#jogador-<nome>) ---------- */
+function renderPlayer(slug) {
+  const el = document.getElementById('player');
+  const wins = winners.filter(w => playerSlug(w.name) === slug);
+  if (!wins.length) {
+    document.title = 'Jogador não encontrado — Torneios MTG Portugal';
+    el.innerHTML = `<div class="store-page"><a href="#winners" class="back-link">← Vencedores</a><div class="empty"><p>Não encontrámos vencedores com este nome.</p></div></div>`;
+    return;
+  }
+  const name = wins[0].name;
+  const uniq = f => new Set(wins.map(f).filter(Boolean)).size;
+  const decks = new Map();
+  wins.forEach(w => { const d = deckText(w); if (d) decks.set(d, (decks.get(d) || 0) + 1); });
+  document.title = `${name} — Torneios MTG Portugal`;
+  el.innerHTML = `<div class="store-page">
+    <a href="#winners" class="back-link">← Vencedores</a>
+    <div class="store-head"><div><h1>${esc(name)}</h1><p class="store-stats">${esc(plural(wins.length, 'RCQ ganho', 'RCQs ganhos'))} desde ${esc(wins.map(w => w.date).sort()[0].slice(0, 4))}</p></div>
+    <div class="store-actions"><button type="button" class="share-btn" id="share-player">Partilhar</button></div></div>
+    <div class="stat-tiles player-tiles">
+      <div class="stat-tile"><b>${wins.length}</b><span>${wins.length === 1 ? 'RCQ ganho' : 'RCQs ganhos'}</span></div>
+      <div class="stat-tile"><b>${uniq(w => w.season)}</b><span>${uniq(w => w.season) === 1 ? 'época' : 'épocas'}</span></div>
+      <div class="stat-tile"><b>${uniq(w => w.store)}</b><span>${uniq(w => w.store) === 1 ? 'loja' : 'lojas diferentes'}</span></div>
+      <div class="stat-tile"><b>${decks.size}</b><span>${decks.size === 1 ? 'deck' : 'decks diferentes'}</span></div>
+    </div>
+    <h3 class="store-section">Vitórias</h3><div class="store-results">${storeWinsHtml(wins, { selfPlayer: true })}</div>
+  </div>`;
+  el.querySelector('#share-player').addEventListener('click', async ev => {
+    const btn = ev.currentTarget, msg = await shareLink(location.origin + location.pathname + '#jogador-' + slug, name);
+    if (msg) { btn.textContent = msg; setTimeout(() => { btn.textContent = 'Partilhar'; }, 2000); }
+  });
+}
+
+/* ---------- Como qualificar (#qualificar) ---------- */
+function renderQualify() {
+  const el = document.getElementById('qualificar');
+  // Rounds da época actual e da seguinte (marcos em config/site.json), com o formato tirado do rótulo («… · Standard»).
+  const rounds = milestones.filter(m => m.circuit === 'RCQ' && m.ronda).sort((a, b) => a.start.localeCompare(b.start));
+  const current = rounds.find(m => m.start <= today && m.end >= today) || rounds.find(m => m.start > today);
+  const seasons = [...new Set(rounds.filter(m => m.end >= today).map(m => m.season))].slice(0, 2);
+  const short = d0 => { const d = asDate(d0); return `${d.getDate()} ${mon3(d)} ${d.getFullYear()}`; };
+  const status = m => (m.end < today ? 'Terminada' : m.start > today ? `Começa a ${short(m.start)}` : `A decorrer · termina a ${short(m.end)}`);
+    const fmtOf = m => (m.label || '').split('·').slice(1).join('·').trim();
+  const rows = rounds.filter(m => seasons.includes(m.season)).map(m => `<tr${m === current ? ' class="current"' : ''}><th scope="row">Round ${esc(roundNum(m.ronda))} · ${esc(m.season)}</th><td>${esc(short(m.start))} – ${esc(short(m.end))}</td><td>${esc(fmtOf(m) || '—')} <small>ou Sealed</small></td><td>${esc(m.qualifica || 'RC a anunciar')}</td><td>${esc(status(m))}</td></tr>`).join('');
+  document.title = 'Como qualificar — Torneios MTG Portugal';
+  el.innerHTML = `<div class="store-page qualify">
+    <a href="#agenda" class="back-link">← Agenda</a>
+    <h1>Como qualificar</h1>
+    <p class="qualify-lead">O caminho competitivo do Magic na Europa tem três degraus: <b>RCQ</b> numa loja → <b>Regional Championship</b> → <b>Pro Tour</b> e World Championship.</p>
+    <ol class="qualify-steps">
+      <li><b>RCQ (Regional Championship Qualifier).</b> Torneios nas lojas, ao longo de cada round. Quem ganha recebe um convite para o Regional Championship dessa round. O convite só vale para esse RC.</li>
+      <li><b>Regional Championship (RC).</b> O campeonato da Europa, Médio Oriente e África, três vezes por época (Ultimate Guard European Magic Series). Na véspera há Last Chance Qualifiers para quem ainda não tem convite.</li>
+      <li><b>Pro Tour e World Championship.</b> Os melhores classificados do RC ganham convite para o Pro Tour; o campeão e o finalista vão também ao World Championship.</li>
+    </ol>
+    <h2 class="store-section">Rounds da época</h2>
+    ${rows ? `<div class="qualify-table-wrap"><table class="qualify-table"><thead><tr><th scope="col">Round</th><th scope="col">Período</th><th scope="col">Formato nas lojas</th><th scope="col">Qualifica para</th><th scope="col">Estado</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="store-none">Sem rounds anunciadas.</p>'}
+    <p class="qualify-more"><a href="?circuito=RCQ#agenda">Ver os RCQs marcados na agenda →</a> · <a href="#winners">Vencedores dos RCQs →</a></p>
+    <p class="qualify-note">Datas das rounds segundo os anúncios oficiais (magic.gg e Fanfinity). Confirma sempre os detalhes com a loja.</p>
+  </div>`;
+}
+
 function renderStore(key) {
   const el = document.getElementById('store');
   const list = events.filter(e => storeKey(e) === key);
@@ -667,7 +727,7 @@ function renderStore(key) {
   document.title = `${name} — Torneios MTG Portugal`;
   el.innerHTML = `<div class="store-page">
     <a href="#agenda" class="back-link">← Agenda</a>
-    <div class="store-head"><div><h2>${esc(name)}</h2><p class="store-place">${esc(place)}${address ? `<span class="store-address">${esc(address)}</span>` : ''}</p><p class="store-stats">${esc(stats)}</p></div>
+    <div class="store-head"><div><h1>${esc(name)}</h1><p class="store-place">${esc(place)}${address ? `<span class="store-address">${esc(address)}</span>` : ''}</p><p class="store-stats">${esc(stats)}</p></div>
     <div class="store-actions">${map ? `<a href="${esc(map)}" target="_blank" rel="noopener">Ver no mapa ↗</a>` : ''}${storeLinksHtml(info)}<button type="button" class="share-btn" id="share-store">Partilhar</button></div></div>
     <h3 class="store-section">Próximos torneios</h3>
     ${upcoming.length ? `<div class="store-events">${monthsHtml(upcoming, false).html}</div>` : '<p class="store-none">Sem torneios marcados de momento.</p>'}
@@ -687,7 +747,8 @@ function deckText(r) {
   if (isLimitedFmt(r.format)) return r.format.replace(/^(sealed|draft)\s+/i, (m, k) => `${k[0].toUpperCase()}${k.slice(1).toLowerCase()} · `).replace(/\s+·\s*$/, '');
   return '';
 }
-function resultHtml(r, { self = false } = {}) {
+const playerSlug = name => normalize(name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+function resultHtml(r, { self = false, selfPlayer = false } = {}) {
   const d = asDate(r.date);
   const key = storeKeyFor(r.store, r.city);
   // A localidade não se repete quando já faz parte do nome da loja («Mulligan Quarteira»).
@@ -698,7 +759,7 @@ function resultHtml(r, { self = false } = {}) {
   // Formato construído ao lado do deck (Modern, Standard…), útil quando a época mistura formatos.
   const fmt = r.deck && r.format && !isLimitedFmt(r.format) ? r.format : '';
   const meta = [storeName, city && esc(city), esc(deck || 'Deck não indicado') + (fmt ? ` <small class="deck-fmt">${esc(fmt)}</small>` : '')].filter(Boolean).join(' · ');
-  return `<div class="result"><span class="date">${d.getDate()} ${mon3(d).toUpperCase()}<br>${d.getFullYear()}</span><span class="win">${esc(r.name)}</span><span class="store-cell">${storeName}${city ? `<span class="location">${esc(city)}</span>` : ''}</span><span class="deck">${esc(deck || 'Não indicado')}${fmt ? `<small class="deck-fmt">${esc(fmt)}</small>` : ''}</span><span class="num">${r.players == null ? '—' : r.players}<small>jogadores</small></span><span class="result-meta">${meta}</span></div>`;
+  return `<div class="result"><span class="date">${d.getDate()} ${mon3(d).toUpperCase()}<br>${d.getFullYear()}</span><span class="win">${selfPlayer ? esc(r.name) : `<a href="#jogador-${esc(playerSlug(r.name))}" class="player-link">${esc(r.name)}</a>`}${r.round ? `<small class="rc-dest" title="Apurado para">→ ${esc(rcText(r.season, r.round))}</small>` : ''}</span><span class="store-cell">${storeName}${city ? `<span class="location">${esc(city)}</span>` : ''}</span><span class="deck">${esc(deck || 'Não indicado')}${fmt ? `<small class="deck-fmt">${esc(fmt)}</small>` : ''}</span><span class="num">${r.players == null ? '—' : r.players}<small>jogadores</small></span><span class="result-meta">${meta}</span></div>`;
 }
 
 /* ---------- Endereços partilháveis ---------- */
@@ -823,7 +884,7 @@ function openDetails(id) {
   document.getElementById('dialog-body').innerHTML =
     `<div class="dialog-top"><div><div class="dialog-meta">${esc(when)}</div><h2 id="modal-title">${esc(name)}</h2>${sub.map(s => `<div class="dialog-location">${esc(s)}</div>`).join('')}</div><button type="button" class="dialog-close" id="close-dialog" aria-label="Fechar detalhes">×</button></div>`
     + `<div class="dialog-tabs">${tabs.join('')}</div>`
-    + (qualifiesFor(e) ? `<div class="dialog-qualifica">Qualifica para <b>${esc(qualifiesFor(e))}</b></div>` : '')
+    + (qualifiesFor(e) ? `<div class="dialog-qualifica">Qualifica para <b>${esc(qualifiesFor(e))}</b> <a href="#qualificar" class="qualify-link">Como funciona?</a></div>` : '')
     + (facts.length ? `<dl class="facts">${facts.join('')}</dl>` : '')
     + list('Prémios', e.premios)
     + list('Notas', e.notas)
@@ -873,19 +934,23 @@ dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close();
 /* ---------- Vistas (Agenda / Vencedores), ligadas ao endereço ---------- */
 // #winners → Vencedores; qualquer outro endereço (#agenda, #m-2026-11, vazio) → Agenda.
 // Mudar de vista cria uma entrada no histórico, por isso o botão Voltar funciona.
-const viewFromHash = () => (location.hash === '#winners' ? 'winners' : location.hash.startsWith('#loja-') ? 'store' : 'agenda');
+const viewFromHash = () => (location.hash === '#winners' ? 'winners' : location.hash.startsWith('#loja-') ? 'store'
+  : location.hash.startsWith('#jogador-') ? 'player' : location.hash === '#qualificar' ? 'qualificar' : 'agenda');
 let dataReady = false;
 let currentView = null;
 
 function applyView(view) {
   if (view === 'store' && dataReady) renderStore(location.hash.slice(6));
-  if (view !== 'store') document.title = 'Torneios MTG Portugal — Agenda de torneios de Magic';
-  const changed = view !== currentView || view === 'store';
+  if (view === 'player' && dataReady) renderPlayer(decodeURIComponent(location.hash.slice(9)));
+  if (view === 'qualificar' && dataReady) renderQualify();
+  if (!['store', 'player', 'qualificar'].includes(view)) document.title = 'Torneios MTG Portugal — Agenda de torneios de Magic';
+  const changed = view !== currentView || view === 'store' || view === 'player';
   swapSearch(currentView, view);
   currentView = view;
   document.body.dataset.view = view;
   document.querySelectorAll('.view').forEach(e => e.classList.toggle('active', e.id === view));
-  document.querySelectorAll('[data-view]').forEach(b => { const is = b.dataset.view === view; b.classList.toggle('active', is); b.setAttribute('aria-current', is ? 'page' : 'false'); });
+  const navView = view === 'player' ? 'winners' : view; // a página de jogador pertence aos Vencedores
+  document.querySelectorAll('[data-view]').forEach(b => { const is = b.dataset.view === navView; b.classList.toggle('active', is); b.setAttribute('aria-current', is ? 'page' : 'false'); });
   if (!changed) return;
   const target = location.hash.startsWith('#m-') ? document.getElementById(location.hash.slice(1)) : null;
   if (target) target.scrollIntoView();
@@ -993,8 +1058,10 @@ function openSubscribe() {
   const items = FEEDS.map(f => {
     const https = new URL(f.file, base).href, webcal = https.replace(/^https?:/, 'webcal:');
     const google = 'https://calendar.google.com/calendar/r?cid=' + encodeURIComponent(webcal);
-    const n = upcoming.filter(f.filter).length;
-    return `<div class="feed"><div class="feed-head"><h3>${f.title}</h3><span class="feed-count">${plural(n, 'evento marcado', 'eventos marcados')}</span></div><p>${f.desc}</p>
+    // Conta como o contador da agenda: torneios à parte das datas informativas (anúncios, prereleases, marcos).
+    const inFeed = upcoming.filter(f.filter), nT = inFeed.filter(e => !isInfo(e)).length, nI = inFeed.length - nT;
+    const countLabel = [plural(nT, 'torneio', 'torneios'), nI ? plural(nI, 'data informativa', 'datas informativas') : ''].filter(Boolean).join(' · ');
+    return `<div class="feed"><div class="feed-head"><h3>${f.title}</h3><span class="feed-count">${countLabel}</span></div><p>${f.desc}</p>
       <div class="feed-actions"><a href="${esc(webcal)}">Apple / Outlook</a><a href="${esc(google)}" target="_blank" rel="noopener">Google Calendar</a><button type="button" class="share-btn feed-copy" data-url="${esc(https)}">Copiar link</button></div></div>`;
   }).join('');
   document.getElementById('dialog-body').innerHTML = `<div class="dialog-top"><div><div class="dialog-meta">Calendário</div><h2 id="modal-title">Subscrever no teu calendário</h2><div class="dialog-location">Os torneios aparecem no calendário do telemóvel ou do computador e actualizam-se sozinhos quando a agenda muda (o calendário verifica de poucas em poucas horas).</div></div><button type="button" class="dialog-close" id="close-dialog" aria-label="Fechar">×</button></div><div class="feeds">${items}</div>`;
@@ -1107,21 +1174,32 @@ const roundInfo = r => winRounds.find(x => x.round === r && seasonOf(x) === winS
 const roundLabel = r => roundInfo(r).label || 'Round ' + roundNum(r);
 // Formato construído da round (config → rcqLists.sources[].format): «Standard», «Modern»…
 const roundFormat = r => roundInfo(r).format || '';
+// RC para onde apura cada round (config → rcqLists.sources[].rc, ex.: «RC Bilbao 2027»); rounds sem destino: «RC a anunciar».
+const rcOf = (season, round) => winRounds.find(x => x.round === round && seasonOf(x) === (season || ''))?.rc || '';
+const rcText = (season, round) => rcOf(season, round) || 'RC a anunciar';
 function renderWinners() {
   const seasons = [...new Set([...winRounds.map(seasonOf), ...winners.map(seasonOf)])].sort();
   // Por defeito: a época mais recente que já tem vencedores (senão, a mais recente das listas).
-  if (winSeason === null || !seasons.includes(winSeason)) {
+  if (winSeason === null || (winSeason !== '*' && !seasons.includes(winSeason))) {
     const withResults = seasons.filter(se => winners.some(r => seasonOf(r) === se));
     winSeason = (withResults.length ? withResults : seasons).at(-1) ?? '';
   }
-  const inSeason = winners.filter(r => seasonOf(r) === winSeason);
-  const rounds = [...new Set([...winRounds.filter(r => seasonOf(r) === winSeason).map(r => r.round), ...inSeason.map(r => r.round)].filter(Boolean))].sort();
+  // «Desde 2023»: todas as épocas juntas (ranking de sempre); sem escolha de round.
+  const ALL = '*';
+  const inSeason = winSeason === ALL ? winners : winners.filter(r => seasonOf(r) === winSeason);
+  const rounds = winSeason === ALL ? [] : [...new Set([...winRounds.filter(r => seasonOf(r) === winSeason).map(r => r.round), ...inSeason.map(r => r.round)].filter(Boolean))].sort();
   if (winRound && !rounds.includes(winRound)) winRound = '';
-  $('#winners-title').textContent = winSeason ? `${winTitle} · Época ${winSeason}` : winTitle;
-  $('#win-seasons').innerHTML = seasons.length > 1 ? seasons.map(se => `<button type="button" class="quick" data-season="${esc(se)}" aria-pressed="${se === winSeason}" aria-label="Época ${esc(se)}">${se ? esc(se) : 'Sem época'}</button>`).join('') : '';
+  const since = (winners.map(r => r.date).sort()[0] || '').slice(0, 4);
+  $('#winners-title').textContent = winSeason === ALL ? `${winTitle} · desde ${since}` : winSeason ? `${winTitle} · Época ${winSeason}` : winTitle;
+  $('#win-seasons').innerHTML = seasons.length > 1 ? `<button type="button" class="quick" data-season="${ALL}" aria-pressed="${winSeason === ALL}" aria-label="Todas as épocas, desde ${esc(since)}">Desde ${esc(since)}</button>`
+    + seasons.map(se => `<button type="button" class="quick" data-season="${esc(se)}" aria-pressed="${se === winSeason}" aria-label="Época ${esc(se)}">${se ? esc(se) : 'Sem época'}</button>`).join('') : '';
   $('#win-rounds').innerHTML = rounds.length > 1 ? ['', ...rounds].map(r => `<button type="button" class="quick" data-round="${esc(r)}" aria-pressed="${r === winRound}">${r ? esc(roundLabel(r)) + (roundFormat(r) ? ` <small class="round-fmt">${esc(roundFormat(r))}</small>` : '') : 'Todas'}</button>`).join('') : '';
   // Pesquisa (jogador, loja, localidade, deck): procura em todas as épocas e esconde a escolha de época/round.
   const q = normalize(winQuery.trim());
+  // Para onde apura: a round escolhida, ou todas as rounds da época em «Todas».
+  const dest = q || winSeason === ALL ? '' : winRound ? `Qualifica para <b>${esc(rcText(winSeason, winRound))}</b>`
+    : rounds.map(r => `${esc(roundLabel(r))} → <b>${esc(rcText(winSeason, r))}</b>`).join(' · ');
+  $('#win-dest').innerHTML = dest;
   const list = q ? winners.filter(r => [r.name, r.store, r.city, r.deck, r.format].some(v => normalize(v).includes(q)))
     : winRound ? inSeason.filter(r => r.round === winRound) : inSeason;
   if (q) {
@@ -1174,10 +1252,11 @@ function statsHtml(list, { search = false } = {}) {
   const multiRound = new Set(list.map(rkey)).size > 1;
   const byName = new Map();
   list.forEach(r => { const k = (r.name || '').trim(); if (k) byName.set(k, [...(byName.get(k) || []), rkey(r)]); });
-  const repeat = [...byName].filter(([, rs]) => new Set(rs).size > 1)
+  const repeat = [...byName].filter(([, rs]) => rs.length > 1)
     .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'pt'));
   // Na pesquisa (ex.: um jogador) esta caixa só repetiria o que já está na lista.
-  const repeatBox = !search && multiRound && repeat.length ? `<section class="stat-box"><h3>Venceram em mais de uma round</h3><ol class="stat-list">${repeat.slice(0, 8).map(([k, rs]) => `<li><span class="stat-name">${esc(k)}</span><span class="stat-rounds">${[...new Set(rs)].sort().map(esc).join(' · ')}</span></li>`).join('')}</ol>${repeat.length > 8 ? `<p class="stat-foot">e mais ${repeat.length - 8}.</p>` : ''}</section>` : '';
+  // Ranking: quem ganhou mais RCQs (só faz sentido com mais de uma round; numa round ninguém repete).
+  const repeatBox = !search && multiRound && repeat.length ? `<section class="stat-box"><h3>Mais vitórias</h3><ol class="stat-list rank-list">${repeat.slice(0, 10).map(([k, rs], i) => `<li><span class="stat-name"><span class="rank-pos">${i + 1}.</span> <a href="#jogador-${esc(playerSlug(k))}" class="player-link">${esc(k)}</a></span><span class="stat-rounds">${rs.length} vitórias</span></li>`).join('')}</ol>${repeat.length > 10 ? `<p class="stat-foot">e mais ${repeat.length - 10} com 2 ou mais.</p>` : ''}</section>` : '';
 
   return `<div class="win-stats">
     <div class="stat-tiles">
