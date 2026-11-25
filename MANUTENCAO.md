@@ -12,6 +12,7 @@ Tudo o que aparece no site vem de três sítios: o **Google Calendar «Torneios 
    - Usa sempre o **mesmo nome para a mesma loja**.
    - Não sabes um valor? Escreve «A confirmar» ou apaga a linha. Nunca inventes.
    - Pré-releases são sempre Sealed (não é preciso `FORMATO`). Os RCQs ganham a round e o «Qualifica para» sozinhos pela data.
+   - **Premodern:** os Road to Nationals usam `TIPO: Road to Nationals` (o vencedor ganha 1 bye e a inscrição no Nacional, escrito em `NOTAS`); o Nacional, o LA Open e a final da Supercup são `Campeonato / Evento especial`. Sem horário anunciado, evento de dia inteiro. Fontes: linktr.ee/premodernportugal e o calendário da Premodern Portugal.
 3. **Publicar** (passo 3 abaixo). Os torneios acrescentados nos últimos 7 dias aparecem com a etiqueta «Novo».
 
 **Esconder sem apagar:** escreve `SITE: Não` na descrição, ou marca o evento como Privado. **Apagar:** apaga no Calendar (fica 30 dias no lixo).
