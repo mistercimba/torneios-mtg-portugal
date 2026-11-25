@@ -1217,3 +1217,18 @@ test('segurança: CSP no HTML autoriza o script inline do tema (hash certo) e n�
   assert.ok(csp.includes(`'sha256-${hash}'`), 'o hash do script do tema na CSP está desactualizado');
   assert.match(html, /<meta name="referrer" content="strict-origin-when-cross-origin">/);
 });
+
+test('listas de filtros: carregar no nome da opção (não só no quadrado) escolhe-a e o painel fica aberto', { skip }, async () => {
+  for (const width of [1280, 390]) {
+    const page = await open({ width });
+    if (width <= 760) await page.eval("document.getElementById('filters-toggle').click()");
+    await page.eval("document.querySelector('.ms[data-key=format] .ms-btn').click()");
+    const r = await page.eval(`(() => { const t = document.querySelector('.ms[data-key=format] .ms-opt:not(.zero) .ms-text').getBoundingClientRect(); return { x: t.left + 12, y: t.top + t.height / 2 }; })()`);
+    for (const type of ['mousePressed', 'mouseReleased']) await page.cdp('Input.dispatchMouseEvent', { type, x: r.x, y: r.y, button: 'left', clickCount: 1 });
+    await new Promise(res => setTimeout(res, 150));
+    const st = await page.eval(`({ open: !document.querySelector('.ms[data-key=format] .ms-panel').hidden, active: document.querySelector('.ms[data-key=format] .ms-btn').classList.contains('active') })`);
+    assert.deepEqual(st, { open: true, active: true }, `largura ${width}`);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+  }
+});

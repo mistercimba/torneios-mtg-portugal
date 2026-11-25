@@ -396,7 +396,10 @@ document.querySelectorAll('.ms').forEach(root => {
   });
 });
 document.addEventListener('pointerdown', ev => { if (openMs && !openMs.contains(ev.target)) closePanel(false); });
-document.addEventListener('focusin', ev => { if (openMs && !openMs.contains(ev.target)) closePanel(false); });
+// Carregar no nome da opção (e não só no quadrado) também a escolhe: o clique no texto não pode tirar o foco
+// para um contentor de fora (ex.: o .wrapper com tabindex), senão o painel fechava antes de marcar (pedido do Mário, 25/11).
+document.addEventListener('focusin', ev => { if (openMs && !openMs.contains(ev.target) && !ev.target.contains(openMs)) closePanel(false); });
+document.querySelectorAll('.ms-panel').forEach(p => p.addEventListener('mousedown', ev => { if (!ev.target.closest('input, button')) ev.preventDefault(); }));
 const hasFilters = () => Object.values(sel).some(s => s.size);
 
 let today = todayLisbon();
@@ -459,8 +462,11 @@ function rowHtml(e, { inStore = false } = {}) {
 }
 
 function infoHtml(e) {
-  const when = e.dateStart !== e.dateEnd ? rangeLabel(e) : (!e.allDay && e.timeStart ? `${e.timeStart} (hora de Lisboa)` : '');
-  return `<button type="button" class="info-row ${typeClass(e)}" data-id="${esc(e.id)}" aria-label="${esc(e.tipo)}: ${esc(e.title)}, ${esc(formatDate(e.dateStart))}"><span class="info-kind">${esc(typeLabel(e))}</span><span class="info-name">${esc(e.title)}</span>${when ? `<span class="info-when">${esc(when)}</span>` : ''}</button>`;
+  // Datas de vários dias (pré-releases, sexta a domingo): intervalo na mesma pílula dos Pro Tours e Spotlights (pedido do Mário, 25/11).
+  const multi = e.dateStart !== e.dateEnd;
+  const when = multi ? '' : (!e.allDay && e.timeStart ? `${e.timeStart} (hora de Lisboa)` : '');
+  const range = multi ? `<span class="range-pill">${esc(rangeLabel(e, true))} · ${spanDays(e)} dias</span>` : '';
+  return `<button type="button" class="info-row ${typeClass(e)}" data-id="${esc(e.id)}" aria-label="${esc(e.tipo)}: ${esc(e.title)}, ${esc(multi ? rangeLabel(e) : formatDate(e.dateStart))}"><span class="info-kind">${esc(typeLabel(e))}</span>${range}<span class="info-name">${esc(e.title)}</span>${when ? `<span class="info-when">${esc(when)}</span>` : ''}</button>`;
 }
 
 /** Dia seguinte de um evento com vários dias: linha discreta que abre o mesmo evento (não é outro torneio). */
