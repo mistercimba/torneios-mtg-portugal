@@ -314,7 +314,25 @@ function renderPanel(key) {
   btn.querySelector('.ms-label').innerHTML = !names.length ? esc(PLACEHOLDER[key]) : `<span class="ms-main">${esc(short[0])}</span>${names.length > 1 ? ` <span class="ms-more">+${names.length - 1}</span>` : ''}`;
   btn.title = names.length ? names.join(', ') : '';
   btn.setAttribute('aria-label', names.length ? `${PLACEHOLDER[key]}: ${names.join(', ')}` : PLACEHOLDER[key]);
+  updateFiltersBadge();
 }
+
+// Telemóvel: Formato/Onde/Tipo ficam atrás do botão «Filtros»; o número diz quantos estão activos.
+function updateFiltersBadge() {
+  const badge = document.getElementById('filters-badge');
+  if (!badge) return;
+  const n = document.querySelectorAll('#filters-controls .ms-btn.active').length;
+  badge.textContent = n ? String(n) : '';
+  badge.hidden = !n;
+}
+document.getElementById('filters-toggle').addEventListener('click', ev => {
+  const bar = document.querySelector('.toolbar');
+  const open = !bar.classList.contains('filters-open');
+  bar.classList.toggle('filters-open', open);
+  ev.currentTarget.setAttribute('aria-expanded', String(open));
+  // O botão está no cabeçalho fixo: se a pessoa já desceu na lista, leva-a até aos filtros.
+  if (open && bar.getBoundingClientRect().top < 0) bar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 
 let openMs = null;
 function closePanel(focusButton) {
@@ -944,7 +962,7 @@ function applyView(view) {
   if (view === 'store' && dataReady) renderStore(location.hash.slice(6));
   if (view === 'player' && dataReady) renderPlayer(decodeURIComponent(location.hash.slice(9)));
   if (view === 'qualificar' && dataReady) renderQualify();
-  if (!['store', 'player', 'qualificar'].includes(view)) document.title = 'Torneios MTG Portugal — Agenda de torneios de Magic';
+  if (!['store', 'player', 'qualificar'].includes(view)) document.title = 'Torneios MTG Portugal — Agenda de torneios competitivos de Magic';
   const changed = view !== currentView || view === 'store' || view === 'player';
   swapSearch(currentView, view);
   currentView = view;

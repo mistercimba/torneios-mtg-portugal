@@ -44,7 +44,8 @@
 <header class="site-header"><div class="wrapper">
 <a href="#agenda" class="identity" id="home" aria-label="Torneios MTG Portugal — Agenda"><span class="brand"><span class="brand-torneios">TORNEIOS</span> <span class="brand-mtg">MTG</span> <span class="brand-portugal">PORTUGAL</span></span><span class="by-community">#paredesinforma</span></a>
 <label class="main-search" aria-label="Pesquisar torneios"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="10.8" cy="10.8" r="7"></circle><path d="m16 16 5 5"></path></svg><input id="search" type="search" placeholder="Pesquisar loja, local ou formato" autocomplete="off"></label>
-<nav class="nav" aria-label="Navegação"><button data-view="agenda" class="active" type="button">Agenda</button><button data-view="winners" type="button">Vencedores RCQ</button><button id="theme-toggle" class="theme-toggle" type="button" aria-label="Ativar modo escuro" aria-pressed="false" title="Alternar tema claro/escuro"><svg class="theme-icon moon" viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.9 13.1A9 9 0 0 1 10.9 3.1 9 9 0 1 0 20.9 13.1Z"/></svg><svg class="theme-icon sun" viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg></button></nav>
+<button type="button" class="filters-toggle" aria-label="Filtros" id="filters-toggle" aria-expanded="false" aria-controls="filters-controls"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg><span class="filters-word">Filtros</span><span class="filters-badge" id="filters-badge" hidden></span></button>
+<nav class="nav" aria-label="Navegação"><button data-view="agenda" class="active" type="button">Agenda</button><button data-view="winners" type="button">Vencedores<span class="nav-extra"> RCQ</span></button><button id="theme-toggle" class="theme-toggle" type="button" aria-label="Ativar modo escuro" aria-pressed="false" title="Alternar tema claro/escuro"><svg class="theme-icon moon" viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.9 13.1A9 9 0 0 1 10.9 3.1 9 9 0 1 0 20.9 13.1Z"/></svg><svg class="theme-icon sun" viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg></button></nav>
 </div></header>
 <div class="offline-note" id="offline-note" role="status" hidden>Sem ligação à internet: estás a ver a última agenda guardada neste telemóvel. Pode não estar actualizada.</div>
 <main class="wrapper" id="conteudo" tabindex="-1">
@@ -56,7 +57,7 @@
 <button class="clear" id="reset" type="button" hidden>Limpar filtros</button>
 <button class="clear share-filters" id="share-filters" type="button" hidden>Partilhar filtros</button>
 </div>
-<div class="controls">
+<div class="controls" id="filters-controls">
 <div class="ms" data-key="format"><button type="button" class="ms-btn" id="format-btn" aria-haspopup="true" aria-expanded="false" aria-controls="format-panel"><span class="ms-label">Formato</span></button><div class="ms-panel" id="format-panel" role="group" aria-label="Formato" hidden><div class="ms-list"></div><div class="ms-foot"><button type="button" class="ms-clear">Limpar</button><button type="button" class="ms-done">Feito</button></div></div></div>
 <div class="ms" data-key="place"><button type="button" class="ms-btn" id="place-btn" aria-haspopup="true" aria-expanded="false" aria-controls="place-panel"><span class="ms-label">Onde</span></button><div class="ms-panel" id="place-panel" role="group" aria-label="Onde" hidden><div class="ms-list"></div><div class="ms-foot"><button type="button" class="ms-clear">Limpar</button><button type="button" class="ms-done">Feito</button></div></div></div>
 <div class="ms" data-key="circuit"><button type="button" class="ms-btn" id="circuit-btn" aria-haspopup="true" aria-expanded="false" aria-controls="circuit-panel"><span class="ms-label">Tipo</span></button><div class="ms-panel" id="circuit-panel" role="group" aria-label="Tipo de evento" hidden><div class="ms-list"></div><div class="ms-foot"><button type="button" class="ms-clear">Limpar</button><button type="button" class="ms-done">Feito</button></div></div></div>
@@ -66,11 +67,10 @@
 <div class="count-wrap"><span class="count" id="count" aria-live="polite"></span> <span class="updated-ago" id="updated-ago"></span></div>
 <div class="list-actions">
 <label for="month-jump" class="sr-only">Ir para mês</label><select id="month-jump" class="month-jump"><option value="">Ir para mês…</option></select>
-<button class="clear subscribe-btn" id="subscribe" type="button">Subscrever</button>
-<button class="clear past-toggle" id="past" type="button" aria-pressed="false">Ver <span class="past-word">eventos </span>passados</button>
 </div>
 </div>
 <div id="events"><div class="empty">A carregar a agenda…</div></div>
+<div class="list-end"><button class="list-end-btn past-toggle" id="past" type="button" aria-pressed="false">Ver <span class="past-word">eventos </span>passados</button><button class="list-end-btn subscribe-btn" id="subscribe" type="button">Subscrever o calendário</button></div>
 <div class="footnote" id="footnote"><strong>Fonte:</strong> Google Calendar «Torneios MTG».</div>
 </section>
 <section class="view" id="store" aria-label="Loja"></section><section class="view" id="player" aria-label="Jogador"></section><section class="view" id="qualificar" aria-label="Como qualificar"></section>
