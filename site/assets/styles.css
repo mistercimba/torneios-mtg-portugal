@@ -241,7 +241,7 @@ html:not([data-theme=dark]) .dialog-actions a.primary{color:white}
 .quick-types{display:flex;gap:8px;flex-wrap:wrap;margin:0}
 .quick-types:empty{display:none}
 .quick{border:1px solid var(--line);background:var(--paper);color:var(--secondary);border-radius:999px;padding:7px 14px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
-.quick.t-rcq:before,.quick.t-lpp:before{content:"";width:8px;height:8px;border-radius:50%;background:var(--t-ac)}
+.quick.t-rcq:before,.quick.t-lpp:before,.quick.t-rtn:before{content:"";width:8px;height:8px;border-radius:50%;background:var(--t-ac)}
 .quick:hover{background:var(--hover)}
 .quick[aria-pressed="true"]{background:var(--text);border-color:var(--text);color:var(--paper)}
 .quick[aria-pressed="true"]:before{background:var(--paper)}
@@ -491,3 +491,5 @@ html[data-theme=dark] .brand .brand-torneios{color:#43b46e}html[data-theme=dark]
 .dialog-close svg{display:block;flex:none}
 @media(max-width:760px){.dialog-close{width:40px;height:40px}}
 .act-grid > .act:last-child:nth-child(odd){grid-column:1/-1}
+/* Atalhos no telemóvel: com RTN são 5; cabem numa linha a 390px sem cortar «Internacionais». */
+@media(max-width:760px){.quick-types{gap:6px}.quick{padding:7px 11px;font-size:12.5px}.quick.t-rcq:before,.quick.t-lpp:before,.quick.t-rtn:before{display:none}}

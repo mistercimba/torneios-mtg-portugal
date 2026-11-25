@@ -1055,6 +1055,7 @@ const QUICK = [
   { label: 'Todos', circuit: null, place: null },
   { label: 'RCQ', circuit: n => n.values[0].startsWith('RCQ:'), place: null, cls: 'rcq' },
   { label: 'LPP', circuit: n => n.values[0] === 'type:LPP', place: null, cls: 'lpp' },
+  { label: 'RTN', circuit: n => n.values[0] === 'type:Road to Nationals', place: null, cls: 'road to nationals' },
   { label: 'Internacionais', circuit: null, place: n => n.id === 'intl' },
 ];
 const quickValues = (key, pred) => (pred ? trees[key].filter(pred).flatMap(n => n.values) : []);
