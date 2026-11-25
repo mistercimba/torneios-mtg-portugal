@@ -8,7 +8,7 @@ Tudo o que aparece no site vem de três sítios: o **Google Calendar «Torneios 
 1. No Google Calendar «Torneios MTG», cria ou edita o evento seguindo o **template do calendário** (título, data/hora, localização e os campos da descrição: `TIPO`, `FORMATO`, `LOJA`, `LOCALIDADE`, `PRECO`, `CHECKIN`, `JUIZ`, `LIGACAO`, `PREMIOS`…).
 2. Regras rápidas:
    - **Hora de início = início do check-in** (ex.: check-in 09h30–10h00 → evento às 09:30). A hora de fim é só um espaço no calendário.
-   - **Portugal:** localização com a morada completa (sugestão do Google Maps). **Internacionais:** «Cidade, País» em português (ex.: «Lille, França»).
+   - **Portugal:** localização com a morada completa (sugestão do Google Maps). **Internacionais:** «Recinto, Cidade, País» em português (ex.: «Lille Grand Palais, Lille, França»); sem recinto anunciado, «Cidade, País». Pro Tours e Worlds: o recinto da MagicCon. Spotlights incluem a sexta-feira.
    - Usa sempre o **mesmo nome para a mesma loja**.
    - Não sabes um valor? Escreve «A confirmar» ou apaga a linha. Nunca inventes.
    - Pré-releases são sempre Sealed (não é preciso `FORMATO`). Os RCQs ganham a round e o «Qualifica para» sozinhos pela data.
