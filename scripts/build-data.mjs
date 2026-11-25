@@ -33,7 +33,7 @@ export const PUBLIC_FIELDS = [
   'tipo', 'typeKey', 'typeShort', 'typeFamily', 'scope',
   'formato', 'formatFamily', 'ronda', 'rondaDeduzida', 'epoca', 'fase',
   'loja', 'localidade', 'distrito', 'pais', 'local', 'set',
-  'preco', 'precoTexto', 'checkin', 'juiz', 'vagas', 'ligacao',
+  'preco', 'precoTexto', 'checkin', 'juiz', 'ligacao', // vagas: deixaram de ser publicadas (25/11)
   'premios', 'notas', 'emRevisao', 'qualifica', 'criado', // detalhesOriginais deixou de ser publicado (repetia os campos)
 ];
 

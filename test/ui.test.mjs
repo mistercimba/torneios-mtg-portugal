@@ -868,7 +868,8 @@ test('24. atalhos por tipo, subscrição do calendário, «daqui a N», bandeira
 // ---------- Layout compacto (24/11/2026) ----------
 test('25. layout compacto: o primeiro torneio aparece perto do topo, sem título «Agenda» nem legenda', { skip }, async () => {
   // 390 px: +30 px desde o lote 1 (botões de 40 px e «actualizado há X», que com fontes largas passa para 2.ª linha).
-  for (const [w, h, max] of [[1280, 900, 420], [1600, 1000, 420], [390, 844, 500], [320, 640, 540]]) {
+  // +30 px no computador desde 25/11: linha «Torneios competitivos…» por cima dos atalhos (âmbito do site, decisão D2).
+  for (const [w, h, max] of [[1280, 900, 450], [1600, 1000, 450], [390, 844, 530], [320, 640, 580]]) {
     const page = await open({ width: w, height: h });
     const r = await page.eval(`(() => {
       const first = document.querySelector('.event-row').getBoundingClientRect();
@@ -1168,7 +1169,7 @@ test('38. lote 3: ranking «Desde 2023», página de jogador, «Como qualificar�
   // Acessibilidade: um h1 por vista e atalho «Saltar para o conteúdo».
   await page.eval(`location.hash = '#agenda'`);
   await page.waitFor(`document.body.dataset.view === 'agenda'`);
-  assert.equal(await page.eval(`document.querySelector('#agenda h1').textContent`), 'Agenda de torneios de Magic em Portugal');
+  assert.equal(await page.eval(`document.querySelector('#agenda h1').textContent`), 'Torneios competitivos em Portugal e internacionais');
   assert.equal(await page.eval(`document.querySelector('.skip-link').getAttribute('href')`), '#conteudo');
   assert.ok(await page.eval(`document.querySelector('.month-title h2') !== null`));
   // Contagens do calendário como o contador: torneios à parte das datas informativas.

@@ -1,7 +1,7 @@
 {
   "name": "Torneios MTG Portugal",
   "short_name": "Torneios MTG",
-  "description": "Agenda de torneios de Magic: The Gathering em Portugal.",
+  "description": "Agenda de torneios competitivos de Magic: The Gathering em Portugal.",
   "lang": "pt-PT",
   "start_url": "./",
   "scope": "./",

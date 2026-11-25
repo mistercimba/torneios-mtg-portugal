@@ -363,3 +363,12 @@ test('QUALIFICA: campo lido do calendário e público', async () => {
   assert.equal(spot.qualifica, 'Pro Tour Exemplo');
   assert.ok(PUBLIC_FIELDS.includes('qualifica'));
 });
+
+test('VAGAS: ainda é lida do calendário (não estraga o campo anterior) mas já não é publicada', async () => {
+  const { toPublic, PUBLIC_FIELDS } = await import('../scripts/build-data.mjs');
+  const e = normalizeEvent({ ...base, description: 'TIPO: RCQ\n\nLOJA: Magus\n\nJUIZ: Nuno L2\n\nVAGAS: 32\n\nPRECO: 22 €' });
+  assert.equal(e.juiz, 'Nuno L2');
+  assert.equal(e.preco, 22);
+  assert.ok(!PUBLIC_FIELDS.includes('vagas'));
+  assert.equal('vagas' in toPublic(e), false);
+});

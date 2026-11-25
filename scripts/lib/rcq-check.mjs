@@ -93,7 +93,6 @@ export function compareWithCalendar(announcements, events, today) {
     if (e.preco !== a.price) diffs.push(`preço: calendário ${e.preco == null ? 'vazio' : e.preco + ' €'}, lista ${a.price} €`);
     if (a.checkin && e.checkin !== a.checkin) diffs.push(`check-in: calendário ${e.checkin || 'vazio'}, lista ${a.checkin}`);
     if (a.judge && plain(e.juiz || '') !== plain(a.judge)) diffs.push(`juiz: calendário ${e.juiz || 'a confirmar'}, lista ${a.judge}`);
-    if (a.vagas && e.vagas !== a.vagas) diffs.push(`vagas: calendário ${e.vagas ?? 'vazio'}, lista ${a.vagas}`);
     if (a.link && !e.ligacao) diffs.push(`ligação em falta no calendário (lista: ${a.link})`);
     if (a.round && e.ronda && e.ronda !== a.round) diffs.push(`round: calendário ${e.ronda}, lista ${a.round}`);
     if (diffs.length) problems.push({ kind: 'diferente', date: a.date, store: label(a), message: diffs.join('; ') + '.' });

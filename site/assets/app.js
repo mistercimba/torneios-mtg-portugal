@@ -873,7 +873,6 @@ function openDetails(id) {
   if (e.scope === 'portugal' && !isInfo(e)) fact('Inscrição', e.preco != null ? (e.preco === 0 ? 'Grátis' : euro(e.preco)) : (e.precoTexto || 'A confirmar'), e.preco == null && !e.precoTexto);
   if (e.checkin) fact('Check-in', e.checkin);
   if (e.scope === 'portugal' && !isInfo(e)) fact('Juiz', e.juiz || 'A confirmar', !e.juiz);
-  if (e.vagas) fact('Vagas', String(e.vagas));
 
   const list = (title, items) => (items && items.length ? `<div class="detail-section"><h3>${esc(title)}</h3><ul>${items.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>` : '');
   const sub = [];
