@@ -640,6 +640,18 @@ const looksLikeAddress = v => /\d/.test(v || '') && /,/.test(v || '');
 const cleanAddress = v => v.replace(/,\s*Portugal\s*$/i, '').replace(/^(?!\s*(?:rua|r\.|av\.?|avenida|largo|pra[cç]a|estrada|travessa|tv\.|urb\.?|urbaniza[cç][aã]o|alameda|cal[cç]ada|lugar|bairro)\b)[^,\d]+,\s*(?=.*\d)/i, '');
 const addressOf = e => (e.scope !== 'portugal' ? null : looksLikeAddress(e.local) ? cleanAddress(e.local) : storeInfo(e)?.morada || null);
 const socialUrl = (v, base) => (!v ? null : /^https?:\/\//i.test(v) ? safeUrl(v) : base + encodeURIComponent(v.replace(/^@/, '').replace(/^\/+|\/+$/g, '')));
+/* Ícones das acções do detalhe (SVG inline, sem pedidos externos). */
+const svg = d => `<svg class="act-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICONS = {
+  map: svg('<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'),
+  store: svg('<path d="M4 10v10h16V10"/><path d="M3 10l2-6h14l2 6"/><path d="M9 20v-6h6v6"/>'),
+  share: svg('<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/>'),
+  cal: svg('<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/>'),
+  instagram: svg('<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".6" fill="currentColor"/>'),
+  facebook: svg('<path d="M14 8h3V4h-3a4 4 0 0 0-4 4v3H7v4h3v6h4v-6h3l1-4h-4V8z"/>'),
+  web: svg('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 3.6 5.4 3.6 8.5s-1.1 5.9-3.6 8.5c-2.5-2.6-3.6-5.4-3.6-8.5S9.5 6.1 12 3.5z"/>'),
+};
+
 function storeLinkList(info) {
   if (!info) return [];
   return [[socialUrl(info.instagram, 'https://www.instagram.com/'), 'Instagram'], [socialUrl(info.facebook, 'https://www.facebook.com/'), 'Facebook'], [safeUrl(info.site), 'Site']].filter(([u]) => u);
@@ -900,8 +912,9 @@ function openDetails(id) {
   if (where) sub.push(e.scope === 'internacional' && flagFor(countryOf(e)) ? `${where} ${flagFor(countryOf(e))}` : where);
   if (isInfo(e) && name !== e.title) sub.unshift(e.title);
 
+  const icsName = (e.title || 'evento').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase().slice(0, 60) + '.ics';
   document.getElementById('dialog-body').innerHTML =
-    `<div class="dialog-top"><div><div class="dialog-meta">${esc(when)}</div><h2 id="modal-title">${esc(name)}</h2>${sub.map(s => `<div class="dialog-location">${esc(s)}</div>`).join('')}</div><button type="button" class="dialog-close" id="close-dialog" aria-label="Fechar detalhes">×</button></div>`
+    `<div class="dialog-top has-btns"><div><div class="dialog-meta">${esc(when)}</div><h2 id="modal-title">${esc(name)}</h2>${sub.map(s => `<div class="dialog-location">${esc(s)}</div>`).join('')}</div><div class="dialog-top-btns"><div class="cal-pop"><button type="button" class="dialog-share" id="cal-toggle" aria-expanded="false" aria-controls="cal-menu" aria-label="Adicionar ao calendário" title="Adicionar ao calendário">${ICONS.cal}</button><div class="cal-menu" id="cal-menu" hidden><span class="cal-menu-title">Adicionar ao calendário</span><a href="${esc(googleCalendarUrl(e))}" target="_blank" rel="noopener">Google Calendar</a><a href="#" class="ics-link" data-name="${esc(icsName)}">Apple / Outlook</a></div></div><button type="button" class="dialog-share" id="share-event" aria-label="Partilhar torneio" title="Partilhar torneio">${ICONS.share}<span class="share-msg" aria-live="polite"></span></button><button type="button" class="dialog-close" id="close-dialog" aria-label="Fechar detalhes"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div></div>`
     + `<div class="dialog-tabs">${tabs.join('')}</div>`
     + (qualifiesFor(e) ? `<div class="dialog-qualifica">Qualifica para <b>${esc(qualifiesFor(e))}</b> <a href="#qualificar" class="qualify-link">Como funciona?</a></div>` : '')
     + (facts.length ? `<dl class="facts">${facts.join('')}</dl>` : '')
@@ -912,7 +925,6 @@ function openDetails(id) {
   const link = safeUrl(e.ligacao);
   const map = safeUrl(storeInfo(e)?.mapa) || (e.scope === 'portugal' && (addr || e.local || e.localidade)
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr ? [e.loja, addr].filter(Boolean).join(', ') : [e.local || e.loja, e.localidade].filter(Boolean).join(', '))}` : null);
-  const icsName = (e.title || 'evento').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase().slice(0, 60) + '.ics';
   const store = storeKey(e);
   // Acções compactas: inscrição em destaque; o resto em botões curtos; calendário num menu.
   // Sem link de inscrição num torneio em Portugal: a inscrição faz-se na loja, e a página da loja passa a acção principal.
@@ -923,14 +935,26 @@ function openDetails(id) {
     : viaStore ? (socials.length
       ? `<a class="primary" href="${esc(socials[0][0])}" target="_blank" rel="noopener">Inscrição na loja · ${socials[0][1]} ↗</a>`
       : '<span class="unavailable">Inscrição na loja</span>') : '';
+  // Acções secundárias em botões grandes com ícone e nome claro (pedido do Mário, 25/11).
+  const tile = (icon, label, attrs, tag = 'a') => `<${tag} class="act" ${attrs}>${ICONS[icon]}<span class="act-label">${label}</span>${tag === 'a' && /target=/.test(attrs) ? '<span class="act-ext" aria-hidden="true">↗</span>' : ''}</${tag}>`;
+  // Sem LIGACAO, o botão principal já leva à primeira rede da loja: não a repetimos em baixo.
+  const extraSocials = (viaStore ? socials.slice(1) : socials);
   document.getElementById('dialog-actions').innerHTML =
     primary
-    + (map ? `<a href="${esc(map)}" target="_blank" rel="noopener">Mapa ↗</a>` : '')
-    + (viaStore ? socials.slice(1) : socials).map(([u, t]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${t} ↗</a>`).join('')
-    + (store ? `<a href="#loja-${esc(store)}" class="store-link">Loja</a>` : '')
-    + `<button type="button" class="share-btn" id="share-event">Partilhar</button>`
-    + `<details class="add-cal"><summary>Calendário</summary><div class="add-cal-menu"><span class="add-cal-label">Adicionar ao calendário:</span><a href="${esc(googleCalendarUrl(e))}" target="_blank" rel="noopener">Google Calendar</a><a href="#" class="ics-link" data-name="${esc(icsName)}">Apple / Outlook (.ics)</a></div></details>`;
-  document.querySelector('#dialog-actions .ics-link').addEventListener('click', ev => {
+    + '<div class="act-grid">'
+    + (map ? tile('map', 'Ver no mapa', `href="${esc(map)}" target="_blank" rel="noopener"`) : '')
+    + extraSocials.map(([u, t]) => tile(t === 'Instagram' ? 'instagram' : t === 'Facebook' ? 'facebook' : 'web', t === 'Site' ? 'Site da loja' : t, `href="${esc(u)}" target="_blank" rel="noopener"`)).join('')
+    + (store ? tile('store', 'Página da loja', `href="#loja-${esc(store)}" class="store-link"`).replace('class="act" href', 'class="act store-link" href').replace(' class="store-link"', '') : '')
+    + '</div>';
+  (() => {
+    const t = document.getElementById('cal-toggle'), m = document.getElementById('cal-menu');
+    const set = open => { m.hidden = !open; t.setAttribute('aria-expanded', String(open)); };
+    t.addEventListener('click', ev => { ev.stopPropagation(); set(m.hidden); });
+    m.addEventListener('click', ev => { if (ev.target.closest('a')) setTimeout(() => set(false), 0); });
+    document.getElementById('dialog-body').addEventListener('click', ev => { if (!ev.target.closest('.cal-pop')) set(false); });
+    m.addEventListener('keydown', ev => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); set(false); t.focus(); } });
+  })();
+  document.querySelector('#dialog-body .ics-link').addEventListener('click', ev => {
     ev.preventDefault();
     const url = URL.createObjectURL(new Blob([icsFile(e)], { type: 'text/calendar;charset=utf-8' }));
     const a = document.createElement('a');
@@ -939,7 +963,7 @@ function openDetails(id) {
   });
   document.getElementById('share-event').addEventListener('click', async ev => {
     const btn = ev.currentTarget, msg = await shareLink(eventUrl(e.id), e.title);
-    if (msg) { btn.textContent = msg; setTimeout(() => { btn.textContent = 'Partilhar'; }, 2000); }
+    if (msg) { const label = btn.querySelector('.share-msg'); label.textContent = msg; btn.classList.add('done'); setTimeout(() => { label.textContent = ''; btn.classList.remove('done'); }, 2000); }
   });
   if (urlReady) { const p = currentParams(); p.set('t', e.id); writeUrl(p); }
   dialog.showModal();
@@ -1083,7 +1107,7 @@ function openSubscribe() {
     return `<div class="feed"><div class="feed-head"><h3>${f.title}</h3><span class="feed-count">${countLabel}</span></div><p>${f.desc}</p>
       <div class="feed-actions"><a href="${esc(webcal)}">Apple / Outlook</a><a href="${esc(google)}" target="_blank" rel="noopener">Google Calendar</a><button type="button" class="share-btn feed-copy" data-url="${esc(https)}">Copiar link</button></div></div>`;
   }).join('');
-  document.getElementById('dialog-body').innerHTML = `<div class="dialog-top"><div><div class="dialog-meta">Calendário</div><h2 id="modal-title">Subscrever no teu calendário</h2><div class="dialog-location">Os torneios aparecem no calendário do telemóvel ou do computador e actualizam-se sozinhos quando a agenda muda (o calendário verifica de poucas em poucas horas).</div></div><button type="button" class="dialog-close" id="close-dialog" aria-label="Fechar">×</button></div><div class="feeds">${items}</div>`;
+  document.getElementById('dialog-body').innerHTML = `<div class="dialog-top"><div><div class="dialog-meta">Calendário</div><h2 id="modal-title">Subscrever no teu calendário</h2><div class="dialog-location">Os torneios aparecem no calendário do telemóvel ou do computador e actualizam-se sozinhos quando a agenda muda (o calendário verifica de poucas em poucas horas).</div></div><button type="button" class="dialog-close" id="close-dialog" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div><div class="feeds">${items}</div>`;
   document.getElementById('dialog-actions').innerHTML = '';
   dialog.showModal();
   document.getElementById('close-dialog').addEventListener('click', () => dialog.close());
@@ -1120,7 +1144,7 @@ function openInstallHelp() {
   const steps = ios
     ? ['Abre este site no <b>Safari</b>.', 'Toca no botão <b>Partilhar</b> (o quadrado com a seta para cima).', 'Escolhe <b>Adicionar ao ecrã principal</b> e confirma.']
     : ['Abre o menu do navegador (<b>⋮</b> no Chrome).', 'Escolhe <b>Instalar app</b> ou <b>Adicionar ao ecrã principal</b>.', 'Confirma. O ícone fica no ecrã do telemóvel.'];
-  document.getElementById('dialog-body').innerHTML = `<div class="dialog-top"><div><div class="dialog-meta">App web</div><h2 id="modal-title">Instalar no telemóvel</h2><div class="dialog-location">Fica com um ícone no ecrã e abre em ecrã inteiro. Sem rede, mostra a última agenda guardada.</div></div><button type="button" class="dialog-close" id="close-dialog" aria-label="Fechar">×</button></div><ol class="install-steps">${steps.map(t => `<li>${t}</li>`).join('')}</ol>`;
+  document.getElementById('dialog-body').innerHTML = `<div class="dialog-top"><div><div class="dialog-meta">App web</div><h2 id="modal-title">Instalar no telemóvel</h2><div class="dialog-location">Fica com um ícone no ecrã e abre em ecrã inteiro. Sem rede, mostra a última agenda guardada.</div></div><button type="button" class="dialog-close" id="close-dialog" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div><ol class="install-steps">${steps.map(t => `<li>${t}</li>`).join('')}</ol>`;
   document.getElementById('dialog-actions').innerHTML = '';
   dialog.showModal();
   document.getElementById('close-dialog').addEventListener('click', () => dialog.close());

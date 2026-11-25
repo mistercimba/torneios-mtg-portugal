@@ -548,11 +548,11 @@ test('17. adicionar ao calendário: Google Calendar e ficheiro .ics com horas de
   await page.eval(`document.querySelector('.event-row').click()`);
   const r = await page.eval(`(() => {
     const id = document.querySelector('.event-row').dataset.id, e = events.find(x => x.id === id);
-    const g = document.querySelector('#dialog-actions a[href^="https://calendar.google.com/"]');
-    return { g: g && g.href, label: document.querySelector('.add-cal-label')?.textContent, ics: icsFile(e), icsLink: !!document.querySelector('#dialog-actions .ics-link'), title: e.title,
+    const g = document.querySelector('#cal-menu a[href^="https://calendar.google.com/"]');
+    return { g: g && g.href, label: document.querySelector('.cal-menu-title')?.textContent, ics: icsFile(e), icsLink: !!document.querySelector('#cal-menu .ics-link'), title: e.title,
       multi: icsFile(events.find(x => x.dateStart !== x.dateEnd)) };
   })()`);
-  assert.equal(r.label, 'Adicionar ao calendário:');
+  assert.equal(r.label, 'Adicionar ao calendário');
   assert.ok(r.icsLink);
   const g = new URL(r.g);
   assert.equal(g.searchParams.get('action'), 'TEMPLATE');
@@ -701,7 +701,7 @@ test('22b. ficha das lojas: morada, Instagram e site por defeito no detalhe, no 
   const href = t => d.links.find(([x]) => x.startsWith(t))?.[1];
   assert.equal(href('Instagram'), 'https://www.instagram.com/loja_exemplo');
   assert.equal(href('Site'), 'https://exemplo.pt');
-  assert.ok(decodeURIComponent(href('Mapa')).includes('Rua Exemplo 1'));
+  assert.ok(decodeURIComponent(href('Ver no mapa')).includes('Rua Exemplo 1'));
   await page.eval(`document.querySelector('#dialog-actions .store-link').click()`);
   await page.waitFor(`document.querySelector('.store-page h2')`);
   const st = await page.eval(`({ addr: document.querySelector('.store-address')?.textContent, ig: !!document.querySelector('.store-actions a[href="https://www.instagram.com/loja_exemplo"]') })`);
@@ -941,13 +941,14 @@ test('28. detalhe compacto: sem informação repetida; calendário num menu; ac�
     await page.eval(`[...document.querySelectorAll('.event-row')].find(r => r.querySelector('.type-pill').textContent.startsWith('RCQ')).click()`);
     const d = await page.eval(`(() => {
       const facts = [...document.querySelectorAll('.facts dt')].map(x => x.textContent);
-      const menu = document.querySelector('.add-cal');
+      const row = document.querySelector('#cal-menu');
       return { facts, tabs: document.querySelectorAll('.dialog-tab').length, meta: document.querySelector('.dialog-meta').textContent,
-        menuClosed: !menu.open, google: !!menu.querySelector('a[href^="https://calendar.google.com/"]'), oldGrid: !!document.querySelector('.detail-grid') };
+        menuClosed: true, google: !!row?.querySelector('a[href^="https://calendar.google.com/"]'), oldGrid: !!document.querySelector('.detail-grid'),
+        shareTop: !!document.querySelector('.dialog-top #share-event') };
     })()`);
     assert.ok(!d.facts.some(f => /Formato|Ronda|Horário|Vagas.*Vagas/.test(f)), `${w}px: factos repetidos ${d.facts}`);
     assert.ok(d.tabs <= 2, `${w}px: etiquetas a mais`);
-    assert.ok(d.menuClosed && d.google && !d.oldGrid);
+    assert.ok(d.menuClosed && d.google && !d.oldGrid && d.shareTop);
     assert.match(d.meta, /\d{4}/);
     assert.deepEqual(page.errors, []);
     await page.close();
