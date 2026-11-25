@@ -972,7 +972,7 @@ test('29. etiqueta «Novo» nos torneios acrescentados nos últimos 7 dias', { s
 test('30. vencedores: estatísticas dos RCQs e escolha da round', { skip }, async () => {
   const page = await open({ width: 1280, hash: '#winners' });
   await page.waitFor(`document.querySelector('.stat-tile')`);
-  const st = () => page.eval(`({ chips: [...document.querySelectorAll('#win-rounds .quick')].map(b => [b.firstChild.textContent.trim(), b.getAttribute('aria-pressed')]), rcqs: document.querySelector('.stat-tile b')?.textContent || null, rows: document.querySelectorAll('#results .result').length, empty: document.querySelector('.win-empty')?.textContent || '' })`);
+  const st = () => page.eval(`({ chips: [...document.querySelectorAll('#win-rounds .quick')].map(b => [b.firstChild.textContent.trim(), b.getAttribute('aria-pressed')]), rcqs: document.querySelector('.stat-tile b')?.firstChild.textContent || null, rows: document.querySelectorAll('#results .result').length, empty: document.querySelector('.win-empty')?.textContent || '' })`);
   let s = await st();
   assert.deepEqual(s.chips.map(c => c[0]), ['Todas', 'Round 1', 'Round 2', 'Round 3']);
   assert.equal(Number(s.rcqs), s.rows, 'nº de RCQs = linhas da lista');

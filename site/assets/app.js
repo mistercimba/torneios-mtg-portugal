@@ -1284,6 +1284,8 @@ function statsHtml(list, { search = false } = {}) {
   // Por ordem cronológica (Season 1 Pioneer, Season 2 Modern, Season 3 Standard…).
   const constructed = [...new Set(list.filter(r => !isLimitedFmt(r.format)).sort((a, b) => a.date.localeCompare(b.date)).map(r => r.format).filter(Boolean))];
   const cLabel = constructed.length === 1 ? esc(constructed[0]) : 'Construído';
+  // Decks diferentes que ganharam (o mesmo nome em formatos diferentes conta como decks diferentes).
+  const deckCount = new Set(list.filter(r => r.deck && !isLimitedFmt(r.format)).map(r => `${r.format}|${normalize(r.deck)}`)).size;
   const bars = (rows, max, fmt = n => n) => `<ol class="stat-bars">${rows.map(([k, n, extra]) => `<li><span class="stat-name">${k}${extra ? ` <small>${extra}</small>` : ''}</span><span class="stat-bar"><i style="width:${Math.max(6, Math.round(n / max * 100))}%"></i></span><span class="stat-num">${fmt(n)}</span></li>`).join('')}</ol>`;
 
   // Arquétipos: só RCQs construídos com deck indicado, um bloco por formato (não se misturam Modern e Standard).
@@ -1313,10 +1315,10 @@ function statsHtml(list, { search = false } = {}) {
 
   return `<div class="win-stats">
     <div class="stat-tiles">
-      <div class="stat-tile"><b>${list.length}</b><span>RCQs com vencedor</span></div>
+      <div class="stat-tile"><b>${list.length}<small> RCQs</small></b><span>${sealed ? `<span class="nw">${std} ${cLabel}</span> | <span class="nw">${sealed} Sealed</span>` : constructed.length === 1 ? `todos de ${cLabel}` : 'com vencedor'}</span></div>
+      <div class="stat-tile"><b>${withPlayers.length ? Math.round(totalPlayers / withPlayers.length) : '—'}</b><span>média de jogadores</span></div>
       <div class="stat-tile"><b>${totalPlayers}</b><span>jogadores no total</span></div>
-      <div class="stat-tile"><b>${withPlayers.length ? Math.round(totalPlayers / withPlayers.length) : '—'}</b><span>jogadores por RCQ (média)</span></div>
-      <div class="stat-tile"><b>${std}</b><span>${cLabel}${sealed ? ` · mais ${sealed} de Sealed` : ''}</span></div>
+      <div class="stat-tile"><b>${deckCount}</b><span>${deckCount === 1 ? 'deck' : 'decks diferentes'}</span></div>
     </div>
     <div class="stat-cols">
       ${archBoxes}
