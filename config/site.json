@@ -25,7 +25,8 @@
       "season": "2026/27",
       "label": "Round 3 2026/27 · Standard",
       "start": "2026-12-11",
-      "end": "2027-03-07"
+      "end": "2027-03-07",
+      "qualifica": "Regional Championship Prague"
     },
     {
       "circuit": "RCQ",
@@ -126,6 +127,7 @@
         "season": "2026/27",
         "round": "R3",
         "format": "Standard",
+        "rc": "RC Praga 2027",
         "docId": "1d3Jd2V9-mDD14qs-JC_QE8JpXpMtio4WBCvKunQEaqQ"
       }
     ],
